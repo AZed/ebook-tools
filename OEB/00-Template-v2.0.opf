@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<package version="2.0" xmlns="http://www.idpf.org/2007/opf"
+         unique-identifier="BookId">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/"
+            xmlns:opf="http://www.idpf.org/2007/opf">
+    <dc:identifier id="BookId" opf:scheme="ISBN"> </dc:identifier>
+    <dc:title>Book Title</dc:title>
+    <dc:creator opf:role="aut"
+		opf:file-as="Last, First">First Last</dc:creator>
+    <dc:subject basiccode=""> </dc:subject>
+    <dc:description> </dc:description>
+    <dc:publisher> </dc:publisher>
+    <dc:contributor opf:role="art"> </dc:contributor>
+    <dc:date opf:event="publication"> </dc:date>
+    <dc:type> </dc:type>
+    <dc:format>text/xml</dc:format>
+    <dc:source> </dc:source>
+    <dc:language id="en-us">en</dc:language>
+    <dc:relation> </dc:relation>
+    <dc:coverage> </dc:coverage>
+    <dc:rights>Copyright </dc:rights>
+    <meta name="EmbeddedCover" content="" />
+    <meta name="output" encoding="utf-8"
+          content-type="text/x-oeb1-document" />
+  </metadata>
+  <manifest> </manifest>
+  <spine> </spine>
+  <guide> </guide>
+</package>
