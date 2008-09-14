@@ -37,8 +37,9 @@ $tidyfile = $filebase . "-tidy" . $fileext;
 
 $retval = system('tidy','-q',
 		 '-config',$tidyconfig,
-		 '-ascii',
+		 '-utf8',
 		 '-asxhtml',
+		 '--doctype','transitional',
 		 '-f',$tidyerrors,
 		 '-o',$tidyfile,
 		 $inputfile);
