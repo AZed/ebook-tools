@@ -11,6 +11,8 @@ package OEB::Tools;
 use warnings;
 use strict;
 
+our $debug = 0;
+
 require Exporter;
 our @ISA = ("Exporter");
 
@@ -20,6 +22,8 @@ our @EXPORT_OK = qw (
     &get_container_rootfile
     &print_memory
     &split_metadata
+    &system_tidy_xml
+    &system_tidy_xhtml
     &twig_add_document
     &twig_delete_meta_filepos
     &twig_fix_lowercase_dcmeta
@@ -35,17 +39,29 @@ use Archive::Zip qw( :CONSTANTS :ERROR_CODES );
 use File::Basename 'fileparse';
 use FindBin;
 use HTML::Tidy;
-use XML::Twig;
+use XML::Twig::XPath;
 
-our $datapath = $FindBin::Bin;
-
-# OS-Specific assignments for default datapath
+our $datapath = $FindBin::RealBin . "/OEB";
 
 our $mobi2htmlcmd = 'mobi2html';
 our $tidycmd = 'tidy'; # Specify full pathname if not on path
 our $tidyconfig = 'tidy-oeb.conf';
-our $tidyerrors = 'tidy-errors.txt';
-our $tidymetaerrors = 'tidy-meta-errors.txt';
+our $tidyxhtmlerrors = 'tidyxhtml-errors.txt';
+our $tidyxmlerrors = 'tidyxml-errors.txt';
+our $tidysafety = 1;
+# $tidysafety values:
+# <1: no checks performed, no error files kept, works like a clean tidy -m
+#     This setting is DANGEROUS
+#  1: Overwrites original file if there were no errors, but even if
+#     there were warnings.  Keeps a log of errors, but not warnings.
+#  2: Overwrites original file if there were no errors, but even if
+#     there were warnings.  Keeps a log of both errors and warnings.
+#  3: Overwrites original file only if there were no errors or
+#     warnings.  Keeps a log of both errors and warnings.
+# 4+: Never overwrites original file.  Keeps a log of both errors and
+#     warnings.
+
+
 
 my $utf8xmldec = '<?xml version="1.0" encoding="UTF-8" ?>' . "\n";
 my $oeb12doctype = 
@@ -203,6 +219,7 @@ sub fixoeb12 ()
 
     # Make the twig conform to the OEB 1.2 standard
     twig_fix_oeb12(\$$self{twig});
+#    $$self{twig}->root->print;
     $$self{spec} = $oebspecs{'OEB12'};
     return $self;
 }
@@ -556,42 +573,6 @@ sub split_metadata ( $ )
 
 
 #
-# sub twigelt_add_child($parent,$newtag,$position)
-#
-# A shortcut to creating and pasting a new twig element into an
-# existing one
-#
-# Arguments:
-#   $parent : the twig element to paste into
-#   $newtag : the tag name (gi) to use for the new element
-#             In theory, this can even be a hash containing attributes
-#   $position : either 'first_child' or 'last_child'
-#
-# Returns the newly created and pasted element if successful, undef
-# otherwise.
-#
-sub twigelt_add_child ( $ $ $ )
-{
-    my ($parent,$newtag,$position) = @_;
-
-    my %positions = (
-	'first_child' => 'first_child',
-	'last_child' => 'last_child'
-	);
-
-    $position = $positions{$position};
-
-    return undef if(!defined $parent);
-    return undef if(!$parent->is_elt);
-    return undef if($newtag eq '');
-    return undef if(!defined $position);
-
-    my $child = XML::Twig::Elt->new($newtag);
-    $child->paste($position,$parent);
-    return $child;
-}
-
-#
 # sub twig_add_document(\$twigref,$id,$href,$mediatype)
 #
 # Adds a document with the given id, href, and mediatype to both
@@ -848,30 +829,60 @@ sub twig_fix_lowercase_dcmeta ( $ )
 #
 # Returns the modified twig (but also modifies $twig by reference)
 #
-# TODO:
-#   * Deal with <x-metadata>
-#
 sub twig_fix_oeb12( $ )
 {
     my $twigref = shift;
 
-    my $twigroot = $$twigref->root;
-    my $metadata = $twigroot->first_child('metadata');
+    print "DEBUG[twig_fix_oeb12]\n" if($debug);
+
+    # Sanity checks
+    die("Tried to fix undefined twig to OEB1.2")
+	if(!$$twigref);
+    my $twigroot = $$twigref->root
+	or die("Tried to fix twig with no root to OEB1.2");
+    die("Can't fix OEB1.2 if twigroot isn't <package>!")
+	if($twigroot->gi ne 'package');
+
+    my $metadata = $twigroot->first_descendant('metadata');
+    my $parent;
     my $dcmeta;
     my $xmeta;
     my @elements;
 
     # If <metadata> doesn't exist, we're in a real mess, but go ahead
     # and try to create it anyway
-    $metadata = $twigroot->insert_new_elt('first_child','metadata')
-	if(! $metadata);
+    if(! $metadata)
+    {
+	print "DEBUG: creating <metadata>\n" if($debug);
+	$metadata = $twigroot->insert_new_elt('first_child','metadata');
+    }
 
-    $dcmeta = $metadata->first_child('dc-metadata');
-    $xmeta = $metadata->first_child('x-metadata');
+    # Make sure that metadata is the first child of the twigroot,
+    # which should be <package>
+    $parent = $metadata->parent;
+    if($parent != $twigroot)
+    {
+	print "DEBUG: moving <metadata>\n" if($debug);
+	$metadata->move('first_child',$twigroot);
+    }
+
+    $dcmeta = $twigroot->first_descendant('dc-metadata');
+    $xmeta = $metadata->first_descendant('x-metadata');
 
     # If <dc-metadata> doesn't exist, we'll have to create it.
-    $dcmeta = $metadata->insert_new_elt('first_child','dc-metadata')
-	if(! $dcmeta);
+    if(! $dcmeta)
+    {
+	print "DEBUG: creating <dc-metadata>\n" if($debug);
+	$dcmeta = $metadata->insert_new_elt('first_child','dc-metadata');
+    }
+
+    # Make sure that $dcmeta is a child of $metadata
+    $parent = $dcmeta->parent;
+    if($parent != $metadata)
+    {
+	print "DEBUG: moving <dc-metadata>\n" if($debug);
+	$dcmeta->move('first_child',$metadata);
+    }
 
     # Set the correct tag name and move it into <dc-metadata>
     foreach my $dcmetatag (keys %dcelements12)
@@ -884,19 +895,32 @@ sub twig_fix_oeb12( $ )
 	}
     }
     # Deal with any remaining elements under <metadata>
-    @elements = $metadata->children();
+    @elements = $metadata->children(qr/!(dc-metadata|x-metadata)/);
     if(@elements)
     {
+	print "DEBUG: elements found: ";
+	foreach my $el (@elements) { print $el->gi," "; }
 	# Create x-metadata if necessary
-	$xmeta = $dcmeta->insert_new_elt('after','x-metadata')
-	    if(! $xmeta);
-
+	if(! $xmeta)
+	{
+	    print "DEBUG: creating <x-metadata>\n" if($debug);
+	    $xmeta = $dcmeta->insert_new_elt('after','x-metadata')
+	}
+	# Make sure x-metadata belongs to metadata
+	$parent = $xmeta->parent;
+	if($parent != $metadata)
+	{
+	    print "DEBUG: moving <x-metadata>\n" if($debug);
+	    $xmeta->move('after',$dcmeta);
+	}
+	
 	foreach my $el (@elements)
 	{
 	    $el->move('last_child',$xmeta);
 	}
     }
-    return $$twigref;
+    print "DEBUG: returning from twig_fix_oeb12\n" if($debug);
+    return;
 }
 
 
@@ -911,9 +935,6 @@ sub twig_fix_oeb12( $ )
 # This sub assumes OEB 1.2 capitalization.  Use
 # twig_fix_lowercase_dcmeta before using this sub.
 #
-# WARNING: feeding this sub a twig with a root other than <package> will
-# likely cause much damage to your tree.
-#
 # Arguments:
 #   \$twig : The twig reference containing the <package> element as a root.
 #
@@ -921,7 +942,15 @@ sub twig_fix_oeb12( $ )
 #
 sub twig_fix_packageid ( $ )
 {
-    my ($twigref) = shift;
+    my $twigref = shift;
+
+    # Sanity checks
+    die("Tried to fix packageid of undefined twig")
+	if(!$$twigref);
+    my $twigroot = $$twigref->root
+	or die("Tried to fix packageid of twig with no root");
+    die("Can't fix packageid if twigroot isn't <package>!")
+	if($twigroot->gi ne 'package');
 
     my $topelement = $$twigref->root;
     my $packageid;
@@ -1169,7 +1198,8 @@ sub tidy_xml
 #   $datapath : the location of the config files
 #   $tidycmd : the location of the tidy executable
 #   $tidyconfig : the name of the tidy config file to use
-#   $tidymetaerrors : the filename to use to output errors
+#   $tidyxmlerrors : the filename to use to output errors
+#   $tidysafety: the safety factor to use
 #
 # Returns the return value from tidy
 # Dies horribly if the return value is unexpected
@@ -1179,38 +1209,45 @@ sub tidy_xml
 # 1 - warnings only (leave errorfile)
 # 2 - errors (leave errorfile and htmlfile)
 #
-sub system_tidy_xml ( $ )
+sub system_tidy_xml
 {
-    my $xmlfile;
+    my $infile;
+    my $outfile;
+    my @configopt = ();
     my $retval;
 
-    ($xmlfile) = @_;
+    ($infile,$outfile) = @_;
+    
+    die("system_tidy_xml called with no input file") if(!$infile);
+    die("system_tidy_xml called with no output file") if(!$outfile);
 
-    print "DEBUG: tidy-xml using $datapath/$tidyconfig\n";
+    @configopt = ('-config',"$datapath/$tidyconfig")
+	if(-f "$datapath/$tidyconfig");
 
-    $retval = system($tidycmd,
-		     "-config $datapath/$tidyconfig",
-		     '-q','-ascii','-xml','-m',
-		     "-f $tidymetaerrors",
-		     $xmlfile);
-
+    $retval = system($tidycmd,@configopt,
+		     '-q','-utf8',
+		     '-xml',
+		     '-f',$tidyxmlerrors,
+		     '-o',$outfile,
+		     $infile);
 
     # Some systems may return a two-byte code, so deal with that first
     if($retval >= 256) { $retval = $retval >> 8 };
-    print "DEBUG: tidy-xml exited $retval\n";
-
     if($retval == 0)
     {
-	unlink($tidymetaerrors);
+	rename($outfile,$infile) if($tidysafety < 4);
+	unlink($tidyxmlerrors);
     }
     elsif($retval == 1)
     {
-	print "DEBUG: unlinking $tidymetaerrors\n";
-	unlink($tidymetaerrors); # some people may want to retain this for warnings
+	rename($outfile,$infile) if($tidysafety < 3);
+	unlink($tidyxmlerrors) if($tidysafety < 2);
     }
     elsif($retval == 2)
     {
-	print STDERR "WARNING: Tidy errors encountered.  Check ",$tidymetaerrors,"\n";
+	print STDERR "WARNING: Tidy errors encountered.  Check ",$tidyxmlerrors,"\n"
+	    if($tidysafety > 0);
+	unlink($tidyxmlerrors) if($tidysafety < 1);
     }
     else
     {
@@ -1234,7 +1271,8 @@ sub system_tidy_xml ( $ )
 # Global variables:
 #   $tidycmd : the location of the tidy executable
 #   $tidyconfig : the location of the config file to use
-#   $tidyerrors : the filename to use to output errors
+#   $tidyxhtmlerrors : the filename to use to output errors
+#   $tidysafety: the safety factor to use
 #
 # Returns the return value from tidy
 # Dies horribly if the return value is unexpected
@@ -1248,16 +1286,21 @@ sub system_tidy_xhtml
 {
     my $infile;
     my $outfile;
+    my @configopt = ();
     my $retval;
 
     ($infile,$outfile) = @_;
+    die("system_tidy_xhtml called with no input file") if(!$infile);
+    die("system_tidy_xhtml called with no output file") if(!$outfile);
+    
+    @configopt = ('-config',"$datapath/$tidyconfig")
+	if(-f "$datapath/$tidyconfig");
 
-#    print "DEBUG: running system_tidy_xhtml\n";
-    $retval = system($tidycmd,
-		     '-config',"$datapath/$tidyconfig",
-		     '-q','-ascii',
+    $retval = system($tidycmd,@configopt,
+		     '-q','-utf8',
 		     '-asxhtml',
-		     '-f',$tidyerrors,
+		     '--doctype','transitional',
+		     '-f',$tidyxhtmlerrors,
 		     '-o',$outfile,
 		     $infile);
 
@@ -1265,22 +1308,19 @@ sub system_tidy_xhtml
     if($retval >= 256) { $retval = $retval >> 8 };
     if($retval == 0)
     {
-	unlink($infile);
-	unlink($tidyerrors);
+	rename($outfile,$infile) if($tidysafety < 4);
+	unlink($tidyxhtmlerrors);
     }
     elsif($retval == 1)
     {
-	unlink($infile);
-	unlink($tidyerrors); # some people may want to retain this for warnings
+	rename($outfile,$infile) if($tidysafety < 3);
+	unlink($tidyxhtmlerrors) if($tidysafety < 2);
     }
     elsif($retval == 2)
     {
-	print STDERR "WARNING: Tidy errors encountered.  Check ",$tidyerrors,"\n";
-    }
-    else
-    {
-	# Something unexpected happened (program crash, sigint, other)
-	die("Tidy did something unexpected (return value=",$retval,").  Check all output.");
+	print STDERR "WARNING: Tidy errors encountered.  Check ",$tidyxhtmlerrors,"\n"
+	    if($tidysafety > 0);
+	unlink($tidyxhtmlerrors) if($tidysafety < 1);
     }
     return $retval;
 }
