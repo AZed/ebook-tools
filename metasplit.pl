@@ -23,7 +23,9 @@
 use warnings;
 use strict;
 
-# Temporary while I work out exactly what namespace I want for my tools
+use FindBin;
+use lib $FindBin::Bin;
+
 use File::Basename 'fileparse';
 use OEB::Tools qw(split_metadata print_memory);
 

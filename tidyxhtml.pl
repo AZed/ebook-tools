@@ -2,71 +2,41 @@
 #
 # tidyxhtml <filename>
 #
-# A simple helper script to run tidy on an HTML file destined to be XHTML
+# A simple helper script to run tidy on an HTML file destined to be
+# UTF-8 XHTML
 #
 
 use warnings;
 use strict;
 
+use FindBin;
+use lib $FindBin::RealBin;
+
 use File::Basename;
+use OEB::Tools qw(system_tidy_xml system_tidy_xhtml);
+#$OEB::Tools::datapath = $FindBin::RealBin . "/OEB";
+#$OEB::Tools::tidysafety = 1;
+# Possible $tidysafety values:
+# <1: no checks performed, no error files kept, works like a clean tidy -m
+#     This setting is DANGEROUS
+#  1: Overwrites original file if there were no errors, but even if
+#     there were warnings.  Keeps a log of errors, but not warnings.
+#  2: Overwrites original file if there were no errors, but even if
+#     there were warnings.  Keeps a log of both errors and warnings.
+#  3: Overwrites original file only if there were no errors or
+#     warnings.  Keeps a log of both errors and warnings.
+# 4+: Never overwrites original file.  Keeps a log of both errors and
+#     warnings.
+# Default is 1
 
-# OS-Specific assignments for default datapath
-my $datapath;
-OS:
-{
-    $_ = $^O;
-    /MSWin32/	&& do { $datapath = 'W:\books\software\OEB'; last OS; };
-    /dos/	&& do { $datapath = 'W:\books\software\OEB'; last OS; };
-    $datapath = '/www/books/software/OEB';
-}
-
-my $tidyconfig = "$datapath/tidy-oeb.conf";
-my $tidyerrors = 'tidyxhtml-errors.txt';
 
 if(scalar(@ARGV) == 0) { die("You must specify an XML file to parse.\n"); }
 
 my $inputfile = $ARGV[0];
-my $tidyfile;
+my ($filebase,$filedir,$fileext) = fileparse($inputfile,'\.\w+$');
+my $tidyfile = $filebase . "-tidy" . $fileext;
 my $retval;
-my $filebase;
-my $filedir;
-my $fileext;
 
-($filebase,$filedir,$fileext) = fileparse($inputfile,'\.\w+$');
-$tidyfile = $filebase . "-tidy" . $fileext;
+$retval = system_tidy_xhtml($inputfile,$tidyfile);
 
-$retval = system('tidy','-q',
-		 '-config',$tidyconfig,
-		 '-utf8',
-		 '-asxhtml',
-		 '--doctype','transitional',
-		 '-f',$tidyerrors,
-		 '-o',$tidyfile,
-		 $inputfile);
-
-
-# Possible return codes from tidy:
-# 0 - no errors (move the out over the original, delete tidyerrors)
-# 1 - warnings only (move the out over the original, leave tidyerrors)
-# 2 - errors (delete outfile, leave tidyerrors)
-
-# Some systems may return a two-byte code, so deal with that first
-if($retval >= 256) { $retval = $retval >> 8 };
-if($retval == 0)
-{
-    rename($tidyfile,$inputfile);
-    unlink($tidyerrors);
-}
-elsif($retval == 1)
-{
-    rename($tidyfile,$inputfile);
-}
-elsif($retval == 2)
-{
-    unlink($tidyfile);
-}
-else
-{
-    # Something unexpected happened (program crash, sigint, other)
-    die("Tidy did something unexpected [$!].  Check all output.");
-}
+exit($retval);

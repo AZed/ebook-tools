@@ -1,8 +1,8 @@
 #!/usr/bin/perl
 #
-# epubgen <filename>
+# opffix <filename>
 #
-# Take an OPF file and use the information in it to create an epub file.
+# Standardize an OPF file
 #
 # Copyright 2008 Zed Pobre
 # Licensed to the public under the terms of the GNU GPL, version 2.
@@ -18,16 +18,14 @@ use FindBin;
 use lib $FindBin::RealBin;
 
 use File::Basename 'fileparse';
-use OEB::Tools qw(get_container_rootfile);
+use OEB::Tools qw(get_container_rootfile system_tidy_xml);
 
-my $metastring = '';
-my $metafile;
 my $opffile = $ARGV[0];
-my $oebpackage;
-my $elem;
 my $oeb;
-
+my $retval;
 my ($filebase,$filedir,$fileext);
+my $tidyfile;
+
 
 # If no OPF file was specified, attempt to find one
 if(! $opffile)
@@ -44,19 +42,16 @@ if(! $opffile)
     die("Could not find an OPF file.\n"); 
 }
 
-
-#($filebase,$filedir,$fileext) = fileparse($metafile,'\.\w+$');
-
 $oeb = OEB::Tools->new( opffile => $opffile );
 $oeb->init;
-#$oeb->fixoeb12;
+$oeb->fixoeb12;
 $oeb->fixmisc;
 $oeb->save;
 
-my @manifest = $oeb->manifest_hrefs;
-
-$oeb->gen_epub();
-
+($filebase,$filedir,$fileext) = fileparse($opffile,'\.\w+$');
+$tidyfile = $filebase . "-tidy" . $fileext;
+$retval = system_tidy_xml($opffile,$tidyfile);
+exit($retval);
 
 ##########
 
