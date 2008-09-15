@@ -7,6 +7,12 @@ package OEB::Tools;
 # Copyright 2008 Zed Pobre
 # Licensed to the public under the terms of the GNU GPL, version 2
 #
+# TODO:
+# * fix broken dc:date formats
+# * sub for sort_children to sort on GI + ID
+# * Use OPS2.0 instead of OEB1.2 after all
+#   * This means creating a fix_ops20 sub 
+#
 
 use warnings;
 use strict;
@@ -141,6 +147,42 @@ my %oebspecs = (
     'OPF20' => 'OPF20'
     );
 
+my %mobiencodings = (
+    'Windows-1252' => 'Windows-1252',
+    'utf-8' => 'utf-8'
+    );
+
+my %mobibooktypes = (
+    'Default' => undef,
+    'eBook' => 'text/x-oeb1-document',
+    'eNews' => 'application/x-mobipocket-subscription',
+    'News feed' => 'application/x-mobipocket-subscription-feed',
+    'News magazine' => 'application/x-mobipocket-subscription-magazine',
+    'Images' => 'image/gif',
+    'Microsoft Word document' => 'application/msword',
+    'Microsoft Excel sheet' => 'application/vnd.ms-excel',
+    'Microsoft Powerpoint presentation' => 'application/vnd.ms-powerpoint',
+    'Plain text' => 'text/plain',
+    'HTML' => 'text/html',
+    'Mobipocket game' => 'application/vnd.mobipocket-game',
+    'Franklin game' => 'application/vnd.mobipocket-franklin-ua-game'
+    );
+
+my %mobicontenttypes = (
+    'text/x-oeb1-document' => 'text/x-oeb1-document',
+    'application/x-mobipocket-subscription' => 'application/x-mobipocket-subscription',
+    'application/x-mobipocket-subscription-feed' => 'application/x-mobipocket-subscription-feed',
+    'application/x-mobipocket-subscription-magazine' => 'application/x-mobipocket-subscription-magazine',
+    'image/gif' => 'image/gif',
+    'application/msword' => 'application/msword',
+    'application/vnd.ms-excel' => 'application/vnd.ms-excel',
+    'application/vnd.ms-powerpoint' => 'application/vnd.ms-powerpoint',
+    'text/plain' => 'text/plain',
+    'text/html' => 'text/html',
+    'application/vnd.mobipocket-game' => 'application/vnd.mobipocket-game',
+    'application/vnd.mobipocket-franklin-ua-game' => 'application/vnd.mobipocket-franklin-ua-game'
+    );
+    
 
 ########## METHODS ##########
 
@@ -210,6 +252,8 @@ sub fixmisc ()
     twig_delete_meta_filepos(\$$self{twig});
     # Make sure the package ID is valid, and assign it if not
     twig_fix_packageid(\$$self{twig});
+    # Fix miscellaneous Mobipocket-related issues
+    twig_fix_mobi(\$$self{twig});
     return $self;
 }
 
@@ -815,6 +859,108 @@ sub twig_fix_lowercase_dcmeta ( $ )
 
 
 #
+# sub twig_fix_mobi(\$twigref)
+#
+# Manipulates the twig to fix Mobipocket-specific issues
+# * If no <output> element exists, creates one for a utf-8 ebook
+#
+# Arguments:
+#   $twigref : reference to the OPF twig
+#
+# Global variables:
+#   %mobiencodings : valid Mobipocket output encoding attribute strings
+#   %mobicontenttypes : valid Mobipocket output content-type attribute strings
+#
+# Returns nothing (modifies the twig by reference)
+#
+sub twig_fix_mobi ( $ )
+{
+    my $twigref = shift;
+
+    print "DEBUG[twig_fix_mobi]\n" if($debug);
+
+    # Sanity checks
+    die("Tried to fix mobipocket issues on undefined twig!")
+	if(!$$twigref);
+    my $twigroot = $$twigref->root
+	or die("Tried to fix mobipocket issues on twig with no root!");
+    die("Tried to fix mobipocket issues, but twigroot isn't <package>!")
+	if($twigroot->gi ne 'package');
+    my $metadata = $twigroot->first_descendant('metadata')
+	or die("Tried to fix mobipocket issues on twig with no metadata!");
+
+    # If <output> already exists, and it has a valid content-type,
+    # validate the encoding and return.  Otherwise, continue.
+    my $output = $twigroot->first_descendant('output');
+    if($output)
+    {
+	my $encoding = $mobiencodings{$output->att('encoding')};
+	my $contenttype = $mobicontenttypes{$output->att('content-type')};
+
+	if($contenttype)
+	{
+	    $encoding = 'utf-8' if(!$encoding);
+	    return;
+	}
+    }
+
+    my $dcmeta = $twigroot->first_descendant('dc-metadata');
+    my $xmeta = $twigroot->first_descendant('x-metadata');
+    my $parent;
+    
+    # If we have <dc-metadata>, <output> has to go under <x-metadata>
+    # If we don't, it goes under <metadata> directly.
+    if($dcmeta)
+    {
+	# If <x-metadata> doesn't exist, create it
+	if(!$xmeta)
+	{
+	    print "DEBUG: creating <x-metadata>\n" if($debug);
+	    $xmeta = $dcmeta->insert_new_elt('after','x-metadata')
+	}
+	if($output)
+	{
+	    $parent = $output->parent;
+	    if($parent != $xmeta)
+	    {
+		print "DEBUG: moving <output> under <x-metadata>\n"
+		    if($debug);
+		$output->move('last_child',$xmeta);
+	    }
+	}
+	else
+	{
+	    print "DEBUG: creating <output> under <x-metadata>\n" if($debug);
+	    $output = $xmeta->insert_new_elt('last_child','output');
+	}
+    }
+    else
+    {
+	if($output)
+	{
+	    $parent = $output->parent;
+	    if($parent != $metadata)
+	    {
+		print "DEBUG: moving <output> under <metadata>\n" if($debug);
+		$output->move('last_child',$metadata)
+	    }
+	}
+	else
+	{
+	    print "DEBUG: creating <output> under <metadata>\n" if($debug);
+	    $output = $metadata->insert_new_elt('last_child','output');
+	}
+    }
+    
+    # At this stage, we definitely have <output> in the right place.
+    # Set the attributes and return.
+    $output->set_att('encoding' => 'utf-8',
+		     'content-type' => 'text/x-oeb1-document');
+    return;
+}
+
+
+#
 # sub twig_fix_oeb12(\$twigref)
 #
 # Manipulates the twig such that it conforms to OEB v1.2
@@ -829,17 +975,17 @@ sub twig_fix_lowercase_dcmeta ( $ )
 #
 # Returns the modified twig (but also modifies $twig by reference)
 #
-sub twig_fix_oeb12( $ )
+sub twig_fix_oeb12 ( $ )
 {
     my $twigref = shift;
 
     print "DEBUG[twig_fix_oeb12]\n" if($debug);
 
     # Sanity checks
-    die("Tried to fix undefined twig to OEB1.2")
+    die("Tried to fix undefined twig to OEB1.2!")
 	if(!$$twigref);
     my $twigroot = $$twigref->root
-	or die("Tried to fix twig with no root to OEB1.2");
+	or die("Tried to fix twig with no root to OEB1.2!");
     die("Can't fix OEB1.2 if twigroot isn't <package>!")
 	if($twigroot->gi ne 'package');
 
