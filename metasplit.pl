@@ -44,7 +44,7 @@ rename($metafile,$opffile);
 
 $oeb = OEB::Tools->new( opffile => $opffile );
 $oeb->init;
-$oeb->fixoeb12;
+$oeb->fixopf20;
 $oeb->fixmisc;
 
 # The split metadata never includes manifest/spine info, so add in the
