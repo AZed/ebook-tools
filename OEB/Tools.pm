@@ -74,6 +74,8 @@ my $oeb12doctype =
     '<!DOCTYPE package' . "\n" .
     '  PUBLIC "+//ISBN 0-9673008-1-9//DTD OEB 1.2 Package//EN"' . "\n" .
     '  "http://openebook.org/dtds/oeb-1.2/oebpkg12.dtd">' . "\n";
+my $opf20package =
+    '<package version="2.0" xmlns="http://www.idpf.org/2007/opf">' . "\n";
 
 my %dcelements20 = (
     "dc:title"	     => "dc:title",
@@ -91,6 +93,24 @@ my %dcelements20 = (
     "dc:relation"    => "dc:relation",
     "dc:coverage"    => "dc:coverage",
     "dc:rights"      => "dc:rights",
+    "dc:Title"       => "dc:title",
+    "dc:Creator"     => "dc:creator",
+    "dc:Subject"     => "dc:subject",
+    "dc:Description" => "dc:description",
+    "dc:Publisher"   => "dc:publisher",
+    "dc:Contributor" => "dc:contributor",
+    "dc:Date"        => "dc:date",
+    "dc:Type"        => "dc:type",
+    "dc:Format"      => "dc:format",
+    "dc:Identifier"  => "dc:identifier",
+    "dc:Source"      => "dc:source",
+    "dc:Language"    => "dc:language",
+    "dc:Relation"    => "dc:relation",
+    "dc:Coverage"    => "dc:coverage",
+    "dc:Rights"      => "dc:rights"
+    );
+
+my %dcelements12to20 = (
     "dc:Title"       => "dc:title",
     "dc:Creator"     => "dc:creator",
     "dc:Subject"     => "dc:subject",
@@ -141,15 +161,29 @@ my %dcelements12 = (
     "dc:Rights"      => "dc:Rights"
     );
 
-
-my %oebspecs = (
-    'OEB12' => 'OEB12',
-    'OPF20' => 'OPF20'
+my %dcelements20to12 = (
+    "dc:title"	     => "dc:Title",
+    "dc:creator"     => "dc:Creator",
+    "dc:subject"     => "dc:Subject",
+    "dc:description" => "dc:Description",
+    "dc:publisher"   => "dc:Publisher",
+    "dc:contributor" => "dc:Contributor",
+    "dc:date"        => "dc:Date",
+    "dc:type"        => "dc:Type",
+    "dc:format"      => "dc:Format",
+    "dc:identifier"  => "dc:Identifier",
+    "dc:source"      => "dc:Source",
+    "dc:language"    => "dc:Language",
+    "dc:relation"    => "dc:Relation",
+    "dc:coverage"    => "dc:Coverage",
+    "dc:rights"      => "dc:Rights",
     );
 
-my %mobiencodings = (
-    'Windows-1252' => 'Windows-1252',
-    'utf-8' => 'utf-8'
+my %opfatts_ns = (
+    "role" => "opf:role",
+    "file-as" => "opf:file-as",
+    "scheme" => "opf:scheme",
+    "event" => "opf:event"
     );
 
 my %mobibooktypes = (
@@ -183,6 +217,16 @@ my %mobicontenttypes = (
     'application/vnd.mobipocket-franklin-ua-game' => 'application/vnd.mobipocket-franklin-ua-game'
     );
     
+my %mobiencodings = (
+    'Windows-1252' => 'Windows-1252',
+    'utf-8' => 'utf-8'
+    );
+
+my %oebspecs = (
+    'OEB12' => 'OEB12',
+    'OPF20' => 'OPF20'
+    );
+
 
 ########## METHODS ##########
 
@@ -257,13 +301,21 @@ sub fixmisc ()
     return $self;
 }
 
+sub fixopf20 ()
+{
+    my $self = shift;
+
+    twig_fix_opf20(\$$self{twig});
+    $$self{spec} = $oebspecs{'OPF20'};
+    return $self;
+}
+
 sub fixoeb12 ()
 {
     my $self = shift;
 
     # Make the twig conform to the OEB 1.2 standard
     twig_fix_oeb12(\$$self{twig});
-#    $$self{twig}->root->print;
     $$self{spec} = $oebspecs{'OEB12'};
     return $self;
 }
@@ -542,6 +594,11 @@ sub print_memory
 # metadata values into an XML file in preparation for conversion to
 # OPF.  Rewrites the html file without the metadata.
 #
+# If tidy cannot be run, split_metadata MUST output the OEB 1.2
+# doctype (and thus not conform to OPF 2.0, which doesn't use a dtd at
+# all), as the the metadata values may contain HTML entities and Tidy
+# is needed to convert them to UTF-8 characters
+#
 # Arguments:
 #   $mobihtmlfile : The filename of the pseudo-HTML file
 #
@@ -557,7 +614,7 @@ sub split_metadata ( $ )
 {
     my ($mobihtmlfile) = @_;
 
-    my $delim = $\;
+    my $delim = $/;
 
     my $metafile;
     my $metastring;
@@ -566,7 +623,11 @@ sub split_metadata ( $ )
     my $filebase;
     my $filedir;
     my $fileext;
+
+    my $tidy; # boolean to check if tidy is available
+
     my $retval;
+
     
     ($filebase,$filedir,$fileext) = fileparse($mobihtmlfile,'\.\w+$');
     $metafile = $filebase . ".xml";
@@ -607,7 +668,7 @@ sub split_metadata ( $ )
     close(META);
     close(MOBIHTML);
 
-#    system_tidy_xml($metafile);
+    system_tidy_xml($metafile);
 #    system_tidy_xhtml($htmlfile,$mobihtmlfile);
     rename($htmlfile,$mobihtmlfile)
 	or die("Failed to rename ",$htmlfile," to ",$mobihtmlfile,"!\n");
@@ -820,24 +881,6 @@ sub twig_fix_lowercase_dcmeta ( $ )
     my $twigref = shift;
     my $topelement = $$twigref->root;
 
-    my %dcelementslc = (
-	"dc:title" => "dc:Title",
-	"dc:creator" => "dc:Creator",
-	"dc:subject" => "dc:Subject",
-	"dc:description" => "dc:Description",
-	"dc:publisher" => "dc:Publisher",
-	"dc:contributor" => "dc:Contributor",
-	"dc:date" => "dc:Date",
-	"dc:type" => "dc:Type",
-	"dc:format" => "dc:Format",
-	"dc:identifier" => "dc:Identifier",
-	"dc:source" => "dc:Source",
-	"dc:language" => "dc:Language",
-	"dc:relation" => "dc:Relation",
-	"dc:coverage" => "dc:Coverage",
-	"dc:rights" => "dc:Rights"
-	);
-
     my $meta;
     my $dcmeta;
     my @elements;
@@ -845,13 +888,13 @@ sub twig_fix_lowercase_dcmeta ( $ )
     $meta = $topelement->first_child('metadata');
     $dcmeta = $meta->first_child('dc-metadata');
 
-    foreach my $dcmetatag (keys %dcelementslc)
+    foreach my $dcmetatag (keys %dcelements20to12)
     {
 	@elements = $dcmeta->descendants($dcmetatag);
 	foreach my $el (@elements)
 	{
-	    $el->set_tag($dcelementslc{$el->tag})
-		if defined($dcelementslc{$el->tag});
+	    $el->set_tag($dcelements20to12{$el->tag})
+		if defined($dcelements20to12{$el->tag});
 	}
     }
     return;
@@ -956,6 +999,7 @@ sub twig_fix_mobi ( $ )
     # Set the attributes and return.
     $output->set_att('encoding' => 'utf-8',
 		     'content-type' => 'text/x-oeb1-document');
+    print "DEBUG: returning from twig_fix_mobi" if($debug);
     return;
 }
 
@@ -1071,15 +1115,143 @@ sub twig_fix_oeb12 ( $ )
 
 
 #
+# sub twig_fix_opf20(\$twigref)
+#
+# Manipulates the twig such that it conforms to OPF v2.0
+# 
+# Specifically, this involves:
+#   * moving all of the dc-metadata and x-metadata elements directly
+#     underneath <metadata>
+#   * removing the <dc-metadata> and <x-metadata> elements themselves
+#   * lowercasing the dc-metadata tags
+#   * setting namespaces on dc-metata OPF attributes
+#   * setting version and xmlns attributes on <package>
+#   * setting xmlns:dc and xmlns:opf on <metadata>
+#
+# Arguments:
+#   \$twigref : the reference to the twig to modify
+#
+# Returns the modified twig (but also modifies $twig by reference)
+#
+sub twig_fix_opf20 ( $ )
+{
+    my $twigref = shift;
+
+    print "DEBUG[twig_fix_ops20]\n" if($debug);
+
+    # Sanity checks
+    die("Tried to fix undefined OPS2.0 twig!")
+	if(!$$twigref);
+    my $twigroot = $$twigref->root
+	or die("Tried to fix OPS2.0 twig with no root!");
+    die("Can't fix OPS2.0 twig if twigroot isn't <package>!")
+	if($twigroot->gi ne 'package');
+
+    my $metadata = $twigroot->first_descendant('metadata');
+    my $parent;
+    my $dcmeta;
+    my $xmeta;
+    my @elements;
+    my @children;
+    my $temp;
+
+    # If <metadata> doesn't exist, we're in a real mess, but go ahead
+    # and try to create it anyway
+    if(! $metadata)
+    {
+	print "DEBUG: creating <metadata>\n" if($debug);
+	$metadata = $twigroot->insert_new_elt('first_child','metadata');
+    }
+
+    # Make sure that metadata is the first child of the twigroot
+    $parent = $metadata->parent;
+    if($parent != $twigroot)
+    {
+	print "DEBUG: moving <metadata>\n" if($debug);
+	$metadata->move('first_child',$twigroot);
+    }
+
+
+    # If <dc-metadata> exists, make sure that it is directly
+    # underneath <metadata> so that its children will collapse to the
+    # correct position, then erase it.
+    @elements = $twigroot->descendants('dc-metadata');
+    if(@elements)
+    {
+	foreach my $dcmeta (@elements)
+	{
+	    print "DEBUG: moving <dc-metadata>\n" if($debug);
+	    $dcmeta->move('first_child',$metadata);
+	    $dcmeta->erase;
+	}
+    }
+
+    # If <x-metadata> exists, make sure that it is directly underneath
+    # <metadata> so that its children will collapse to the correct
+    # position, then erase it.
+    @elements = $twigroot->descendants('x-metadata');
+    if(@elements)
+    {
+	foreach my $xmeta (@elements)
+	{
+	    print "DEBUG: moving <x-metadata>\n" if($debug);
+	    $xmeta->move('last_child',$metadata);
+	    $xmeta->erase;
+	}
+    }
+
+    # For all DC elements at any location, set the correct tag name
+    # and attribute namespace and move it directly under <metadata>
+    foreach my $dcmetatag (keys %dcelements12to20)
+    {
+	@elements = $twigroot->descendants($dcmetatag);
+	foreach my $el (@elements)
+	{
+	    print "DEBUG: checking element '",$el->gi,"'\n" if($debug);
+	    $el->set_gi($dcelements20{$dcmetatag});
+	    foreach my $att ($el->att_names)
+	    {
+		print "DEBUG:   checking attribute '",$att,"'\n" if($debug);
+		if($opfatts_ns{$att})
+		{
+		    # If the opf:att attribute properly exists already, do nothing.
+		    if($el->att($opfatts_ns{att}))
+		    {
+			print "DEBUG:   found both '",$att,"' and '",$opfatts_ns{$att},"' -- skipping.\n"
+			    if($debug);
+			next;
+		    }
+		    print "DEBUG:   changing attribute '",$att,"' => '",$opfatts_ns{$att},"'\n"
+			if($debug);
+		    $el->change_att_name($att,$opfatts_ns{$att});
+		}
+	    }
+	    $el->move('first_child',$metadata);
+	}
+    }
+    
+    # Fix the <package> attributes
+    $twigroot->set_atts('version' => '2.0',
+			'xmlns' => 'http://www.idpf.org/2007/opf');
+
+    # Fix the <metadata> attributes
+    $metadata->set_atts('xmlns:dc' => "http://purl.org/dc/elements/1.1/",
+			'xmlns:opf' => "http://www.idpf.org/2007/opf");
+
+    # Clobber the doctype, if present
+    $$twigref->set_doctype(0,0,0,0);
+    print "DEBUG: returning from twig_fix_opf20\n" if($debug);
+    return;
+}
+
+
+#
 # sub twig_fix_packageid(\$twigref)
 #
 # Checks the <package> element for the attribute 'unique-identifier',
-# makes sure that it is mapped to a valid dc:Identifier subelement,
+# makes sure that it is mapped to a valid dc:identifier subelement,
 # and if not, searches those subelements for an identifier to assign,
 # or creates one if nothing can be found.
-#
-# This sub assumes OEB 1.2 capitalization.  Use
-# twig_fix_lowercase_dcmeta before using this sub.
 #
 # Arguments:
 #   \$twig : The twig reference containing the <package> element as a root.
@@ -1090,6 +1262,8 @@ sub twig_fix_packageid ( $ )
 {
     my $twigref = shift;
 
+    print "DEBUG[twig_fix_packageid]\n" if($debug);
+
     # Sanity checks
     die("Tried to fix packageid of undefined twig")
 	if(!$$twigref);
@@ -1098,23 +1272,28 @@ sub twig_fix_packageid ( $ )
     die("Can't fix packageid if twigroot isn't <package>!")
 	if($twigroot->gi ne 'package');
 
-    my $topelement = $$twigref->root;
     my $packageid;
-    my $meta = $topelement->first_child('metadata');
-    my $dcmeta = $meta->first_child('dc-metadata');
+    my $meta = $twigroot->first_child('metadata');
     my $element;
 
     $element = $$twigref->elt_id($packageid);
 
-    $packageid = $topelement->att('unique-identifier');
+    $packageid = $twigroot->att('unique-identifier');
     if(defined $packageid) 
     {
         # Check that the ID maps to a valid identifier
 	# If not, undefine it
+	print "DEBUG: checking existing packageid '",$packageid,"'\n"
+	    if($debug);
 	$element = $$twigref->elt_id($packageid);
 	if(defined $element)
 	{
-	    undef($packageid) if($element->tag ne 'dc:Identifier');
+	    if(lc($element->tag) ne 'dc:identifier')
+	    {
+		print "DEBUG: undefining existing packageid '",$packageid,"'\n"
+		    if($debug);
+		undef($packageid);
+	    }
 	}
 	else { undef($packageid); };
     }
@@ -1135,13 +1314,15 @@ sub twig_fix_packageid ( $ )
     # scratch using Data::UUID
     if(!defined $packageid)
     {
+	print "DEBUG: creating new UUID\n" if($debug);
 	$element = twig_create_uuid();
-	$element->paste('first_child',$dcmeta);
+	$element->paste('first_child',$meta);
 	$packageid = 'UUID';
     }
 
     # At this point, we have a unique ID.  Assign it to package
-    $topelement->set_att('unique-identifier',$packageid);
+    $twigroot->set_att('unique-identifier',$packageid);
+    print "DEBUG: returning from twig_fix_packageid\n" if($debug);
     return $$twigref;
 }
 
@@ -1158,14 +1339,14 @@ sub twig_fix_packageid ( $ )
 # Arguments:
 #   $twig: XML::Twig to search
 #   $gi: generic identifier (tag) to check against
-#        Default value: 'dc:Identifier'
+#        Default value: 'dc:identifier' (case-insensitive match)
 #
 # Returns the ID if a match is found, undef otherwise
 #
 sub twig_search_knownuids
 {
     my ($twig, $gi) = @_;
-    if(!defined $gi) { $gi = 'dc:Identifier'; }
+    if(!defined $gi) { $gi = 'dc:identifier'; }
 
     my @knownuids = qw (
 	OverDriveGUID
@@ -1190,7 +1371,7 @@ sub twig_search_knownuids
 	$element = $twig->elt_id($id);
 	if(defined $element)
 	{
-	    if($element->gi eq $gi)
+	    if(lc($element->gi) eq $gi)
 	    {
 		$retval = $element->id;
 	    }
@@ -1214,14 +1395,14 @@ sub twig_search_knownuids
 # Arguments:
 #   $topelement : twig element to start descendant search
 #   $gi: generic identifier (tag) to check against
-#        Default value: 'dc:Identifier'
+#        Default value: 'dc:identifier' (case-insensitive match)
 #
 # Returns the ID if a match is found, undef otherwise
 #
 sub twig_search_knownuidschemes
 {
     my ($topelement,$gi) = @_;
-    if(!defined $gi) { $gi = 'dc:Identifier'; }
+    if(!defined $gi) { $gi = 'dc:identifier'; }
 
     my @knownuidschemes = qw (
 	GUID
@@ -1237,11 +1418,11 @@ sub twig_search_knownuidschemes
 
     my $retval = undef;
 
-#    print "DEBUG: searching knownuidschemes for a unique Package ID.\n";
+    print "DEBUG[twig_search_knownuidschemes]\n";
     foreach $scheme (@knownuidschemes)
     {
-#	print "DEBUG: searching for scheme='",$scheme,"'\n";
-	@elems = $topelement->descendants("dc:Identifier[\@scheme='$scheme']");
+	print "DEBUG: searching for scheme='",$scheme,"'\n" if($debug);
+	@elems = $topelement->descendants(qr/dc:identifier[\@scheme='$scheme']/i);
 	foreach $elem (@elems)
 	{
 	    if(defined $elem)
@@ -1260,12 +1441,12 @@ sub twig_search_knownuidschemes
 		}
 		else
 		{
-#		    print "DEBUG: assigning ID from scheme '",$scheme,"'\n";
+		    print "DEBUG: assigning ID from scheme '",$scheme,"'\n" if($debug);
 		    $id = uc($scheme);
 		    $elem->set_id($id);
 		    $retval = $id;
 		}
-#		print "DEBUG: found Package ID: ",$packageid,"\n";
+		print "DEBUG: found Package ID: ",$id,"\n" if($debug);
 		last;
 	    } # if(defined $elem)
 	} # foreach $elem (@elems)
