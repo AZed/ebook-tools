@@ -10,8 +10,6 @@ package OEB::Tools;
 # TODO:
 # * fix broken dc:date formats
 # * sub for sort_children to sort on GI + ID
-# * Use OPS2.0 instead of OEB1.2 after all
-#   * This means creating a fix_ops20 sub 
 #
 
 use warnings;
@@ -630,7 +628,7 @@ sub split_metadata ( $ )
 
     
     ($filebase,$filedir,$fileext) = fileparse($mobihtmlfile,'\.\w+$');
-    $metafile = $filebase . ".xml";
+    $metafile = $filebase . ".opf";
     $htmlfile = $filebase . "-html.html";
 
     open(MOBIHTML,"<",$mobihtmlfile)
@@ -644,7 +642,8 @@ sub split_metadata ( $ )
 
 
     # Preload the return value with the OPF headers
-    print META $utf8xmldec,$oeb12doctype,"<package>\n";
+    #print META $utf8xmldec,$oeb12doctype,"<package>\n";
+    print META $utf8xmldec,$opf20package;
 
     # Finding and removing all of the metadata requires that the
     # entire thing be handled as one slurped string, so temporarily
@@ -668,7 +667,7 @@ sub split_metadata ( $ )
     close(META);
     close(MOBIHTML);
 
-    system_tidy_xml($metafile);
+    system_tidy_xml($metafile,"$filebase-tidy.opf");
 #    system_tidy_xhtml($htmlfile,$mobihtmlfile);
     rename($htmlfile,$mobihtmlfile)
 	or die("Failed to rename ",$htmlfile," to ",$mobihtmlfile,"!\n");
@@ -768,7 +767,7 @@ sub twig_add_document
 # Arguments:
 #   $topelement : Top twig element to look under
 #   $condition : Twig search condition
-#                Default value: 'dc:Identifier'
+#                Default value: 'dc:identifier'
 #
 # Returns the element designated to be the package UID, or undef if nothing
 # matching the condition was found.
@@ -783,7 +782,7 @@ sub twig_assign_uid
     my $retval = undef;
 
     ($topelement,$condition) = @_;
-    if(!defined $condition) { $condition = 'dc:Identifier'; }
+    if(!defined $condition) { $condition = 'dc:identifier'; }
 
     @identifiers = $topelement->descendants($condition);
     foreach my $element (@identifiers)
@@ -809,7 +808,7 @@ sub twig_assign_uid
 #
 # Arguments:
 #   $gi : The gi (tag) to use for the element
-#         Default: 'dc:Identifier'
+#         Default: 'dc:identifier'
 #
 # Returns the element.
 #
@@ -818,7 +817,7 @@ sub twig_create_uuid
     my ($gi) = @_;
     my $element;
 
-    if(!defined $gi) { $gi = 'dc:Identifier'; }
+    if(!defined $gi) { $gi = 'dc:identifier'; }
     
     $element = XML::Twig::Elt->new($gi);
     $element->set_id('UUID');
@@ -1037,6 +1036,7 @@ sub twig_fix_oeb12 ( $ )
     my $parent;
     my $dcmeta;
     my $xmeta;
+    my $regexp;
     my @elements;
 
     # If <metadata> doesn't exist, we're in a real mess, but go ahead
@@ -1075,21 +1075,27 @@ sub twig_fix_oeb12 ( $ )
     }
 
     # Set the correct tag name and move it into <dc-metadata>
-    foreach my $dcmetatag (keys %dcelements12)
+    $regexp = "(" . join('|',keys(%dcelements12)) .")";
+    @elements = $twigroot->descendants(qr/$regexp/);
+    foreach my $el (@elements)
     {
-	@elements = $twigroot->descendants($dcmetatag);
-	foreach my $el (@elements)
-	{
-	    $el->set_gi($dcelements12{$dcmetatag});
-	    $el->move('last_child',$dcmeta);
-	}
+	print "DEBUG: processing '",$el->gi,"'\n" if($debug);
+	die("Found invalid DC element '",$el->gi,"'!") if(!$dcelements12{$el->gi});
+	$el->set_gi($dcelements12{$el->gi});
+	$el->move('last_child',$dcmeta);
     }
-    # Deal with any remaining elements under <metadata>
-    @elements = $metadata->children(qr/!(dc-metadata|x-metadata)/);
+
+    # Deal with any remaining elements under <metadata> that don't
+    # match *-metadata
+    @elements = $metadata->children(qr/^(?!(?s:.*)-metadata)/);
     if(@elements)
     {
-	print "DEBUG: elements found: ";
-	foreach my $el (@elements) { print $el->gi," "; }
+	if($debug)
+	{
+	    print "DEBUG: extra metadata elements found: ";
+	    foreach my $el (@elements) { print $el->gi," "; }
+	    print "\n";
+	}
 	# Create x-metadata if necessary
 	if(! $xmeta)
 	{
@@ -1202,7 +1208,7 @@ sub twig_fix_opf20 ( $ )
 
     # For all DC elements at any location, set the correct tag name
     # and attribute namespace and move it directly under <metadata>
-    foreach my $dcmetatag (keys %dcelements12to20)
+    foreach my $dcmetatag (keys %dcelements20)
     {
 	@elements = $twigroot->descendants($dcmetatag);
 	foreach my $el (@elements)
@@ -1334,7 +1340,7 @@ sub twig_fix_packageid ( $ )
 # UID IDs
 #
 # If set, $gi must match the generic identifier (tag) of the element
-# for it to be returned, otherwise 'dc:Identifier'
+# for it to be returned, otherwise 'dc:identifier'
 #
 # Arguments:
 #   $twig: XML::Twig to search
@@ -1383,19 +1389,18 @@ sub twig_search_knownuids
 
 
 #
-# sub twig_search_knownuidschemes($topelement,$gi)
+# sub twig_search_knownuidschemes($topelement)
 #
-# Searches descendants of an XML twig element for the first subelement
-# with the attribute 'scheme' matching a known list of schemes for
-# unique IDs
+# Searches descendants of an XML twig element for the first
+# <dc:identifier> subelement with the attribute 'scheme' matching a
+# known list of schemes for unique IDs
 #
-# If set, $gi must match the generic identifier (tag) of the element
-# for it to be returned, otherwise 'dc:Identifier'
+# Will search for both:
+#   * opf:scheme in dc:identifier elements (OPF 2.0)
+#   * scheme in dc:Identifier elements (OEB 1.2)
 #
 # Arguments:
 #   $topelement : twig element to start descendant search
-#   $gi: generic identifier (tag) to check against
-#        Default value: 'dc:identifier' (case-insensitive match)
 #
 # Returns the ID if a match is found, undef otherwise
 #
@@ -1410,6 +1415,9 @@ sub twig_search_knownuidschemes
 	ISBN
 	FWID
 	);
+    # Creating a regexp to search on works, but doesn't let you
+    # specify priority.  For that, you really do have to loop.
+    my $schemeregexp = "(" . join('|',@knownuidschemes) . ")";
     my $scheme;
 
     my @elems;
@@ -1418,19 +1426,23 @@ sub twig_search_knownuidschemes
 
     my $retval = undef;
 
-    print "DEBUG[twig_search_knownuidschemes]\n";
+    print "DEBUG[twig_search_knownuidschemes]\n" if($debug);
+
     foreach $scheme (@knownuidschemes)
     {
 	print "DEBUG: searching for scheme='",$scheme,"'\n" if($debug);
-	@elems = $topelement->descendants(qr/dc:identifier[\@scheme='$scheme']/i);
+	@elems = $topelement->descendants("dc:identifier[\@opf:scheme='$scheme']");
+	push(@elems,$topelement->descendants("dc:Identifier[\@scheme='$scheme']"));
 	foreach $elem (@elems)
 	{
+	    print "DEBUG: working on scheme '",$scheme,"'\n" if($debug);
 	    if(defined $elem)
 	    {
 		if($scheme eq 'FWID')
 		{
 		    # Fictionwise has a screwy output that sets the ID
 		    # equal to the text.  Fix the ID to just be 'FWID'
+		    print "DEBUG: fixing FWID\n" if($debug);
 		    $elem->set_id('FWID');
 		}
 
@@ -1452,6 +1464,7 @@ sub twig_search_knownuidschemes
 	} # foreach $elem (@elems)
 	last if(defined $retval);
     }
+    print "DEBUG: returning from twig_search_knownuidschemes\n" if($debug);
     return $retval;
 }
 
