@@ -42,14 +42,17 @@ if(! $opffile)
     die("Could not find an OPF file.\n"); 
 }
 
+($filebase,$filedir,$fileext) = fileparse($opffile,'\.\w+$');
+$tidyfile = $filebase . "-tidy" . $fileext;
+# An initial cleanup is required to deal with any entities?
+#system_tidy_xml($opffile,$tidyfile);
+
 $oeb = OEB::Tools->new( opffile => $opffile );
 $oeb->init;
-$oeb->fixoeb12;
+$oeb->fixopf20;
 $oeb->fixmisc;
 $oeb->save;
 
-($filebase,$filedir,$fileext) = fileparse($opffile,'\.\w+$');
-$tidyfile = $filebase . "-tidy" . $fileext;
 $retval = system_tidy_xml($opffile,$tidyfile);
 exit($retval);
 
