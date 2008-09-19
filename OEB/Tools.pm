@@ -1,49 +1,177 @@
 package OEB::Tools;
-
-#
-# A collection of tools to manipulate documents in Open E-book
-# formats.
-#
-# Copyright 2008 Zed Pobre
-# Licensed to the public under the terms of the GNU GPL, version 2
-#
-# TODO:
-# * fix broken dc:date formats
-# * sub for sort_children to sort on GI + ID
-#
-
+our $VERSION=0.1;
+our $debug = 0;
 use warnings;
 use strict;
 
-our $debug = 0;
+=head1 NAME
+
+OEB::Tools — A collection of tools to manipulate documents in Open
+E-book formats.
+
+=head1 DESCRIPTION
+
+This module provides an object interface and a number of related
+procedures intended to create or modify documents centered around the
+International Digital Publishing Forum (IDPF) standards, currently
+both OEBPS v1.2 and OPS/OPF v2.0.
+
+=cut
+
+# TODO:
+# * fix broken dc:date formats
+# * sub for sort_children to sort on GI + ID
+# * fix packageid check to test of the element not only exists but
+#   actually has text associated with it
+#
 
 require Exporter;
-our @ISA = ("Exporter");
+use base qw(Class::Accessor Exporter);
 
-our @EXPORT_OK = qw (
-    &create_epub_container
-    &create_epub_mimetype
-    &get_container_rootfile
-    &print_memory
-    &split_metadata
-    &system_tidy_xml
-    &system_tidy_xhtml
-    &twig_add_document
-    &twig_delete_meta_filepos
-    &twig_fix_lowercase_dcmeta
-    &twig_fix_packageid
-);
+
+=head1 DEPENDENCIES
+
+=head2 Perl Modules
+
+=over
+
+=item Archive::Zip
+
+=item Date::Manip
+
+=item File::Basename
+
+=item File::MimeInfo::Magic
+
+=item FindBin
+
+=item XML::Twig::XPath
+
+=back
+
+=head2 Other Programs
+
+=over
+
+=item Tidy
+
+=back
+
+=cut
 
 # OSSP::UUID will provide Data::UUID on systems such as Debian that do
 # not distribute the original Data::UUID.
 use Data::UUID;
 
 use Archive::Zip qw( :CONSTANTS :ERROR_CODES );
-
+use Date::Manip;
 use File::Basename 'fileparse';
+# File::MimeInfo::Magic gets *.css right, but detects all html as
+# text/html, even if it has an XML header.
+use File::MimeInfo::Magic;
+# File::MMagic gets text/xml right (though it still doesn't properly detect XHTML), but detects CSS as x-system, and has a number of other weird bugs.
+#use File::MMagic;
 use FindBin;
-use HTML::Tidy;
+#use HTML::Tidy;
 use XML::Twig::XPath;
+
+our @EXPORT_OK;
+our @fields;
+
+@EXPORT_OK = qw (
+    &create_epub_container
+    &create_epub_mimetype
+    &fix_date
+    &get_container_rootfile
+    &print_memory
+    &split_metadata
+    &system_tidy_xml
+    &system_tidy_xhtml
+    );
+
+@fields = qw(
+    opffile
+    spec
+    twig
+    twigroot
+    error
+    );
+    
+# A simple 'use fields' will not work here: use takes place inside
+# BEGIN {}, so the @fields variable won't exist.
+require fields;
+fields->import(@fields);
+OEB::Tools->mk_accessors(@fields);
+
+=head1 CONFIGURABLE GLOBAL VARIABLES
+
+=over
+
+=item $datapath
+
+The location where various external files (such as tidy configuration
+files) can be found.
+
+Defaults to $FindBin::RealBin . "/OEB"
+
+=item $tidycmd
+
+The tidy executable name.  This has to be a fully qualified pathname
+if tidy isn't on the path.  Defaults to 'tidy'.
+
+=item $tidyconfig
+
+The name of the tidy configuration file.  It will be looked for as
+"$datapath/$tidyconfig".  Defaults to 'tidy-oeb.conf', but nothing bad
+will happen if it can't be found.
+
+=item $tidyxhtmlerrors
+
+The name of the error output file from system_tidy_xhtml().  Defaults
+to 'tidyxhtml-errors.txt'
+
+=item $tidyxmlerrors
+
+The name of the error output file from system_tidy_xml().  Defaults to
+'tidyxml-errors.txt'
+
+=item $tidysafety
+
+The safety level to use when running tidy.  Potential values are:
+
+=over
+
+=item <1:
+
+No checks performed, no error files kept, works like a clean tidy -m
+
+This setting is DANGEROUS!
+
+=item 1:
+
+Overwrites original file if there were no errors, but even if there
+were warnings.  Keeps a log of errors, but not warnings.
+
+=item 2:
+
+Overwrites original file if there were no errors, but even if there
+were warnings.  Keeps a log of both errors and warnings.
+
+=item 3:
+
+Overwrites original file only if there were no errors or warnings.
+Keeps a log of both errors and warnings.
+
+=item 4+:
+
+Never overwrites original file.  Keeps a log of both errors and
+warnings.
+
+=back
+
+=back
+
+=cut
 
 our $datapath = $FindBin::RealBin . "/OEB";
 
@@ -54,16 +182,6 @@ our $tidyxhtmlerrors = 'tidyxhtml-errors.txt';
 our $tidyxmlerrors = 'tidyxml-errors.txt';
 our $tidysafety = 1;
 # $tidysafety values:
-# <1: no checks performed, no error files kept, works like a clean tidy -m
-#     This setting is DANGEROUS
-#  1: Overwrites original file if there were no errors, but even if
-#     there were warnings.  Keeps a log of errors, but not warnings.
-#  2: Overwrites original file if there were no errors, but even if
-#     there were warnings.  Keeps a log of both errors and warnings.
-#  3: Overwrites original file only if there were no errors or
-#     warnings.  Keeps a log of both errors and warnings.
-# 4+: Never overwrites original file.  Keeps a log of both errors and
-#     warnings.
 
 
 
@@ -228,48 +346,147 @@ my %oebspecs = (
 
 ########## METHODS ##########
 
+=head1 ACCESSORS
+
+=head2 opffile
+
+Reads and writes the name of the OPF filename the
+object will use for the C<init> and C<save> methods.
+
+=head2 spec
+
+The version of the OEB specification currently in use.  Valid values
+are C<OEB12> and C<OPF20>.  This value will default to undef until
+C<fixoeb12> or C<fixopf20> is called, as there is no way for the
+object to know what the format is until it attempts to enforce it.
+
+=head2 twig
+
+The main twig object used to store the OPF XML tree.
+
+=head2 twigroot
+
+The twig object corresponding to the root tag, which should always be
+<package>.  Modifying this will modify the twig.
+
+=head2 error
+
+Reads the last generated error message, if any.
+
+=head1 METHODS
+
+=head2 new($filename)
+
+Instantiates a new OEB::Tools object.  If C<$filename> is specified,
+it will also immediately initialize itself via the C<init> method.
+
+=cut
+
 sub new
 {
     my $self = shift;
     my $class = ref($self) || $self;
-    $self = {
-	opffile => undef,
-	spec => undef,
-	twig => XML::Twig->new(
-	    keep_atts_order => 1,
-	    output_encoding => 'utf-8',
-	    pretty_print => 'record'
-	    ),
-	twigroot => undef,
-        twigmeta => undef,
-	error => undef,
-	@_
-    };
-    bless($self, $class);
+
+    print "DEBUG[new]\n" if($debug);
+
+    $self = fields::new($class);
+    my ($filename) = @_;
+    $self->init($filename) if($filename);
     return $self;
 }
 
+=head2 init($filename)
+
+Initializes the data from an existing OPF file.  If C<$filename> is
+specified and exists, the OEB object will be set to read and write to
+that file before attempting to initialize.  Otherwise, if the object
+currently points to an OPF file it will use that name.  If there is no
+OPF filename data, and C<$filename> was not specified, it will make a
+last-ditch attempt to find an OPF file first by looking in
+META-INF/container.xml, and if nothing is found there, by looking in
+the current directory for a single OPF file.
+
+If no such files or found (or more than one is found), the method will
+die horribly.
+
+=cut
 
 sub init
 {
     my $self = shift;
     my ($filename) = @_;
 
-    if($filename) { $$self{opffile} = $filename; }
-    if(! $$self{opffile}) { $$self{opffile} = get_container_rootfile(); }
+    print "DEBUG[init]\n" if($debug);
 
-    if(! $$self{opffile})
+    if($filename) { $self->opffile($filename); }
+
+    if(!$self->opffile) { $self->opffile( get_container_rootfile() ); }
+    
+    if(!$self->opffile)
     {
-	die("Could not initialize OEB object!")
+	my @candidates = glob("*.opf");
+	die("No OPF file specified, and there are multiple files to choose from")
+	    if(scalar(@candidates) > 1);
+	die("No OPF file specified, and I couldn't find one nearby")
+	    if(scalar(@candidates) < 1);
+	$self->opffile($candidates[0]);
+    }
+    
+    if(-z $self->opffile)
+    {
+	die("OPF file '",$self->opffile,"' has zero size!");
     }
 
+    if(! -f $self->opffile)
+    {
+	die("Could not initialize OEB object from '",$$self{opffile},"'!")
+    }
+
+    # Initialize the twig before use
+    $$self{twig} = XML::Twig->new(
+	keep_atts_order => 1,
+	output_encoding => 'utf-8',
+	pretty_print => 'record'
+	),
+
     $$self{twig}->parsefile($$self{opffile});
-    $$self{twigroot} = $$self{twig}->root;
-    $$self{twigmeta} = $$self{twigroot}->first_child('metadata');
+    $$self{twigroot} = $$self{twig}->root
+	or die("[OEB::init] '",$$self{opffile},"' has no root!");
+    die("[OEB::init] '",$$self{opffile},"' root must be <package> (found '",
+	$$self{twigroot}->gi,"')!")
+	if($$self{twigroot}->gi ne 'package');
 
     return $self;
 }
 
+=head2 add_document($id,$href,$mediatype)
+
+Adds a document to the OPF manifest and spine.
+
+=head3 Arguments
+
+=over 
+
+=item $id
+
+The XML ID to use.  This must be unique not only to the manifest list,
+but to every element in the file.
+
+=item $href
+
+The href to the document in question.  Usually, this is just a
+filename (or relative path and filename) of a file in the current
+working directory.  If you are planning to eventually generate a .epub
+book, all hrefs MUST be in or below the current working directory.
+
+=item $mediatype (optional)
+
+The mime type of the document.  If not specified, will default to
+'application/xhtml+xml'.
+
+=back
+
+=cut
 sub add_document
 {
     my $self = shift;
@@ -277,6 +494,14 @@ sub add_document
     twig_add_document(\$$self{twig},$id,$href,$mediatype);
     return $self;
 }
+
+=head2 epubinit ()
+
+Generates the C<mimetype> and C<META-INF/container.xml> files expected
+by a .epub container, but does not actually generate the .epub file
+itself.  This will be called automatically by C<gen_epub>.
+
+=cut
 
 sub epubinit ()
 {
@@ -286,19 +511,75 @@ sub epubinit ()
     return;
 }
 
+=head2 fixmisc ()
+
+Fixes miscellaneous potential problems in OPF data.  Specifically:
+
+=over
+
+=item * Standardizes the date format in <dc:date> elements
+
+=item * Deletes any secondary <metadata> elements containing the
+"filepos" attribute (potentially left over from Mobipocket
+conversions)
+
+=item * Verifies that the package ID corresponds to a proper
+dc:identifier, and if not, creates a dc:identifier and assigns it.
+
+=item * Inserts an <output> metadata element if it is missing (to
+support Mobipocket Creator)
+
+=back
+
+=cut
 sub fixmisc ()
 {
     my $self = shift;
 
+    print "DEBUG[fixmisc]\n" if($debug);
+
+    # Fix date formating
+    foreach my $dcdate ($$self{twigroot}->descendants('dc:date'))
+    {
+	if(!$dcdate->text)
+	{
+	    print "WARNING: found dc:date with no value -- skipping\n";
+	}
+	else
+	{
+	    my $newdate = fix_date($dcdate->text);
+	    if(!$newdate)
+	    {
+		print "WARNING: the date '",$dcdate->text,
+		"' is so badly formatted I can't deal with it -- skipping.\n";
+	    }
+	    else
+	    {
+		print "DEBUG: setting date from '",$dcdate->text,
+		"' to '",$newdate,"'\n" if($debug);
+		$dcdate->set_text($newdate);
+	    }
+	}
+    }
+	
     # Delete extra metadata
     twig_delete_meta_filepos(\$$self{twig});
+
     # Make sure the package ID is valid, and assign it if not
     twig_fix_packageid(\$$self{twig});
+
     # Fix miscellaneous Mobipocket-related issues
     twig_fix_mobi(\$$self{twig});
+
+    print "DEBUG: returning from fixmisc\n" if($debug);
     return $self;
 }
 
+=head2 fixopf20 ()
+
+Modifies the OPF data to conform to the OPF 2.0 standard
+
+=cut
 sub fixopf20 ()
 {
     my $self = shift;
@@ -307,6 +588,12 @@ sub fixopf20 ()
     $$self{spec} = $oebspecs{'OPF20'};
     return $self;
 }
+
+=head2 fixoeb12 ()
+
+Modifies the OPF data to conform to the OEB 1.2 standard
+
+=cut
 
 sub fixoeb12 ()
 {
@@ -317,6 +604,25 @@ sub fixoeb12 ()
     $$self{spec} = $oebspecs{'OEB12'};
     return $self;
 }
+
+=head2 gen_epub($filename)
+
+Creates a .epub format e-book.  This will create (or overwrite) the
+files 'mimetype' and 'META-INF/container.xml' in the current
+directory, creating the subdirectory META-INF as needed.
+
+=head3 Arguments
+
+=over
+
+=item $filename
+
+The filename of the .epub output file.  If not specifies, takes the
+base name of the opf file and adds a .epub extension.
+
+=back
+
+=cut
 
 sub gen_epub
 {
@@ -373,14 +679,25 @@ sub gen_epub
     return;
 }
 
+
+=head2 manifest_hrefs ()
+
+Returns a list of all of the hrefs in the current OPF manifest
+
+=cut
+
 sub manifest_hrefs ()
 {
     my $self = shift;
+
+    print "DEBUG[manifest_hrefs]\n" if($debug);
 
     my @items;
     my $href;
     my $manifest;
     my @retval;
+
+    my $type;
 
     $manifest = $$self{twigroot}->first_child('manifest');
     if(! $manifest) { return @retval; }
@@ -388,11 +705,26 @@ sub manifest_hrefs ()
     @items = $manifest->descendants('item');
     foreach my $item (@items)
     {
+	if($debug)
+	{
+	    if(-f $item->att('href'))
+	    {
+		undef $type;
+		$type = mimetype($item->att('href'));
+		print "DEBUG: '",$item->att('href'),"' has mime-type '",$type,"'\n";
+	    }
+	}
 	$href = $item->att('href');
 	push(@retval,$href);
     }
     return @retval;
 }
+
+=head2 printopf ()
+
+Prints the OPF file to the default filehandle
+
+=cut
 
 sub printopf ()
 {
@@ -403,6 +735,12 @@ sub printopf ()
     else { $$self{twig}->print; }
     return;
 }
+
+=head2 save ()
+
+Saves the OPF file to disk
+
+=cut
 
 sub save ()
 {
@@ -415,37 +753,42 @@ sub save ()
     return $self;
 }
 
-sub twig ()
-{
-    my $self = shift;
-    return $$self{twig};
-}
 
-sub twigroot ()
-{
-    my $self = shift;
-    return $$self{twig}->root;
-}
+########## PROCEDURES ##########
 
-########## GENERAL SUBS ##########
+=head1 PROCEDURES
 
-#
-# sub create_epub_container($opffile)
-#
-# Creates the XML file META-INF/container.xml pointing to the
-# specified OPF file.
-#
-# Creates the META-INF directory if necessary.  Will destroy any
-# non-directory file named 'META-INF' in the current directory.
-#
-# Arguments:
-#   $opffile : The OPF filename (and path, if necessary) to use in the
-#	       container.  If not specified, looks for a sole OPF file in the
-#	       current working directory.  Fails if more than one is found.
-#
-# Returns a twig representing the container data if successful, undef
-# otherwise
-#
+=head2 create_epub_container($opffile)
+
+Creates the XML file META-INF/container.xml pointing to the
+specified OPF file.
+
+Creates the META-INF directory if necessary.  Will destroy any
+non-directory file named 'META-INF' in the current directory.
+
+=head3 Arguments
+
+=over
+
+=item $opffile
+
+The OPF filename (and path, if necessary) to use in the container.  If
+not specified, looks for a sole OPF file in the current working
+directory.  Fails if more than one is found.
+
+=back
+
+=head3 Return values
+
+=over
+
+=item Returns a twig representing the container data if successful, undef
+otherwise
+
+=back
+
+=cut
+
 sub create_epub_container
 {
     my ($opffile) = @_;
@@ -489,17 +832,17 @@ sub create_epub_container
 }
 
 
-#
-# sub create_epub_mimetype ()
-#
-# Creates a file named 'mimetype' in the current working directory
-# containing 'application/epub+zip' (no trailing newline)
-#
-# Destroys and overwrites that file if it exists.
-#
-# Arguments: none
-# Returns the mimetype string if successful, undef otherwise.
-#
+=head2 create_epub_mimetype ()
+
+Creates a file named 'mimetype' in the current working directory
+containing 'application/epub+zip' (no trailing newline)
+
+Destroys and overwrites that file if it exists.
+
+Returns the mimetype string if successful, undef otherwise.
+
+=cut
+
 sub create_epub_mimetype ()
 {
     my $mimetype = "application/epub+zip";
@@ -511,19 +854,217 @@ sub create_epub_mimetype ()
     return $mimetype;
 }
 
+# Make sure month and day are in a plausible range.  Return the passed
+# values if they are, return 3 undefs if not.  Testing of month or day
+# can be skipped by passing undef in that spot.
+#
+sub ymd_sanitycheck
+{
+    my ($year,$month,$day) = @_;
 
-#
-# sub get_container_rootfile($container)
-#
-# Opens and parses an OPS/epub container, extracting the 'full-path'
-# attribute of element 'rootfile'
-#
-# Arguments:
-#   $container : the OPS container to parse.  Defaults to
-#                'META-INF/container.xml'
-#
-# Returns a string containing the rootfile on success, undef on failure.
-#
+    return (undef,undef,undef) unless($year);
+    
+    if($month)
+    {
+	return (undef,undef,undef) if($month > 12);
+	if($day)
+	{
+	    return (undef,undef,undef) if($day > 31);
+	}
+	return ($year,$month,$day);
+    }
+
+    # We don't have a month.  If we *do* have a day, the result is
+    # broken, so send back the undefs.
+    return (undef,undef,undef) if($day);
+    return ($year,undef,undef);
+}
+
+=head2 fix_date($datestring)
+
+Takes a date string and attempts to convert it to the limited subset
+of ISO8601 allowed by the OPF standard (YYYY, YYYY-MM, or YYYY-MM-DD).
+
+In the special case of finding MM/DD/YYYY, it assumes that it was a
+Mobipocket-mangled date, and not only converts it, but will strip the
+day information if the day is '01', and both the month and day
+information if both month and day are '01'.  This is because
+Mobipocket Creator enforces a complete MM/DD/YYYY even if the month
+and day aren't known, and it is common practice to use 01 for an
+unknown value.
+
+=head3 Arguments
+
+=over
+
+=item $datestring
+
+A date string in a format recognizable by Date::Manip
+
+=back
+
+=head3 Return values
+
+=over
+
+=item Returns the corrected string, or undef on failure
+
+=back
+
+=cut
+
+sub fix_date
+{
+    my ($datestring) = @_;
+    return unless($datestring);
+
+    my $date;
+    my ($year,$month,$day);
+    my $retval;
+
+    print "DEBUG[fix_date]: '",$datestring,"'\n" if($debug);
+
+    $_ = $datestring;
+
+    print "DEBUG: checking MM/DD/YYYY\n" if($debug);
+    if(( ($month,$day,$year) = /(\d{2})\/(\d{2})\/(\d{4})/ ) == 3)
+    {
+	# We have a XX/XX/XXXX datestring
+	print "DEBUG: found '",$month,"/",$day,"/",$year,"'\n" if($debug);
+	if( ($month <= 12) && ($day <= 31) )
+	{
+	    # We probably have a Mobipocket MM/DD/YYYY
+	    if($day <= 1)
+	    {
+		undef($day);
+		undef($month) if($month <= 1);
+	    }
+
+	    $retval = $year;
+	    $retval .= sprintf("-%02u",$month) if($month);
+	    $retval .= sprintf("-%02u",$day) if($day);
+	    return $retval;
+	}
+    }
+
+    print "DEBUG: checking MM/YYYY\n" if($debug);
+    if(( ($month,$year) = /(\d{2})\/(\d{4})/ ) == 2)
+    {
+	# We have a XX/XXXX datestring
+	print "DEBUG: found '",$month,"/",$year,"'\n" if($debug);
+	if($month <= 12)
+	{
+	    # We probably have MM/YYYY
+	    $retval = sprintf("%04u-%02u",$year,$month);
+	    print "DEBUG: returning '",$retval,"'\n" if($debug);
+	    return $retval;
+	}
+    }
+
+    # This regexp will reduce '2009-xx-01' to just 2009
+    # This may not be desirable
+#    ($year,$month,$day) = /(\d{4})-?(\d{2})?-?(\d{2})?/;
+#    ($year,$month,$day) = /(\d{4})(?:-?(\d{2})-?(\d{2}))?/;
+
+    # Force exact match)
+    print "DEBUG: checking YYYY-MM-DD\n" if($debug);
+    ($year,$month,$day) = /(\d{4})-(\d{2})-(\d{2})/;
+    ($year,$month,$day) = ymd_sanitycheck($year,$month,$day);
+
+    if(!$year)
+    {
+	print "DEBUG: checking YYYYMMDD\n" if($debug);
+	($year,$month,$day) = /(\d{4})(\d{2})(\d{2})/;
+	($year,$month,$day) = ymd_sanitycheck($year,$month,$day);
+    }
+
+    if(!$year)
+    {
+	print "DEBUG: checking YYYY-MM\n" if($debug);
+	($year,$month) = /(\d{4})-(\d{2})/;
+	($year,$month) = ymd_sanitycheck($year,$month,undef);
+    }
+
+    if(!$year)
+    {
+	print "DEBUG: checking YYYY\n" if($debug);
+	($year) = /^(\d{4})$/;
+    }
+
+    # At this point, we've exhausted all of the common cases.  We use
+    # Date::Manip to hit all of the unlikely ones as well.  This comes
+    # with a drawback: Date::Manip doesn't distinguish between 2008
+    # and 2008-01-01, but we should have covered that above.
+
+    $date = ParseDate($datestring);
+    print "DEBUG: Date::Manip found '",UnixDate($date,"%Y-%m-%d"),"'\n" if($debug);
+    $year = UnixDate($date,"%Y");
+    $month = UnixDate($date,"%m");
+    $day = UnixDate($date,"%d");
+    
+    if($year)
+    {
+	# If we still have a $year, $month and $day either don't exist
+	# or are plausibly valid.
+	print "DEBUG: found year=",$year," " if($debug);
+	$retval = sprintf("%04u",$year);
+	if($month)
+	{
+	    print "month=",$month," " if($debug);
+	    $retval .= sprintf("-%02u",$month);
+	    if($day)
+	    {
+		print "day=",$day if($debug);
+		$retval .= sprintf("-%02u",$day);
+	    }
+	}
+	print "\n" if($debug);
+	print "DEBUG: returning '",$retval,"'\n" if($debug);
+	return $retval if($retval);
+    }
+
+    if(!$year)
+    {
+	print "DEBUG: didn't find a year in '",$datestring,"'!\n" if($debug);
+	return undef;
+    }
+    elsif($debug)
+    {
+	print "DEBUG: found ",sprintf("04u",$year);
+	print sprintf("-02u",$month) if($month);
+	print sprintf("-02u",$day),"\n" if($day);
+    }
+
+    $retval = sprintf("%04u",$year);
+    $retval .= sprintf("-%02u-%02u",$month,$day);
+    return $retval;
+}
+
+=head2 get_container_rootfile($container)
+
+Opens and parses an OPS/epub container, extracting the 'full-path'
+attribute of element 'rootfile'
+
+=head3 Arguments
+
+=over
+
+=item $container
+
+The OPS container to parse.  Defaults to 'META-INF/container.xml'
+
+=back
+
+=head3 Return values
+
+=over
+
+=item Returns a string containing the rootfile on success, undef on failure.
+
+=back
+
+=cut
+
 sub get_container_rootfile
 {
     my ($container) = @_;
@@ -543,17 +1084,28 @@ sub get_container_rootfile
     return $retval;
 }
 
-#
-# sub print_memory($label)
-#
-# Checks /proc/$PID/statm and prints out a line to STDERR showing the
-# current memory usage
-#
-# Arguments: 
-#   $label : If defined, will be output along with the memory usage.
-#            Intended to be used to 
-# Returns nothing
-#
+
+=head2 print_memory($label)
+
+Checks /proc/$PID/statm and prints out a line to STDERR showing the
+current memory usage.  This is a debugging tool that will likely fail
+to do anything useful on a system without a /proc system compatible
+with Linux.
+
+=head3 Arguments
+
+=over
+
+=item $label
+
+If defined, will be output along with the memory usage.
+
+=back
+
+Returns nothing
+
+=cut
+
 sub print_memory
 {
     my ($label) = @_;
@@ -585,32 +1137,56 @@ sub print_memory
 }
 
 
-#
-# sub split_metadata($mobihtmlfile)
-#
-# Takes a psuedo-HTML file output by mobi2html and splits out the
-# metadata values into an XML file in preparation for conversion to
-# OPF.  Rewrites the html file without the metadata.
-#
-# If tidy cannot be run, split_metadata MUST output the OEB 1.2
-# doctype (and thus not conform to OPF 2.0, which doesn't use a dtd at
-# all), as the the metadata values may contain HTML entities and Tidy
-# is needed to convert them to UTF-8 characters
-#
-# Arguments:
-#   $mobihtmlfile : The filename of the pseudo-HTML file
-#
-# Returns:
-#   1: a string containing the XML
-#   2: the base filename with the final extension stripped
-# Dies horribly on failure
-#
-# TODO: use sysread / index / substr / syswrite to handle the split in
-# 10k chunks, to avoid massive memory usage on large files
-#
+
+=head2 split_metadata($metahtmlfile)
+
+Takes a psuedo-HTML containing one or more <metadata> segments (such
+as in many files output by mobi2html) and splits out the metadata
+values into an XML file in preparation for conversion to OPF.
+Rewrites the html file without the metadata.
+
+If tidy cannot be run, split_metadata MUST output the OEB 1.2
+doctype (and thus not conform to OPF 2.0, which doesn't use a dtd at
+all), as the the metadata values may contain HTML entities and Tidy
+is needed to convert them to UTF-8 characters
+
+=head3 Arguments
+
+=over
+
+=item $metahtmlfile
+
+The filename of the pseudo-HTML file
+
+=back
+
+
+=head3 Return values
+
+=over
+
+=item 1: a string containing the XML
+
+=item 2: the base filename with the final extension stripped
+
+=back
+
+Dies horribly on failure
+
+=head3 TODO
+
+use sysread / index / substr / syswrite to handle the split in
+10k chunks, to avoid massive memory usage on large files.
+
+This may not be worth the effort, since the average size for most
+books is less than 500k, and the largest books are rarely if ever over
+10M.
+
+=cut
+
 sub split_metadata ( $ )
 {
-    my ($mobihtmlfile) = @_;
+    my ($metahtmlfile) = @_;
 
     my $delim = $/;
 
@@ -627,12 +1203,12 @@ sub split_metadata ( $ )
     my $retval;
 
     
-    ($filebase,$filedir,$fileext) = fileparse($mobihtmlfile,'\.\w+$');
+    ($filebase,$filedir,$fileext) = fileparse($metahtmlfile,'\.\w+$');
     $metafile = $filebase . ".opf";
     $htmlfile = $filebase . "-html.html";
 
-    open(MOBIHTML,"<",$mobihtmlfile)
-	or die("Failed to open ",$mobihtmlfile," for reading!\n");
+    open(METAHTML,"<",$metahtmlfile)
+	or die("Failed to open ",$metahtmlfile," for reading!\n");
 
     open(META,">",$metafile)
 	or die("Failed to open ",$metafile," for writing!\n");
@@ -652,7 +1228,7 @@ sub split_metadata ( $ )
     # Since multiple <metadata> sections may be present, cannot use
     # </metadata> as a delimiter.
     undef $/;
-    while(<MOBIHTML>)
+    while(<METAHTML>)
     {
 	($metastring) = /(<metadata>.*<\/metadata>)/;
 	if(!defined $metastring) { last; }
@@ -665,12 +1241,17 @@ sub split_metadata ( $ )
 
     close(HTML);
     close(META);
-    close(MOBIHTML);
+    close(METAHTML);
+
+    # It is very unlikely that split_metadata will be called twice
+    # from the same program, so undef $metastring to reclaim the
+    # memory.  Just going out of scope will not necessarily do this.
+    undef($metastring);
 
     system_tidy_xml($metafile,"$filebase-tidy.opf");
-#    system_tidy_xhtml($htmlfile,$mobihtmlfile);
-    rename($htmlfile,$mobihtmlfile)
-	or die("Failed to rename ",$htmlfile," to ",$mobihtmlfile,"!\n");
+#    system_tidy_xhtml($htmlfile,$metahtmlfile);
+    rename($htmlfile,$metahtmlfile)
+	or die("Failed to rename ",$htmlfile," to ",$metahtmlfile,"!\n");
 
     return $metafile;
 }
@@ -1143,14 +1724,14 @@ sub twig_fix_opf20 ( $ )
 {
     my $twigref = shift;
 
-    print "DEBUG[twig_fix_ops20]\n" if($debug);
+    print "DEBUG[twig_fix_opf20]\n" if($debug);
 
     # Sanity checks
-    die("Tried to fix undefined OPS2.0 twig!")
+    die("Tried to fix undefined OPF2.0 twig!")
 	if(!$$twigref);
     my $twigroot = $$twigref->root
-	or die("Tried to fix OPS2.0 twig with no root!");
-    die("Can't fix OPS2.0 twig if twigroot isn't <package>!")
+	or die("Tried to fix OPF2.0 twig with no root!");
+    die("Can't fix OPF2.0 twig if twigroot isn't <package>!")
 	if($twigroot->gi ne 'package');
 
     my $metadata = $twigroot->first_descendant('metadata');
@@ -1525,103 +2106,67 @@ sub tidy_xml
     return $tidy->clean($xmlstring);
 }
 
-#
-# sub system_tidy_xml($xmlfile)
-#
-# Runs tidy on an XML file modifying in place
-# The tidy program must be in the path
-#
-# Arguments:
-#   $xmlfile : The filename to tidy
-#
-# Global variables:
-#   $datapath : the location of the config files
-#   $tidycmd : the location of the tidy executable
-#   $tidyconfig : the name of the tidy config file to use
-#   $tidyxmlerrors : the filename to use to output errors
-#   $tidysafety: the safety factor to use
-#
-# Returns the return value from tidy
-# Dies horribly if the return value is unexpected
-#
-# Expected return codes from tidy:
-# 0 - no errors
-# 1 - warnings only (leave errorfile)
-# 2 - errors (leave errorfile and htmlfile)
-#
-sub system_tidy_xml
-{
-    my $infile;
-    my $outfile;
-    my @configopt = ();
-    my $retval;
-
-    ($infile,$outfile) = @_;
-    
-    die("system_tidy_xml called with no input file") if(!$infile);
-    die("system_tidy_xml called with no output file") if(!$outfile);
-
-    @configopt = ('-config',"$datapath/$tidyconfig")
-	if(-f "$datapath/$tidyconfig");
-
-    $retval = system($tidycmd,@configopt,
-		     '-q','-utf8',
-		     '-xml',
-		     '-f',$tidyxmlerrors,
-		     '-o',$outfile,
-		     $infile);
-
-    # Some systems may return a two-byte code, so deal with that first
-    if($retval >= 256) { $retval = $retval >> 8 };
-    if($retval == 0)
-    {
-	rename($outfile,$infile) if($tidysafety < 4);
-	unlink($tidyxmlerrors);
-    }
-    elsif($retval == 1)
-    {
-	rename($outfile,$infile) if($tidysafety < 3);
-	unlink($tidyxmlerrors) if($tidysafety < 2);
-    }
-    elsif($retval == 2)
-    {
-	print STDERR "WARNING: Tidy errors encountered.  Check ",$tidyxmlerrors,"\n"
-	    if($tidysafety > 0);
-	unlink($tidyxmlerrors) if($tidysafety < 1);
-    }
-    else
-    {
-	# Something unexpected happened (program crash, sigint, other)
-	die("Tidy did something unexpected (return value=",$retval,").  Check all output.");
-    }
-    return $retval;
-}
 
 
-#
-# sub system_tidy_xhtml($infile,$outfile)
-#
-# Runs tidy on a XHTML file semi-safely (using a secondary file)
-# Converts HTML to XHTML if necessary
-# The tidy program must be in the path
-#
-# Arguments:
-#  $htmlfile : The filename to tidy
-#
-# Global variables:
-#   $tidycmd : the location of the tidy executable
-#   $tidyconfig : the location of the config file to use
-#   $tidyxhtmlerrors : the filename to use to output errors
-#   $tidysafety: the safety factor to use
-#
-# Returns the return value from tidy
-# Dies horribly if the return value is unexpected
-#
-# Expected return codes from tidy:
-# 0 - no errors
-# 1 - warnings only (leave errorfile)
-# 2 - errors (leave errorfile and htmlfile)
-#
+=head2 system_tidy_xhtml($infile,$outfile)
+
+Runs tidy on a XHTML file semi-safely (using a secondary file)
+
+Converts HTML to XHTML if necessary
+
+=head3 Arguments
+
+=over
+
+=item $infile
+
+The filename to tidy
+
+=item $outfile
+
+The filename to use for tidy output if the safety condition to
+overwrite the input file isn't met.
+
+=back
+
+=head3 Global variables used
+
+=over
+
+=item $tidycmd
+
+the location of the tidy executable
+
+=item $tidyconfig
+
+the location of the config file to use
+
+=item $tidyxhtmlerrors
+
+the filename to use to output errors
+
+=item $tidysafety
+
+the safety factor to use (see CONFIGURABLE GLOBAL VARIABLES, above)
+
+=back
+
+Returns the return value from tidy
+
+Dies horribly if the return value is unexpected
+
+=head3 Expected return codes from tidy
+
+=over
+
+=item 0 - no errors
+
+=item 1 - warnings only
+
+=item 2 - errors
+
+=cut
+
 sub system_tidy_xhtml
 {
     my $infile;
@@ -1664,3 +2209,149 @@ sub system_tidy_xhtml
     }
     return $retval;
 }
+
+
+=head2 system_tidy_xml($infile,$outfile)
+
+Runs tidy on an XML file semi-safely (using a secondary file)
+
+=head3 Arguments
+
+=over
+
+=item $infile
+
+The filename to tidy
+
+=item $outfile
+
+The filename to use for tidy output if the safety condition to
+overwrite the input file isn't met.
+
+=back
+
+=head3 Global variables used
+
+=over
+
+=item $datapath
+
+the location of the config file
+
+=item $tidycmd
+
+the name of the tidy executable
+
+=item $tidyconfig
+
+the name of the tidy config file to use
+
+=item $tidyxmlerrors
+
+the filename to use to output errors
+
+=item $tidysafety
+
+the safety factor to use (see CONFIGURABLE GLOBAL VARIABLES, above)
+
+=back
+
+Returns the return value from tidy
+
+Dies horribly if the return value is unexpected
+
+=head3 Expected return codes from tidy
+
+=over
+
+=item 0 - no errors
+
+=item 1 - warnings only
+
+=item 2 - errors
+
+=back
+
+=cut
+
+sub system_tidy_xml
+{
+    my ($infile,$outfile) = @_;
+    my @configopt = ();
+    my $retval;
+    
+    die("system_tidy_xml called with no input file") if(!$infile);
+    die("system_tidy_xml called with no output file") if(!$outfile);
+
+    @configopt = ('-config',"$datapath/$tidyconfig")
+	if(-f "$datapath/$tidyconfig");
+
+    $retval = system($tidycmd,@configopt,
+		     '-q','-utf8',
+		     '-xml',
+		     '-f',$tidyxmlerrors,
+		     '-o',$outfile,
+		     $infile);
+
+    # Some systems may return a two-byte code, so deal with that first
+    if($retval >= 256) { $retval = $retval >> 8 };
+    if($retval == 0)
+    {
+	rename($outfile,$infile) if($tidysafety < 4);
+	unlink($tidyxmlerrors);
+    }
+    elsif($retval == 1)
+    {
+	rename($outfile,$infile) if($tidysafety < 3);
+	unlink($tidyxmlerrors) if($tidysafety < 2);
+    }
+    elsif($retval == 2)
+    {
+	print STDERR "WARNING: Tidy errors encountered.  Check ",$tidyxmlerrors,"\n"
+	    if($tidysafety > 0);
+	unlink($tidyxmlerrors) if($tidysafety < 1);
+    }
+    else
+    {
+	# Something unexpected happened (program crash, sigint, other)
+	die("Tidy did something unexpected (return value=",$retval,").  Check all output.");
+    }
+    return $retval;
+}
+
+
+=head1 EXAMPLE
+
+ package OEB::Tools qw(split_metadata system_tidy_xml);
+ $OEB::Tools::tidysafety = 2;
+
+ my $opffile = split_metadata('ebook.html');
+ my $retval = system_tidy_xml($opffile,'tidy-backup.xml');
+ my $oeb = OEB::Tools->new($opffile);
+ $oeb->fixopf20;
+ $oeb->fixmisc;
+ $oeb->print;
+ $oeb->save;
+
+=head1 BUGS/TODO
+
+=over
+
+=item die() is called much too frequently for this to be integrated
+into large applications yet.  The error storage isn't used at all.
+Fatalities need to be converted either into exceptions or return
+values, and I haven't decided which way to go yet.
+
+=back
+
+=head1 AUTHOR
+
+Zed Pobre <zed@debian.org>
+
+=head1 COPYRIGHT
+
+Copyright © 2008 Zed Pobre
+
+Licensed to the public under the terms of the GNU GPL, version 2
+
+=cut
