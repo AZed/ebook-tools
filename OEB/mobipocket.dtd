@@ -245,7 +245,8 @@ Usage:
       %CommonAttributes;
       %DCNamespaceAttribute;>
 
-<!-- <x-metadata> may contain 0 or more of meta, output, EmbeddedCover. -->
+<!-- <x-metadata> may contain 0 or more of 'meta' and the 
+     Mobipocket-specific elements -->
 
 <!ELEMENT x-metadata (
 	  meta*,
