@@ -245,18 +245,18 @@ Usage:
       %CommonAttributes;
       %DCNamespaceAttribute;>
 
-<!-- <x-metadata> may contain 0 or more of 'meta' and the 
+<!-- <x-metadata> may contain 0 or more of 'meta', and 0 or 1 of the
      Mobipocket-specific elements -->
 
 <!ELEMENT x-metadata (
 	  meta*,
-	  output*,
-	  EmbeddedCover*,
-	  DefaultLookupIndex*,
-	  DictionaryInLanguage*,
-	  DictionaryOutLanguage*,
-	  DictionaryVeryShortName*,
-	  DatabaseName*
+	  output?,
+	  EmbeddedCover?,
+	  DefaultLookupIndex?,
+	  DictionaryInLanguage?,
+	  DictionaryOutLanguage?,
+	  DictionaryVeryShortName?,
+	  DatabaseName?
 	  )>
 <!ATTLIST x-metadata %CommonAttributes;>
 
