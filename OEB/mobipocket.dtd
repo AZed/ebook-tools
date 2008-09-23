@@ -247,7 +247,16 @@ Usage:
 
 <!-- <x-metadata> may contain 0 or more of meta, output, EmbeddedCover. -->
 
-<!ELEMENT x-metadata (meta*,output*,EmbeddedCover*)>
+<!ELEMENT x-metadata (
+	  meta*,
+	  output*,
+	  EmbeddedCover*,
+	  DefaultLookupIndex*,
+	  DictionaryInLanguage*,
+	  DictionaryOutLanguage*,
+	  DictionaryVeryShortName*,
+	  DatabaseName*
+	  )>
 <!ATTLIST x-metadata %CommonAttributes;>
 
 <!-- Note that 'content' and 'name' are required attributes
@@ -274,6 +283,46 @@ Usage:
      to be in the manifest. -->
 
 <!ELEMENT EmbeddedCover (#PCDATA)>
+
+<!-- 'DefaultLookupIndex' forces the default lookup index, i.e. the
+     index that is opened when the ebook is used as a lookup
+     dictionary from another ebook. It is also the index that is
+     called with the index_search() method when no index name
+     parameter is specified. -->
+
+<!ELEMENT DefaultLookupIndex (#PCDATA)>
+
+<!-- 'DictionaryInLanguage' specifies the dictionary input
+     language. Specifying this tag with the DictionaryOutLanguage tag
+     makes the ebook appear as a dictionary in the Reader
+     Settings. -->
+
+<!ELEMENT DictionaryInLanguage (#PCDATA)>
+
+<!-- 'DictionaryOutLanguage' specifies the dictionary output
+     language. Specifying this tag with the DictionaryInLanguage tag
+     makes the ebook appear as a dictionary in the Reader
+     Settings. -->
+
+<!ELEMENT DictionaryOutLanguage (#PCDATA)>
+
+<!-- 'DictionaryVeryShortName' specifies a short three-letter name for
+     a dictionary ebook. This very short name is displayed in user
+     word lists and search history results. By default if not
+     specified, the very short dictionary name is the first three
+     letters of the dictionary title. If set to empty, no dictionary
+     name is displayed.  This requires Mobipocket version 5.0. -->
+
+<!ELEMENT DictionaryVeryShortName (#PCDATA)>
+
+<!-- 'DatabaseName' forces the database name of the PRC file. If this
+     parameter is not specified, the database name is derived from the
+     title of the book. The database name is used to identify an ebook
+     file in URLs, e.g. oeb:redirect. The database name should not
+     contain spaces and only use Latin alphanumeric characters. The
+     _ (underscore) character is allowed as well. -->
+
+<!ELEMENT DatabaseName (#PCDATA)>
 
 <!-- <manifest> must contain at least one <item>. -->
 
