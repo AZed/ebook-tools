@@ -148,7 +148,7 @@ Usage:
   (%DCMetadataOpt; | dc:Title | dc:Identifier | dc:Language)* )>
 <!ATTLIST dc-metadata
       %CommonAttributes;
-      %DCNamespaceAttribute;
+      xmlns:dc           %URI;           #REQUIRED
       xmlns:oebpackage   %URI;           #REQUIRED>
 
 <!-- Required elements for <dc-metadata>. -->
