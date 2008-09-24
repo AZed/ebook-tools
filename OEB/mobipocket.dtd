@@ -238,25 +238,27 @@ Usage:
 <!ELEMENT dc:Subject (#PCDATA)>
 <!ATTLIST dc:Subject
       %CommonAttributes;
-      %DCNamespaceAttribute;>
+      %DCNamespaceAttribute;
+      BASICCode		CDATA		#IMPLIED>
 
 <!ELEMENT dc:Type (#PCDATA)>
 <!ATTLIST dc:Type
       %CommonAttributes;
       %DCNamespaceAttribute;>
 
-<!-- <x-metadata> may contain 0 or more of 'meta', and 0 or 1 of the
-     Mobipocket-specific elements -->
+<!-- <x-metadata> may contain 0 or more of 'meta' and the
+     Mobipocket-specific elements, in any order -->
 
 <!ELEMENT x-metadata (
-	  meta*,
-	  output?,
-	  EmbeddedCover?,
-	  DefaultLookupIndex?,
-	  DictionaryInLanguage?,
-	  DictionaryOutLanguage?,
-	  DictionaryVeryShortName?,
-	  DatabaseName?
+	  (meta|
+	  output|
+	  Adult|
+	  EmbeddedCover|
+	  DefaultLookupIndex|
+	  DictionaryInLanguage|
+	  DictionaryOutLanguage|
+	  DictionaryVeryShortName|
+	  DatabaseName)*
 	  )>
 <!ATTLIST x-metadata %CommonAttributes;>
 
@@ -279,11 +281,11 @@ Usage:
       encoding           CDATA           #IMPLIED
       content-type       CDATA           #IMPLIED>
 
-<!-- 'EmbeddedCover' is a Mobipocket-specific element to hold the
-     filename of an image to be used for the cover.  It does not have
-     to be in the manifest. -->
+<!-- 'Adult' is a Mobipocket-specific element that specifies whether
+     the book is classified Adult-Only.  If yes, the text value of the
+     element should be 'yes'. -->
 
-<!ELEMENT EmbeddedCover (#PCDATA)>
+<!ELEMENT Adult (#PCDATA)>
 
 <!-- 'DefaultLookupIndex' forces the default lookup index, i.e. the
      index that is opened when the ebook is used as a lookup
@@ -324,6 +326,12 @@ Usage:
      _ (underscore) character is allowed as well. -->
 
 <!ELEMENT DatabaseName (#PCDATA)>
+
+<!-- 'EmbeddedCover' is a Mobipocket-specific element to hold the
+     filename of an image to be used for the cover.  It does not have
+     to be in the manifest. -->
+
+<!ELEMENT EmbeddedCover (#PCDATA)>
 
 <!-- <manifest> must contain at least one <item>. -->
 
