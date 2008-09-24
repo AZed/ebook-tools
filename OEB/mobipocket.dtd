@@ -258,7 +258,9 @@ Usage:
 	  DictionaryInLanguage|
 	  DictionaryOutLanguage|
 	  DictionaryVeryShortName|
-	  DatabaseName)*
+	  DatabaseName|
+	  Review|
+	  SRP)*
 	  )>
 <!ATTLIST x-metadata %CommonAttributes;>
 
@@ -332,6 +334,20 @@ Usage:
      to be in the manifest. -->
 
 <!ELEMENT EmbeddedCover (#PCDATA)>
+
+<!-- 'Review' is a Mobipocket-specific element duplicating the
+     functionality of 'dc:Description' except that it is specific to
+     containing publisher's reviews. -->
+
+<!ELEMENT Review (#PCDATA)>
+
+<!-- 'SRP' is a Mobipocket-specific element to contain the Suggested
+     Retail Price of a book. -->
+
+<!ELEMENT SRP (#PCDATA)>
+<!ATTLIST SRP
+      %CommonAttributes;
+      Currency           CDATA           #REQUIRED>
 
 <!-- <manifest> must contain at least one <item>. -->
 
