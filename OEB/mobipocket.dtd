@@ -255,12 +255,14 @@ Usage:
 	  Adult|
 	  EmbeddedCover|
 	  DefaultLookupIndex|
+	  Demo|
 	  DictionaryInLanguage|
 	  DictionaryOutLanguage|
 	  DictionaryVeryShortName|
 	  DatabaseName|
 	  Review|
-	  SRP)*
+	  SRP|
+	  Territory)*
 	  )>
 <!ATTLIST x-metadata %CommonAttributes;>
 
@@ -296,6 +298,13 @@ Usage:
      parameter is specified. -->
 
 <!ELEMENT DefaultLookupIndex (#PCDATA)>
+
+<!-- 'Demo' is a Mobipocket-specific element that contains the
+     filename of a demo .prc file to be offered for free as a
+     teaser. It may not be the same filename as the main output
+     file. -->
+
+<!ELEMENT Demo (#PCDATA)>
 
 <!-- 'DictionaryInLanguage' specifies the dictionary input
      language. Specifying this tag with the DictionaryOutLanguage tag
@@ -348,6 +357,11 @@ Usage:
 <!ATTLIST SRP
       %CommonAttributes;
       Currency           CDATA           #REQUIRED>
+
+<!-- 'Territory' is a Mobipocket-specific element to contain the
+     territory restriction list. -->
+
+<!ELEMENT Territory (#PCDATA)>
 
 <!-- <manifest> must contain at least one <item>. -->
 
