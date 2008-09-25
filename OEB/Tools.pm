@@ -1,12 +1,13 @@
 package OEB::Tools;
-our $VERSION=0.1;
+use version; our $VERSION = qv("0.1.0");
+
 our $debug = 0;
 use warnings;
 use strict;
 
 =head1 NAME
 
-OEB::Tools — A collection of tools to manipulate documents in Open
+OEB::Tools -- A collection of tools to manipulate documents in Open
 E-book formats.
 
 =head1 DESCRIPTION
@@ -38,6 +39,11 @@ use base qw(Class::Accessor Exporter);
 =item Archive::Zip
 
 =item Date::Manip
+
+Note that Date::Manip will die on MS Windows system unless the
+TZ environment variable is set in a specific manner. See: 
+
+http://search.cpan.org/perldoc?Date::Manip#TIME_ZONES
 
 =item File::Basename
 
@@ -223,7 +229,8 @@ my %dcelements20 = (
     "dc:Language"    => "dc:language",
     "dc:Relation"    => "dc:relation",
     "dc:Coverage"    => "dc:coverage",
-    "dc:Rights"      => "dc:rights"
+    "dc:Rights"      => "dc:rights",
+    "dc:Copyrights"  => "dc:rights"
     );
 
 my %dcelements12to20 = (
@@ -241,7 +248,8 @@ my %dcelements12to20 = (
     "dc:Language"    => "dc:language",
     "dc:Relation"    => "dc:relation",
     "dc:Coverage"    => "dc:coverage",
-    "dc:Rights"      => "dc:rights"
+    "dc:Rights"      => "dc:rights",
+    "dc:Copyrights"  => "dc:rights"
     );
 
 my %dcelements12 = (
@@ -260,6 +268,7 @@ my %dcelements12 = (
     "dc:relation"    => "dc:Relation",
     "dc:coverage"    => "dc:Coverage",
     "dc:rights"      => "dc:Rights",
+    "dc:copyrights"  => "dc:Rights",
     "dc:Title"       => "dc:Title",
     "dc:Creator"     => "dc:Creator",
     "dc:Subject"     => "dc:Subject",
@@ -274,7 +283,8 @@ my %dcelements12 = (
     "dc:Language"    => "dc:Language",
     "dc:Relation"    => "dc:Relation",
     "dc:Coverage"    => "dc:Coverage",
-    "dc:Rights"      => "dc:Rights"
+    "dc:Rights"      => "dc:Rights",
+    "dc:Copyrights"  => "dc:Rights"
     );
 
 my %dcelements20to12 = (
@@ -293,6 +303,7 @@ my %dcelements20to12 = (
     "dc:relation"    => "dc:Relation",
     "dc:coverage"    => "dc:Coverage",
     "dc:rights"      => "dc:Rights",
+    "dc:copyrights"  => "dc:Rights"
     );
 
 my %opfatts_ns = (
@@ -538,8 +549,13 @@ sub fixmisc ()
 
     print "DEBUG[fixmisc]\n" if($debug);
 
+    my @dates;
+
+    @dates = $$self{twigroot}->descendants('dc:date');
+    push(@dates,$$self{twigroot}->descendants('dc:Date'));
+
     # Fix date formating
-    foreach my $dcdate ($$self{twigroot}->descendants('dc:date'))
+    foreach my $dcdate (@dates)
     {
 	if(!$dcdate->text)
 	{
@@ -926,8 +942,8 @@ sub fix_date
 
     $_ = $datestring;
 
-    print "DEBUG: checking MM/DD/YYYY\n" if($debug);
-    if(( ($month,$day,$year) = /(\d{2})\/(\d{2})\/(\d{4})/ ) == 3)
+    print "DEBUG: checking M(M)/D(D)/YYYY\n" if($debug);
+    if(( ($month,$day,$year) = /(\d{1,2})\/(\d{1,2})\/(\d{4})/ ) == 3)
     {
 	# We have a XX/XX/XXXX datestring
 	print "DEBUG: found '",$month,"/",$day,"/",$year,"'\n" if($debug);
@@ -947,8 +963,8 @@ sub fix_date
 	}
     }
 
-    print "DEBUG: checking MM/YYYY\n" if($debug);
-    if(( ($month,$year) = /(\d{2})\/(\d{4})/ ) == 2)
+    print "DEBUG: checking M(M)/YYYY\n" if($debug);
+    if(( ($month,$year) = /(\d{1,2})\/(\d{4})/ ) == 2)
     {
 	# We have a XX/XXXX datestring
 	print "DEBUG: found '",$month,"/",$year,"'\n" if($debug);
@@ -995,6 +1011,11 @@ sub fix_date
     # Date::Manip to hit all of the unlikely ones as well.  This comes
     # with a drawback: Date::Manip doesn't distinguish between 2008
     # and 2008-01-01, but we should have covered that above.
+    #
+    # Note that Date::Manip will die on MS Windows system unless the
+    # TZ environment variable is set in a specific manner.
+    # See: 
+    # http://search.cpan.org/perldoc?Date::Manip#TIME_ZONES
 
     $date = ParseDate($datestring);
     print "DEBUG: Date::Manip found '",UnixDate($date,"%Y-%m-%d"),"'\n" if($debug);
@@ -1161,26 +1182,17 @@ The filename of the pseudo-HTML file
 =back
 
 
-=head3 Return values
+=head3 Returns ($xmlstring,$basename)
 
 =over
 
-=item 1: a string containing the XML
+=item $xmlstring: a string containing the XML
 
-=item 2: the base filename with the final extension stripped
+=item $basename: the base filename with the final extension stripped
 
 =back
 
 Dies horribly on failure
-
-=head3 TODO
-
-use sysread / index / substr / syswrite to handle the split in
-10k chunks, to avoid massive memory usage on large files.
-
-This may not be worth the effort, since the average size for most
-books is less than 500k, and the largest books are rarely if ever over
-10M.
 
 =cut
 
@@ -1620,6 +1632,17 @@ sub twig_fix_oeb12 ( $ )
     my $regexp;
     my @elements;
 
+    # Start by setting the OEB 1.2 doctype
+    $$twigref->set_doctype('package',
+			   "http://openebook.org/dtds/oeb-1.2/oebpkg12.dtd",
+			   "+//ISBN 0-9673008-1-9//DTD OEB 1.2 Package//EN");
+    
+    # Remove <package> version attribute used in OPF 2.0
+    $twigroot->del_att('version');
+
+    # Set OEB 1.2 namespace attribute on <package>
+    $twigroot->set_att('xmlns' => 'http://openebook.org/namespaces/oeb-package/1.0/');
+
     # If <metadata> doesn't exist, we're in a real mess, but go ahead
     # and try to create it anyway
     if(! $metadata)
@@ -1636,6 +1659,10 @@ sub twig_fix_oeb12 ( $ )
 	print "DEBUG: moving <metadata>\n" if($debug);
 	$metadata->move('first_child',$twigroot);
     }
+
+    # Clobber metadata attributes 'xmlns:dc' and 'xmlns:opf'
+    # attributes used in OPF2.0
+    $metadata->del_atts('xmlns:dc','xmlns:opf');
 
     $dcmeta = $twigroot->first_descendant('dc-metadata');
     $xmeta = $metadata->first_descendant('x-metadata');
@@ -1654,6 +1681,9 @@ sub twig_fix_oeb12 ( $ )
 	print "DEBUG: moving <dc-metadata>\n" if($debug);
 	$dcmeta->move('first_child',$metadata);
     }
+    
+    # Assign the correct namespace attribute for OEB 1.2
+    $dcmeta->set_att('xmlns:dc',"http://purl.org/dc/elements/1.1/");
 
     # Set the correct tag name and move it into <dc-metadata>
     $regexp = "(" . join('|',keys(%dcelements12)) .")";
@@ -1696,6 +1726,7 @@ sub twig_fix_oeb12 ( $ )
 	    $el->move('last_child',$xmeta);
 	}
     }
+
     print "DEBUG: returning from twig_fix_oeb12\n" if($debug);
     return;
 }
@@ -2151,11 +2182,9 @@ the safety factor to use (see CONFIGURABLE GLOBAL VARIABLES, above)
 
 =back
 
+=head3 Return Values
+
 Returns the return value from tidy
-
-Dies horribly if the return value is unexpected
-
-=head3 Expected return codes from tidy
 
 =over
 
@@ -2164,6 +2193,10 @@ Dies horribly if the return value is unexpected
 =item 1 - warnings only
 
 =item 2 - errors
+
+=item Dies horribly if the return value is unexpected
+
+=back
 
 =cut
 
@@ -2256,11 +2289,9 @@ the safety factor to use (see CONFIGURABLE GLOBAL VARIABLES, above)
 
 =back
 
+=head3 Return values
+
 Returns the return value from tidy
-
-Dies horribly if the return value is unexpected
-
-=head3 Expected return codes from tidy
 
 =over
 
@@ -2269,6 +2300,8 @@ Dies horribly if the return value is unexpected
 =item 1 - warnings only
 
 =item 2 - errors
+
+=item Dies horribly if the return value is unexpected
 
 =back
 
@@ -2337,10 +2370,24 @@ sub system_tidy_xml
 
 =over
 
-=item die() is called much too frequently for this to be integrated
-into large applications yet.  The error storage isn't used at all.
-Fatalities need to be converted either into exceptions or return
-values, and I haven't decided which way to go yet.
+=item * die() is called much too frequently for this to be integrated
+into large applications yet.  Fatalities need to be converted either
+into exceptions or return values, and I haven't decided which way to
+go yet.  The error storage isn't used at all.
+
+=item * It might be better to use sysread / index / substr / syswrite in
+&split_metadata to handle the split in 10k chunks, to avoid massive
+memory usage on large files.
+
+This may not be worth the effort, since the average size for most
+books is less than 500k, and the largest books are rarely if ever over
+10M.
+
+=item * The only generator is currently for .epub books.  PDF,
+PalmDoc, Mobipocket, and iSiloX are eventually planned.
+
+=item * There are no import/extraction tools yet.  Extraction from
+PalmDoc, eReader, and Mobipocket is eventually planned.
 
 =back
 
