@@ -7,7 +7,7 @@ use strict;
 
 =head1 NAME
 
-OEB::Tools -- A collection of tools to manipulate documents in Open
+EBook::Tools -- A collection of tools to manipulate documents in Open
 E-book formats.
 
 =head1 DESCRIPTION
@@ -18,13 +18,6 @@ International Digital Publishing Forum (IDPF) standards, currently
 both OEBPS v1.2 and OPS/OPF v2.0.
 
 =cut
-
-# TODO:
-# * fix broken dc:date formats
-# * sub for sort_children to sort on GI + ID
-# * fix packageid check to test of the element not only exists but
-#   actually has text associated with it
-#
 
 require Exporter;
 use base qw(Class::Accessor Exporter);
@@ -49,8 +42,6 @@ http://search.cpan.org/perldoc?Date::Manip#TIME_ZONES
 
 =item File::MimeInfo::Magic
 
-=item FindBin
-
 =item XML::Twig::XPath
 
 =back
@@ -70,20 +61,20 @@ http://search.cpan.org/perldoc?Date::Manip#TIME_ZONES
 use Data::UUID;
 
 use Archive::Zip qw( :CONSTANTS :ERROR_CODES );
+use Cwd 'realpath';
 use Date::Manip;
-use File::Basename 'fileparse';
+use File::Basename qw(dirname fileparse);
 # File::MimeInfo::Magic gets *.css right, but detects all html as
 # text/html, even if it has an XML header.
 use File::MimeInfo::Magic;
-# File::MMagic gets text/xml right (though it still doesn't properly detect XHTML), but detects CSS as x-system, and has a number of other weird bugs.
+# File::MMagic gets text/xml right (though it still doesn't properly
+# detect XHTML), but detects CSS as x-system, and has a number of
+# other weird bugs.
 #use File::MMagic;
-use FindBin;
 #use HTML::Tidy;
 use XML::Twig::XPath;
 
 our @EXPORT_OK;
-our @fields;
-
 @EXPORT_OK = qw (
     &create_epub_container
     &create_epub_mimetype
@@ -95,19 +86,27 @@ our @fields;
     &system_tidy_xhtml
     );
 
-@fields = qw(
+my @rwfields = qw(
     opffile
     spec
-    twig
     twigroot
+    );
+my @rofields = qw(
+    twig
     error
     );
+my @privatefields = ();
     
 # A simple 'use fields' will not work here: use takes place inside
-# BEGIN {}, so the @fields variable won't exist.
+# BEGIN {}, so the @...fields variables won't exist.
 require fields;
-fields->import(@fields);
-OEB::Tools->mk_accessors(@fields);
+fields->import(@rwfields,@rofields,@privatefields);
+OEB::Tools->mk_accessors(@rwfields);
+OEB::Tools->mk_ro_accessors(@rofields);
+
+my $book = OEB::Tools->new();
+
+print $book->{'opffile'};
 
 =head1 CONFIGURABLE GLOBAL VARIABLES
 
@@ -118,7 +117,8 @@ OEB::Tools->mk_accessors(@fields);
 The location where various external files (such as tidy configuration
 files) can be found.
 
-Defaults to $FindBin::RealBin . "/OEB"
+Defaults to the subdirectory 'data' in whatever directory the calling
+script is actually in.  (See BUGS/TODO)
 
 =item $tidycmd
 
@@ -179,7 +179,7 @@ warnings.
 
 =cut
 
-our $datapath = $FindBin::RealBin . "/OEB";
+our $datapath = dirname(realpath($0)) . "/data";
 
 our $mobi2htmlcmd = 'mobi2html';
 our $tidycmd = 'tidy'; # Specify full pathname if not on path
@@ -187,8 +187,6 @@ our $tidyconfig = 'tidy-oeb.conf';
 our $tidyxhtmlerrors = 'tidyxhtml-errors.txt';
 our $tidyxmlerrors = 'tidyxml-errors.txt';
 our $tidysafety = 1;
-# $tidysafety values:
-
 
 
 my $utf8xmldec = '<?xml version="1.0" encoding="UTF-8" ?>' . "\n";
@@ -943,7 +941,7 @@ sub fix_date
     $_ = $datestring;
 
     print "DEBUG: checking M(M)/D(D)/YYYY\n" if($debug);
-    if(( ($month,$day,$year) = /(\d{1,2})\/(\d{1,2})\/(\d{4})/ ) == 3)
+    if(( ($month,$day,$year) = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/ ) == 3)
     {
 	# We have a XX/XX/XXXX datestring
 	print "DEBUG: found '",$month,"/",$day,"/",$year,"'\n" if($debug);
@@ -964,7 +962,7 @@ sub fix_date
     }
 
     print "DEBUG: checking M(M)/YYYY\n" if($debug);
-    if(( ($month,$year) = /(\d{1,2})\/(\d{4})/ ) == 2)
+    if(( ($month,$year) = /^(\d{1,2})\/(\d{4})$/ ) == 2)
     {
 	# We have a XX/XXXX datestring
 	print "DEBUG: found '",$month,"/",$year,"'\n" if($debug);
@@ -984,20 +982,20 @@ sub fix_date
 
     # Force exact match)
     print "DEBUG: checking YYYY-MM-DD\n" if($debug);
-    ($year,$month,$day) = /(\d{4})-(\d{2})-(\d{2})/;
+    ($year,$month,$day) = /^(\d{4})-(\d{2})-(\d{2})$/;
     ($year,$month,$day) = ymd_sanitycheck($year,$month,$day);
 
     if(!$year)
     {
 	print "DEBUG: checking YYYYMMDD\n" if($debug);
-	($year,$month,$day) = /(\d{4})(\d{2})(\d{2})/;
+	($year,$month,$day) = /^(\d{4})(\d{2})(\d{2})$/;
 	($year,$month,$day) = ymd_sanitycheck($year,$month,$day);
     }
 
     if(!$year)
     {
 	print "DEBUG: checking YYYY-MM\n" if($debug);
-	($year,$month) = /(\d{4})-(\d{2})/;
+	($year,$month) = /^(\d{4})-(\d{2})$/;
 	($year,$month) = ymd_sanitycheck($year,$month,undef);
     }
 
@@ -1017,12 +1015,15 @@ sub fix_date
     # See: 
     # http://search.cpan.org/perldoc?Date::Manip#TIME_ZONES
 
-    $date = ParseDate($datestring);
-    print "DEBUG: Date::Manip found '",UnixDate($date,"%Y-%m-%d"),"'\n" if($debug);
-    $year = UnixDate($date,"%Y");
-    $month = UnixDate($date,"%m");
-    $day = UnixDate($date,"%d");
-    
+    if(!$year)
+    {
+	$date = ParseDate($datestring);
+	print "DEBUG: Date::Manip found '",UnixDate($date,"%Y-%m-%d"),"'\n" if($debug);
+	$year = UnixDate($date,"%Y");
+	$month = UnixDate($date,"%m");
+	$day = UnixDate($date,"%d");
+    }
+
     if($year)
     {
 	# If we still have a $year, $month and $day either don't exist
@@ -1908,6 +1909,18 @@ sub twig_fix_packageid ( $ )
 	{
 	    if(lc($element->tag) ne 'dc:identifier')
 	    {
+		print "DEBUG: packageid '",$packageid,
+		"' points to a non-identifier element ('",$element->tag,"')\n"
+		    if($debug);
+		print "DEBUG: undefining existing packageid '",$packageid,"'\n"
+		    if($debug);
+		undef($packageid);
+	    }
+	    elsif(!$element->text)
+	    {
+		print "DEBUG: packageid '",$packageid,
+		"' points to an empty identifier.\n"
+		    if($debug);
 		print "DEBUG: undefining existing packageid '",$packageid,"'\n"
 		    if($debug);
 		undef($packageid);
@@ -2359,6 +2372,7 @@ sub system_tidy_xml
  $OEB::Tools::tidysafety = 2;
 
  my $opffile = split_metadata('ebook.html');
+ my $otheropffile = 'alternate.opf';
  my $retval = system_tidy_xml($opffile,'tidy-backup.xml');
  my $oeb = OEB::Tools->new($opffile);
  $oeb->fixopf20;
@@ -2366,9 +2380,19 @@ sub system_tidy_xml
  $oeb->print;
  $oeb->save;
 
+ $oeb->init($otheropffile);
+ $oeb->fixoeb12;
+ $oeb->save;
+
 =head1 BUGS/TODO
 
 =over
+
+=item * need a twig procedure for sort_children to sort on GI + ID
+
+=item * $datapath points to a relatively useless location by default.
+While nothing very useful is stored there yet, it needs to be fixed to
+a usable system directory before initial release.
 
 =item * die() is called much too frequently for this to be integrated
 into large applications yet.  Fatalities need to be converted either
@@ -2388,6 +2412,12 @@ PalmDoc, Mobipocket, and iSiloX are eventually planned.
 
 =item * There are no import/extraction tools yet.  Extraction from
 PalmDoc, eReader, and Mobipocket is eventually planned.
+
+=item * There is not yet any way to initialize a blank OPF entry for
+creation of ebooks from scratch.
+
+=item * Classic accessors aren't very readable.  The object may be
+rebuilt with Class::Meta to use semi-affordance accessors.
 
 =back
 
