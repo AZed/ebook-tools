@@ -42,9 +42,9 @@ $metafile = split_metadata($ARGV[0]);
 $opffile = $filebase . ".opf";
 rename($metafile,$opffile);
 
-$oeb = OEB::Tools->new( opffile => $opffile );
+$oeb = OEB::Tools->new($opffile);
 $oeb->init;
-$oeb->fixopf20;
+$oeb->fixoeb12;
 $oeb->fixmisc;
 
 # The split metadata never includes manifest/spine info, so add in the

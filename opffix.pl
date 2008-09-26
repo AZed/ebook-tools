@@ -38,18 +38,27 @@ if(! $opffile)
 }
 if(! $opffile)
 {
-    # search for a single OPF file in the current directory.
-    die("Could not find an OPF file.\n"); 
+    my @candidates = glob("*.opf");
+    die("No OPF file specified, and there are multiple files to choose from")
+	if(scalar(@candidates) > 1);
+    die("No OPF file specified, and I couldn't find one nearby")
+	if(scalar(@candidates) < 1);
+    $opffile = $candidates[0];
 }
+
+die("The specified file '",$opffile,"' does not exist or is not a regular file!\n")
+    if(! -f $opffile);
 
 ($filebase,$filedir,$fileext) = fileparse($opffile,'\.\w+$');
 $tidyfile = $filebase . "-tidy" . $fileext;
-# An initial cleanup is required to deal with any entities?
-#system_tidy_xml($opffile,$tidyfile);
 
-$oeb = OEB::Tools->new( opffile => $opffile );
-$oeb->init;
-$oeb->fixopf20;
+# An initial cleanup is required to deal with any entities
+$retval = system_tidy_xml($opffile,$tidyfile);
+die ("Errors found while cleaning up '",$opffile,"' for parsing",
+     " -- look in '",$tidyfile,"' for details") if($retval > 1);
+
+$oeb = OEB::Tools->new($opffile);
+$oeb->fixoeb12;
 $oeb->fixmisc;
 $oeb->save;
 

@@ -47,9 +47,9 @@ if(! $opffile)
 
 #($filebase,$filedir,$fileext) = fileparse($metafile,'\.\w+$');
 
-$oeb = OEB::Tools->new( opffile => $opffile );
+$oeb = OEB::Tools->new($opffile);
 $oeb->init;
-#$oeb->fixoeb12;
+$oeb->fixopf20;
 $oeb->fixmisc;
 $oeb->save;
 
