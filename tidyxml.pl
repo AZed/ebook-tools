@@ -8,10 +8,10 @@
 use warnings;
 use strict;
 
-use FindBin;
-use lib $FindBin::RealBin;
+use Cwd 'realpath';
+use File::Basename qw(dirname fileparse);
 
-use File::Basename;
+use lib dirname(realpath($0));
 use OEB::Tools qw(system_tidy_xml system_tidy_xhtml);
 #$OEB::Tools::datapath = $FindBin::RealBin . "/OEB";
 #$OEB::Tools::tidysafety = 1;

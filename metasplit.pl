@@ -23,10 +23,10 @@
 use warnings;
 use strict;
 
-use FindBin;
-use lib $FindBin::Bin;
+use Cwd 'realpath';
+use File::Basename qw(dirname fileparse);
 
-use File::Basename 'fileparse';
+use lib dirname(realpath($0));
 use OEB::Tools qw(split_metadata print_memory);
 
 if(scalar(@ARGV) == 0) { die("You must specify a file to parse.\n"); }
