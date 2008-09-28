@@ -27,13 +27,13 @@ use Cwd 'realpath';
 use File::Basename qw(dirname fileparse);
 
 use lib dirname(realpath($0));
-use OEB::Tools qw(split_metadata print_memory);
+use EBook::Tools qw(split_metadata print_memory);
 
 if(scalar(@ARGV) == 0) { die("You must specify a file to parse.\n"); }
 
 my $metafile;
 my $opffile;
-my $oeb;
+my $ebook;
 
 my ($filebase,$filedir,$fileext);
 $metafile = split_metadata($ARGV[0]);
@@ -42,15 +42,15 @@ $metafile = split_metadata($ARGV[0]);
 $opffile = $filebase . ".opf";
 rename($metafile,$opffile);
 
-$oeb = OEB::Tools->new($opffile);
-$oeb->init;
-$oeb->fixoeb12;
-$oeb->fixmisc;
+$ebook = EBook::Tools->new($opffile);
+$ebook->init;
+$ebook->fixoeb12;
+$ebook->fixmisc;
 
 # The split metadata never includes manifest/spine info, so add in the
 # HTML file now
-$oeb->add_document('item-text',$ARGV[0]);
-$oeb->save;
+$ebook->add_document('item-text',$ARGV[0]);
+$ebook->save;
 
 ##########
 
