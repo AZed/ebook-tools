@@ -1,4 +1,4 @@
-package OEB::Tools;
+package EBook::Tools;
 use version; our $VERSION = qv("0.1.0");
 
 our $debug = 0;
@@ -441,7 +441,7 @@ class
 
 =head2 new($filename)
 
-Instantiates a new OEB::Tools object.  If C<$filename> is specified,
+Instantiates a new EBook::Tools object.  If C<$filename> is specified,
 it will also immediately initialize itself via the C<init> method.
 
 =cut
@@ -2599,21 +2599,21 @@ sub system_tidy_xml
 
 =head1 EXAMPLE
 
- package OEB::Tools qw(split_metadata system_tidy_xml);
- $OEB::Tools::tidysafety = 2;
+ package EBook::Tools qw(split_metadata system_tidy_xml);
+ $EBook::Tools::tidysafety = 2;
 
  my $opffile = split_metadata('ebook.html');
  my $otheropffile = 'alternate.opf';
  my $retval = system_tidy_xml($opffile,'tidy-backup.xml');
- my $oeb = OEB::Tools->new($opffile);
- $oeb->fixopf20;
- $oeb->fixmisc;
- $oeb->print;
- $oeb->save;
+ my $ebook = EBook::Tools->new($opffile);
+ $ebook->fixopf20;
+ $ebook->fixmisc;
+ $ebook->print;
+ $ebook->save;
 
- $oeb->init($otheropffile);
- $oeb->fixoeb12;
- $oeb->save;
+ $ebook->init($otheropffile);
+ $ebook->fixoeb12;
+ $ebook->save;
 
 =head1 BUGS/TODO
 

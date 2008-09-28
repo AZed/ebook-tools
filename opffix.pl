@@ -18,10 +18,10 @@ use Cwd 'realpath';
 use File::Basename qw(dirname fileparse);
 
 use lib dirname(realpath($0));
-use OEB::Tools qw(get_container_rootfile system_tidy_xml);
+use EBook::Tools qw(get_container_rootfile system_tidy_xml);
 
 my $opffile = $ARGV[0];
-my $oeb;
+my $ebook;
 my $retval;
 my ($filebase,$filedir,$fileext);
 my $tidyfile;
@@ -57,10 +57,18 @@ $retval = system_tidy_xml($opffile,$tidyfile);
 die ("Errors found while cleaning up '",$opffile,"' for parsing",
      " -- look in '",$tidyfile,"' for details") if($retval > 1);
 
-$oeb = OEB::Tools->new($opffile);
-$oeb->fixoeb12;
-$oeb->fixmisc;
-$oeb->save;
+$ebook = EBook::Tools->new($opffile);
+$ebook->fixoeb12;
+$ebook->fixmisc;
+$ebook->save;
+
+if($ebook->errors)
+{
+    $ebook->print_errors;
+    die("Unrecoverable errors while fixing '",$opffile,"'!");
+}
+
+$ebook->print_warnings;
 
 $retval = system_tidy_xml($opffile,$tidyfile);
 exit($retval);

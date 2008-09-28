@@ -12,9 +12,9 @@ use Cwd 'realpath';
 use File::Basename qw(dirname fileparse);
 
 use lib dirname(realpath($0));
-use OEB::Tools qw(system_tidy_xml system_tidy_xhtml);
-#$OEB::Tools::datapath = $FindBin::RealBin . "/OEB";
-#$OEB::Tools::tidysafety = 1;
+use EBook::Tools qw(system_tidy_xml system_tidy_xhtml);
+#$EBook::Tools::datapath = $FindBin::RealBin . "/OEB";
+#$EBook::Tools::tidysafety = 1;
 # Possible $tidysafety values:
 # <1: no checks performed, no error files kept, works like a clean tidy -m
 #     This setting is DANGEROUS

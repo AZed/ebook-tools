@@ -19,14 +19,14 @@ use Cwd 'realpath';
 use File::Basename qw(dirname fileparse);
 
 use lib dirname(realpath($0));
-use OEB::Tools qw(get_container_rootfile);
+use EBook::Tools qw(get_container_rootfile);
 
 my $metastring = '';
 my $metafile;
 my $opffile = $ARGV[0];
-my $oebpackage;
+my $ebookpackage;
 my $elem;
-my $oeb;
+my $ebook;
 
 my ($filebase,$filedir,$fileext);
 
@@ -48,15 +48,15 @@ if(! $opffile)
 
 #($filebase,$filedir,$fileext) = fileparse($metafile,'\.\w+$');
 
-$oeb = OEB::Tools->new($opffile);
-$oeb->init;
-$oeb->fixopf20;
-$oeb->fixmisc;
-$oeb->save;
+$ebook = EBook::Tools->new($opffile);
+$ebook->init;
+$ebook->fixopf20;
+$ebook->fixmisc;
+$ebook->save;
 
-my @manifest = $oeb->manifest_hrefs;
+my @manifest = $ebook->manifest_hrefs;
 
-$oeb->gen_epub();
+$ebook->gen_epub();
 
 
 ##########
