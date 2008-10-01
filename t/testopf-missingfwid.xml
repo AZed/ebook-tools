@@ -4,11 +4,10 @@
   <dc:title>A Noncompliant OPF Test Sample</dc:title>
   <dc:creator>Zed Pobre</dc:creator>
   <dc:publisher>CPAN</dc:publisher>
-  <dc:date event="creation">2008-01</dc:date>
+  <dc:date event="creation">2008-01-01</dc:date>
   <dc:Date event="publication">03/01/2008</dc:Date>
   <dc:date opf:event="badfebday">2/31/2004</dc:date>
   <dc:Date opf:event="YYYY-xx-DD">2009-xx-01</dc:Date>
-  <dc:date opf:event="MMDDYYYY">12081994</dc:date>
   <dc:Type>Text</dc:Type>
   <dc:format>text/html</dc:format>
   <dc:identifier scheme="ISBN">X-0000-9999-1</dc:identifier>

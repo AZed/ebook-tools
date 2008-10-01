@@ -9,7 +9,7 @@ use Test::More tests => 28;
 # Add blib/scripts to the path to find the executables
 
 BEGIN { use_ok('EBook::Tools') };
-
+# $EBook::Tools::debug = 2;
 my $ebook;
 my ($meta1,$meta2);
 my $thirdwarning = 'add_warnings(): handling item for an <example> of a $very_long_warning with some Perl symbols thrown in';
@@ -20,7 +20,7 @@ my $thirdwarning = 'add_warnings(): handling item for an <example> of a $very_lo
 # its man page ( perldoc Test::More ) for help writing this test script.
 
 $ebook = EBook::Tools->new();
-is(ref $ebook,'EBook::Tools', 'new() produces an EBook::Tools object');
+isa_ok($ebook,'EBook::Tools', 'EBook::Tools->new()');
 is($ebook->opffile,undef, 'new() has undefined opffile');
 is($ebook->warnings,undef,'new(): no warnings');
 is($ebook->errors,undef,'new(): no errors');

@@ -25,6 +25,7 @@ my $ebook;
 my $retval;
 my ($filebase,$filedir,$fileext);
 my $tidyfile;
+my $warncount;
 
 
 # If no OPF file was specified, attempt to find one
@@ -71,9 +72,13 @@ if($ebook->errors)
 }
 
 $ebook->print_warnings;
+$warncount = scalar(@{$ebook->warnings});
 
 $retval = system_tidy_xml($opffile,$tidyfile);
-exit($retval);
+die ("Errors found during final cleanup of '",$opffile,"'",
+     " -- look in '",$tidyfile,"' for details") if($retval > 1);
+
+exit($warncount);
 
 ##########
 

@@ -1,32 +1,91 @@
 # Before `make install' is performed this script should be runnable with
 # `make test'. After `make install' it should work as `perl EBook-Tools.t'
 
-#########################
+########## SETUP ##########
 
 # change 'tests => 1' to 'tests => last_test_to_print';
 
-use Test::More tests => 13;
+use Test::More tests => 30;
+use Cwd qw(chdir);
 use File::Copy;
-# Add blib/scripts to the path to find the executables
-use Cwd qw(chdir getcwd);
-$ENV{'PATH'} .= ":" . getcwd() . "/blib/script";
 BEGIN { use_ok('EBook::Tools',qw(system_tidy_xhtml system_tidy_xml)) };
 
 my ($ebook1,$ebook2);
-my ($meta1,$meta2);
+my ($meta1,$meta2,$dcmeta1,$dcmeta2);
+my @elementnames;
 my @elements;
 my @strings;
+my $exitval;
 my $temp;
 
-#########################
+my @dcexpected1 = (
+    "dc:Identifier",
+    "dc:Identifier",
+    "dc:Identifier",
+    "dc:Title",
+    "dc:Creator",
+    "dc:Publisher",
+    "dc:Date",
+    "dc:Date",
+    "dc:Date",
+    "dc:Date",
+    "dc:Type",
+    "dc:Format",
+    "dc:Language",
+    "dc:Language",
+    "dc:Rights"
+    );
 
-# Insert your test code below, the Test::More module is use()ed here so read
-# its man page ( perldoc Test::More ) for help writing this test script.
+my @metastruct_expected1 = (
+    "dc-metadata",
+    "dc:Identifier",
+    "dc:title",
+    "dc:creator",
+    "dc:Creator",
+    "dc:creator",
+    "dc:publisher",
+    "dc:date",
+    "dc:Date",
+    "dc:date",
+    "dc:Date",
+    "dc:Type",
+    "dc:format",
+    "dc:identifier",
+    "dc:identifier",
+    "dc:language",
+    "dc:Language",
+    "dc:rights",
+    "dc:identifier"
+    );
+
+my @metastruct_expected2 = (
+    "dc-metadata",
+    "dc:Identifier",
+    "dc:Title",
+    "dc:Creator",
+    "dc:Creator",
+    "dc:Creator",
+    "dc:Publisher",
+    "dc:Date",
+    "dc:Date",
+    "dc:Date",
+    "dc:Date",
+    "dc:Type",
+    "dc:Format",
+    "dc:Identifier",
+    "dc:Identifier",
+    "dc:Language",
+    "dc:Language",
+    "dc:Rights",
+    "dc:Identifier"
+    );
+
+########## TESTS ##########
 
 ok(chdir('t/'),"Working in 't/");
 
 $ebook1 = EBook::Tools->new();
-is(ref $ebook1,'EBook::Tools', 'new() produces an EBook::Tools object');
+isa_ok($ebook1,'EBook::Tools', 'EBook::Tools->new()');
 is($ebook1->opffile,undef, 'new() has undefined opffile');
 copy('testopf-emptyuid.xml','emptyuid.opf') or die("Could not copy: $!");
 copy('testopf-missingfwid.xml','missingfwid.opf') or die("Could not copy: $!");
@@ -42,25 +101,55 @@ $ebook1->init('missingfwid.opf');
 is($ebook1->twigroot->tag,'package', 'init(): missingfwid.opf found');
 is($ebook1->twigroot->att('unique-identifier'),undef, 'missingfwid.opf really missing unique-identifier');
 
-$ebook1->fix_oeb12;
-$ebook2->fix_oeb12;
+ok($ebook1->fix_oeb12,'fix_oeb12(): successful call');
+ok($meta1 = $ebook1->twigroot->first_child('metadata'),'fix_oeb12(): metadata found');
+ok($dcmeta1 = $meta1->first_child('dc-metadata'),'fix_oeb12(): dc-metadata found');
+ok(@elements = $dcmeta1->children,'fix_oeb12(): DC elements found');
+undef @elementnames;
+foreach my $el (@elements)
+{
+    push(@elementnames,$el->gi);
+}
+is_deeply(\@elementnames,\@dcexpected1,'fix_oeb12(): DC elements found in expected order');
 
-$meta1 = $ebook1->twigroot->first_child('metadata');
-$meta2 = $ebook2->twigroot->first_child('metadata');
 
-@elements = $meta1->descendants('dc:Identifier');
-is(scalar(@elements),3,'fix_oeb12(): dc:Identifier corrected');
-@elements = $meta1->descendants('dc:Title');
-is(scalar(@elements),1,'fix_oeb12(): dc:Title corrected');
+ok($ebook2->fix_oeb12_metastructure,'fix_oeb12_metastructure(): successful call');
+ok($meta2 = $ebook2->twigroot->first_child('metadata'),'fix_oeb12_metastructure(): metadata found');
+ok(@elements = $meta2->children,'fix_oeb12_metastructure(): metadata subelements found');
+undef @elementnames;
+foreach my $el (@elements)
+{
+    push(@elementnames,$el->gi);
+}
+is_deeply(\@elementnames,\@metastruct_expected1,'fix_oeb12_metastructure(): subelements found in expected order');
 
-$ebook1->fix_packageid;
+ok($ebook2->fix_oeb12_dcmetatags,'fix_oeb12_dcmetatags(): successful call');
+ok(@elements = $meta2->children,'fix_oeb12_dcmetatags(): DC elements found');
+undef @elementnames;
+foreach my $el (@elements)
+{
+    push(@elementnames,$el->gi);
+}
+is_deeply(\@elementnames,\@metastruct_expected2,'fix_oeb12_dcmetatags(): DC elements found in expected order');
+
+ok($ebook1->fix_packageid,'fix_packageid[missing]: successful call');
 is($ebook1->twigroot->att('unique-identifier'),'FWID', 'fix_packageid[missing]: FWID found');
-$ebook2->fix_packageid;
+ok($ebook2->fix_packageid,'fix_packageid[blank]: successful call');
 is($ebook2->twigroot->att('unique-identifier'),'GUID', 'fix_packageid[blank]: GUID found');
 
+# Not a comprehensive date test.  See 10-fix_datestring.t
+ok($ebook1->fix_dates,'fix_dates(): successful call');
+is($ebook1->twigroot->first_descendant('dc:Date[@event="creation"]')->text,'2008-01-01',
+   'fixdate(): YYYY-01-01 not clobbered');
+is($ebook1->twigroot->first_descendant('dc:Date[@event="publication"]')->text,'2008-03',
+   'fixdate(): MM/01/YYYY properly handled');
+is($ebook1->twigroot->first_descendant('dc:Date[@event="badfebday"]')->text,'2/31/2004',
+   'fixdate(): invalid day not touched');
+is($ebook1->twigroot->first_descendant('dc:Date[@event="YYYY-xx-DD"]')->text,'2009-xx-01',
+   'fixdate(): invalide datestring not touched');
 
-unlink('emptyuid.opf');
-unlink('missingfwid.opf');
-#print "DEBUG: ",$ENV{'PATH'},"\n";
-# Replace with Test::Critic
-#ok(system('perl','-I../blib',`which opffix.pl`,'emptyuid.opf'));
+
+$ebook1->save;
+$ebook2->save;
+#unlink('emptyuid.opf');
+#unlink('missingfwid.opf');

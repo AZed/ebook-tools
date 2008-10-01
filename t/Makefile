@@ -7,5 +7,5 @@ all:
 	opffix test2.opf
 
 clean:
-	rm -f test1.opf test2.opf
+	rm -f test1.opf test2.opf emptyuid.opf missingfwid.opf
 
