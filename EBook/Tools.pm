@@ -1,7 +1,12 @@
 package EBook::Tools;
 use warnings; use strict;
 use version; our $VERSION = qv("0.1.0");
+# $Revision$ $Date$
 #use warnings::unused;
+
+## Perl Critic overrides:
+## RequireBriefOpen seems to be way too brief to be useful
+## no critic (RequireBriefOpen)
 our $debug = 0;
 
 =head1 NAME
@@ -223,7 +228,7 @@ our $opf20package =
 our %dcelements12;
 tie %dcelements12, 'Tie::IxHash', (
     "dc:identifier"  => "dc:Identifier",
-    "dc:title"	     => "dc:Title",
+    "dc:title"       => "dc:Title",
     "dc:creator"     => "dc:Creator",
     "dc:subject"     => "dc:Subject",
     "dc:description" => "dc:Description",
@@ -495,7 +500,7 @@ from scratch.
 
 =cut
 
-sub init_blank
+sub init_blank    ## no critic (Always unpack @_ first)
 {
     my $self = shift;
     my ($filename) = @_;
@@ -844,7 +849,7 @@ sub fix_manifest
 	$manifest->move('last_child',$twigroot);
     }
 
-    @elements = $twigroot->descendants(qr/^item$/i);
+    @elements = $twigroot->descendants(qr/^item$/ix);
     foreach my $el (@elements)
     {
         if(!$el->id)
@@ -1124,7 +1129,6 @@ sub fix_oeb12
     my $parent;
     my $dcmeta;
     my $xmeta;
-    my $regexp;
     my @elements;
 
     # Start by setting the OEB 1.2 doctype
@@ -1185,7 +1189,7 @@ sub fix_oeb12
 
     foreach my $dcel (keys %dcelements12)
     {
-        @elements = $twigroot->descendants(qr/^$dcel$/i);
+        @elements = $twigroot->descendants(qr/^$dcel$/ix);
         foreach my $el (@elements)
         {
             print "DEBUG: processing '",$el->gi,"'\n" if($debug > 1);
@@ -1197,7 +1201,7 @@ sub fix_oeb12
     
     # Deal with any remaining elements under <metadata> that don't
     # match *-metadata
-    @elements = $metadata->children(qr/^(?!(?s:.*)-metadata)/);
+    @elements = $metadata->children(qr/^(?!(?s:.*)-metadata)/x);
     if(@elements)
     {
 	if($debug)
@@ -1229,7 +1233,7 @@ sub fix_oeb12
     # Find any <meta> elements anywhere in the package and move them
     # under <x-metadata>.  Force the tag to lowercase.
 
-    @elements = $twigroot->children(qr/^meta$/i);
+    @elements = $twigroot->children(qr/^meta$/ix);
     foreach my $el (@elements)
     {
         $el->set_gi(lc $el->gi);
@@ -1269,7 +1273,7 @@ sub fix_oeb12_dcmeta
 
     foreach my $dcmetatag (keys %dcelements12)
     {
-	@elements = $topelement->descendants(qr/^$dcmetatag$/i);
+	@elements = $topelement->descendants(qr/^$dcmetatag$/ix);
 	foreach my $el (@elements)
 	{
 	    $el->set_tag($dcelements12{lc $el->tag})
@@ -1399,7 +1403,7 @@ sub fix_opf20
     # Find any <meta> elements anywhere in the package and move them
     # under <x-metadata>.  Force the tag to lowercase.
 
-    @elements = $twigroot->children(qr/^meta$/i);
+    @elements = $twigroot->children(qr/^meta$/ix);
     foreach my $el (@elements)
     {
         $el->set_gi(lc $el->gi);
@@ -1452,7 +1456,7 @@ sub fix_opf20_dcmeta
 
     foreach my $dcmetatag (keys %dcelements20)
     {
-	@elements = $topelement->descendants(qr/$dcmetatag/i);
+	@elements = $topelement->descendants(qr/^$dcmetatag$/ix);
 	foreach my $el (@elements)
 	{
 	    $el->set_tag($dcelements20{lc $el->tag})
@@ -1608,7 +1612,7 @@ sub fix_spine
 	$spine->move('last_child',$twigroot);
     }
 
-    @elements = $twigroot->descendants(qr/^itemref$/i);
+    @elements = $twigroot->descendants(qr/^itemref$/ix);
     foreach my $el (@elements)
     {
         if(!$el->att('idref'))
@@ -1865,17 +1869,17 @@ sub search_knownuids    ## no critic (Always unpack @_ first)
     print "DEBUG:[search_knownuids(",$gi,")]\n" if($debug);
 
     my @knownuids = qw (
-	OverDriveGUID
-	GUID
-	guid
-	UUID
-	uuid
-	UID
-	uid
-	calibre_id
-	FWID
-	fwid
-	);
+        OverDriveGUID
+        GUID
+        guid
+        UUID
+        uuid
+        UID
+        uid
+        calibre_id
+        FWID
+        fwid
+        );
 
     my $element;
 
@@ -2144,7 +2148,7 @@ sub fix_datestring
     $_ = $datestring;
 
     print "DEBUG: checking M(M)/D(D)/YYYY\n" if($debug > 1);
-    if(( ($month,$day,$year) = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/ ) == 3)
+    if(( ($month,$day,$year) = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/x ) == 3)
     {
 	# We have a XX/XX/XXXX datestring
 	print "DEBUG: found '",$month,"/",$day,"/",$year,"'\n" if($debug > 1);
@@ -2161,7 +2165,7 @@ sub fix_datestring
     }
 
     print "DEBUG: checking M(M)/YYYY\n" if($debug > 1);
-    if(( ($month,$year) = /^(\d{1,2})\/(\d{4})$/ ) == 2)
+    if(( ($month,$year) = /^(\d{1,2})\/(\d{4})$/x ) == 2)
     {
 	# We have a XX/XXXX datestring
 	print "DEBUG: found '",$month,"/",$year,"'\n" if($debug > 1);
@@ -2181,27 +2185,27 @@ sub fix_datestring
 
     # Force exact match)
     print "DEBUG: checking YYYY-MM-DD\n" if($debug > 1);
-    ($year,$month,$day) = /^(\d{4})-(\d{2})-(\d{2})$/;
+    ($year,$month,$day) = /^(\d{4})-(\d{2})-(\d{2})$/x;
     ($year,$month,$day) = ymd_validate($year,$month,$day);
 
     if(!$year)
     {
 	print "DEBUG: checking YYYYMMDD\n" if($debug > 1);
-	($year,$month,$day) = /^(\d{4})(\d{2})(\d{2})$/;
+	($year,$month,$day) = /^(\d{4})(\d{2})(\d{2})$/x;
 	($year,$month,$day) = ymd_validate($year,$month,$day);
     }
 
     if(!$year)
     {
 	print "DEBUG: checking YYYY-M(M)\n" if($debug > 1);
-	($year,$month) = /^(\d{4})-(\d{1,2})$/;
+	($year,$month) = /^(\d{4})-(\d{1,2})$/x;
 	($year,$month) = ymd_validate($year,$month,undef);
     }
 
     if(!$year)
     {
 	print "DEBUG: checking YYYY\n" if($debug > 1);
-	($year) = /^(\d{4})$/;
+	($year) = /^(\d{4})$/x;
     }
 
     # At this point, we've exhausted all of the common cases.  We use
@@ -2437,10 +2441,10 @@ sub split_metadata
     local $/;
     while(<$fh_metahtml>)
     {
-	($metastring) = /(<metadata>.*<\/metadata>)/;
+	($metastring) = /(<metadata>.*<\/metadata>)/x;
 	if(!defined $metastring) { last; }
 	print $fh_meta $metastring,"\n";
-	s/(<metadata>.*<\/metadata>)//;
+	s/(<metadata>.*<\/metadata>)//x;
 	print $fh_html $_,"\n";
     }
     print $fh_meta "</package>\n";
