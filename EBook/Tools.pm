@@ -265,13 +265,6 @@ tie %dcelements20, 'Tie::IxHash', (
     "dc:copyrights"  => "dc:rights"
     );
 
-our %opfatts_ns = (
-    "role" => "opf:role",
-    "file-as" => "opf:file-as",
-    "scheme" => "opf:scheme",
-    "event" => "opf:event"
-    );
-
 our %mobibooktypes = (
     'Default' => undef,
     'eBook' => 'text/x-oeb1-document',
@@ -356,6 +349,7 @@ my %privatefields = ();
 # it or remove it...
 my %methods = (
     'init' => 'PUBLIC',
+    'init_blank' => 'PUBLIC',
     'add_document' => 'PUBLIC',
     'add_errors' => 'PUBLIC',
     'add_warnings' => 'PUBLIC'
@@ -414,13 +408,14 @@ sub new   ## no critic (Always unpack @_ first)
     my $class = ref($self) || $self;
     my ($filename) = @_;
 
-    print "DEBUG[new]\n" if($debug);
+    print {*STDERR} "DEBUG[new]\n" if($debug);
 
     $self = fields::new($class);
 
     if($filename)
     {
-	print "DEBUG: initializing with '",$filename,"'\n" if($debug);
+	print {*STDERR} "DEBUG: initializing with '",$filename,"'\n"
+            if($debug);
 	$self->init($filename);
     }
     return $self;
@@ -448,7 +443,7 @@ sub init    ## no critic (Always unpack @_ first)
     my $self = shift;
     my ($filename) = @_;
 
-    print "DEBUG[init]\n" if($debug);
+    print {*STDERR} "DEBUG[init]\n" if($debug);
 
     if($filename) { $$self{opffile} = $filename; }
 
@@ -507,7 +502,7 @@ sub init_blank    ## no critic (Always unpack @_ first)
     my $metadata;
     my $element;
 
-    print "DEBUG[init_blank]\n" if($debug);
+    print {*STDERR} "DEBUG[init_blank]\n" if($debug);
 
     if($filename) { $$self{opffile} = $filename; }
     $$self{twig} = XML::Twig->new(
@@ -533,7 +528,7 @@ sub init_blank    ## no critic (Always unpack @_ first)
 
     # Set the specification
     $$self{spec} = $oebspecs{'OPF20'};
-    return 1
+    return 1;
 }
 
 ########## METHODS ##########
@@ -648,7 +643,7 @@ sub add_errors   ## no critic (Always unpack @_ first)
     my $currenterrors;
     $currenterrors = $$self{errors} if($$self{errors});
 
-    print("DEBUG[add_errors]\n") if($debug);
+    print {*STDERR} "DEBUG[add_errors]\n" if($debug);
 
     if(@newerrors)
     {
@@ -678,7 +673,7 @@ sub add_warnings   ## no critic (Always unpack @_ first)
     my @currentwarnings;
     die("method add_warnings() called as a procedure") unless(ref $self);
 
-    print("DEBUG[add_warnings]\n") if($debug);
+    print {*STDERR} "DEBUG[add_warnings]\n" if($debug);
             
     @currentwarnings = @{$$self{warnings}} if($$self{warnings});
     
@@ -690,14 +685,6 @@ sub add_warnings   ## no critic (Always unpack @_ first)
     }
     $$self{warnings} = \@currentwarnings;
 
-    if($debug > 1)
-    {
-	print "DEBUG: final warning list:\n";
-	foreach my $warning (@currentwarnings)
-	{
-	    print "  '",$warning,"'\n"
-	}
-    }
     return 1;
 }
 
@@ -794,6 +781,55 @@ sub epubinit
 }
 
 
+=head2 fix_dates()
+
+Standardizes all <dc:date> elements via fix_datestring().  Adds a
+warning to the object for each date that could not be fixed.
+
+Called from fix_misc().
+
+=cut
+
+sub fix_dates
+{
+    my $self = shift;
+    die("method fix_dates() called as a procedure") unless(ref $self);
+
+    print "DEBUG[fix_dates]\n" if($debug);
+
+    my @dates;
+    my $newdate;
+
+    @dates = $$self{twigroot}->descendants('dc:date');
+    push(@dates,$$self{twigroot}->descendants('dc:Date'));
+    
+    # Fix date formating
+    foreach my $dcdate (@dates)
+    {
+	if(!$dcdate->text)
+	{
+	    $self->add_warnings("WARNING: found dc:date with no value -- skipping");
+	}
+	else
+	{
+	    $newdate = fix_datestring($dcdate->text);
+	    if(!$newdate)
+	    {
+		$self->add_warnings(
+		    sprintf("fixmisc(): can't deal with date '%s' -- skipping.",$dcdate->text)
+		    );
+	    }
+	    else
+	    {
+		print "DEBUG: setting date from '",$dcdate->text,
+		"' to '",$newdate,"'\n" if($debug);
+		$dcdate->set_text($newdate);
+	    }
+	}
+    }
+    return 1;
+}
+
 =head2 fix_manifest()
 
 Fixes problems with the OPF manifest, specifically:
@@ -883,21 +919,27 @@ sub fix_manifest
 
 =head2 fix_misc()
 
-Fixes miscellaneous potential problems in OPF data.  Specifically:
+Fixes miscellaneous potential problems in OPF data.  Specifically,
+this is a shortcut to calling delete_meta_filepos(), fix_dates(),
+fix_packageid(), and fix_mobi().  Note that the final fix_mobi call
+will force the OEB 1.2 structure and add a nonstandard element
+(<output>) if it didn't exist before the call, so if you want your
+output to validate against standard OEB1.2 or OPF2.0, use the other
+calls independently.
 
 =over
 
-=item * Standardizes the date format in <dc:date> elements
+=item * Standardizes all <dc:date> elements via fix_datestring()
 
 =item * Deletes any secondary <metadata> elements containing the
 "filepos" attribute (potentially left over from Mobipocket
-conversions)
+conversions) via delete_meta_filepos();
 
-=item * Verifies that the package ID corresponds to a proper
-dc:identifier, and if not, creates a dc:identifier and assigns it.
+=item * Verifies and corrects the package ID via fix_packageid()
 
-=item * Inserts an <output> metadata element if it is missing (to
-support Mobipocket Creator)
+=item * Handles Mobipocket issues via fix_mobi().  (WARNING: this may
+add nonstandard elements to the file, causing it to no longer validate
+as OEB1.2 or OPF2.0.)
 
 =back
 
@@ -913,41 +955,9 @@ sub fix_misc
     my @dates;
     my $newdate;
 
-    @dates = $$self{twigroot}->descendants('dc:date');
-    push(@dates,$$self{twigroot}->descendants('dc:Date'));
-
-    # Fix date formating
-    foreach my $dcdate (@dates)
-    {
-	if(!$dcdate->text)
-	{
-	    $self->add_warnings("WARNING: found dc:date with no value -- skipping");
-	}
-	else
-	{
-	    $newdate = fix_datestring($dcdate->text);
-	    if(!$newdate)
-	    {
-		$self->add_warnings(
-		    sprintf("fixmisc(): can't deal with date '%s' -- skipping.",$dcdate->text)
-		    );
-	    }
-	    else
-	    {
-		print "DEBUG: setting date from '",$dcdate->text,
-		"' to '",$newdate,"'\n" if($debug);
-		$dcdate->set_text($newdate);
-	    }
-	}
-    }
-	
-    # Delete extra metadata
     $self->delete_meta_filepos();
-
-    # Make sure the package ID is valid, and assign it if not
     $self->fix_packageid();
-
-    # Fix miscellaneous Mobipocket-related issues
+    $self->fix_dates();
     $self->fix_mobi();
 
     print "DEBUG: returning from fixmisc\n" if($debug > 1);
@@ -960,6 +970,12 @@ sub fix_misc
 Manipulates the twig to fix Mobipocket-specific issues
 
 =over 
+
+=item * Force the OEB 1.2 structure (although not the namespace, DTD,
+or capitalization), so that <dc-metadata> and <x-metadata> are
+guaranteed to exist.
+
+=item * Find and move all Mobi-specific elements to <x-metadata>
 
 =item * If no <output> element exists, creates one for a utf-8 ebook
 
@@ -1008,14 +1024,72 @@ sub fix_mobi
 	'utf-8' => 'utf-8'
 	);
 
-    # If <output> already exists, and it has a valid content-type,
-    # validate the encoding and return.  Otherwise, continue.
-    my $output = $twigroot->first_descendant('output');
+    my @mobitags = (
+        'output',
+        'Adult',
+        'Demo',
+        'DefaultLookupIndex',
+        'DictionaryInLanguage',
+        'DictionaryOutLanguage',
+        'DictionaryVeryShortName',
+        'DatabaseName',
+        'EmbeddedCover',
+        'Review',
+        'SRP',
+        'Territory'
+        );
+
+    my $dcmeta;
+    my $xmeta;
+    my @elements;
+    my $output;
+    my $parent;
+
+
+    # Mobipocket currently requires that its custom elements be found
+    # underneath <x-metadata>.  Since the presence of <x-metadata>
+    # requires that the Dublin Core tags be under <dc-metadata>, we
+    # have to use at least the OEB1.2 structure (deprecated, but still
+    # allowed in OPF2.0), though we don't have to convert everything.
+    $self->fix_oeb12_metastructure();
+    $dcmeta = $twigroot->first_descendant('dc-metadata');
+    $xmeta = $twigroot->first_descendant('x-metadata');
+
+    # If <x-metadata> doesn't exist, create it.  Even if there are no
+    # mobi-specific tags, this method will create at least one
+    # (<output>) which will need it.
+    if(!$xmeta)
+    {
+        print "DEBUG: creating <x-metadata>\n" if($debug);
+        $xmeta = $dcmeta->insert_new_elt('after','x-metadata')
+    }
+
+    foreach my $tag (@mobitags)
+    {
+        @elements = $twigroot->descendants($tag);
+        next unless (@elements);
+        
+        # In theory, only one Mobipocket-specific element should ever
+        # be present in a document.  We'll deal with multiples anyway,
+        # but send a warning.
+        if(scalar(@elements) > 1)
+        {
+            add_warnings('fix_mobi(): Found ' . scalar(@elements) . " '"
+                         . $tag . "' elements, but only one should exist.");
+        }
+
+        foreach my $el (@elements)
+        {
+            $el->move('last_child',$xmeta);
+        }
+    }
+
+    $output = $xmeta->first_child('output');
     if($output)
     {
 	my $encoding = $mobiencodings{$output->att('encoding')};
 	my $contenttype = $mobicontenttypes{$output->att('content-type')};
-
+        
 	if($contenttype)
 	{
 	    $output->set_att('encoding','utf-8') if(!$encoding);
@@ -1024,55 +1098,13 @@ sub fix_mobi
 	    return 1;
 	}
     }
-
-    my $dcmeta = $twigroot->first_descendant('dc-metadata');
-    my $xmeta = $twigroot->first_descendant('x-metadata');
-    my $parent;
-    
-    # If we have <dc-metadata>, <output> has to go under <x-metadata>
-    # If we don't, it goes under <metadata> directly.
-    if($dcmeta)
-    {
-	# If <x-metadata> doesn't exist, create it
-	if(!$xmeta)
-	{
-	    print "DEBUG: creating <x-metadata>\n" if($debug);
-	    $xmeta = $dcmeta->insert_new_elt('after','x-metadata')
-	}
-	if($output)
-	{
-	    $parent = $output->parent;
-	    if($parent != $xmeta)
-	    {
-		print "DEBUG: moving <output> under <x-metadata>\n"
-		    if($debug);
-		$output->move('last_child',$xmeta);
-	    }
-	}
-	else
-	{
-	    print "DEBUG: creating <output> under <x-metadata>\n" if($debug);
-	    $output = $xmeta->insert_new_elt('last_child','output');
-	}
-    }
     else
     {
-	if($output)
-	{
-	    $parent = $output->parent;
-	    if($parent != $metadata)
-	    {
-		print "DEBUG: moving <output> under <metadata>\n" if($debug);
-		$output->move('last_child',$metadata)
-	    }
-	}
-	else
-	{
-	    print "DEBUG: creating <output> under <metadata>\n" if($debug);
-	    $output = $metadata->insert_new_elt('last_child','output');
-	}
+        print "DEBUG: creating <output> under <x-metadata>\n" if($debug);
+        $output = $xmeta->insert_new_elt('last_child','output');
     }
-    
+
+
     # At this stage, we definitely have <output> in the right place.
     # Set the attributes and return.
     $output->set_att('encoding' => 'utf-8',
@@ -1125,8 +1157,7 @@ sub fix_oeb12
 
 
     # Make the twig conform to the OEB 1.2 standard
-    my $metadata = $twigroot->first_descendant('metadata');
-    my $parent;
+    my $metadata;
     my $dcmeta;
     my $xmeta;
     my @elements;
@@ -1142,45 +1173,17 @@ sub fix_oeb12
     # Set OEB 1.2 namespace attribute on <package>
     $twigroot->set_att('xmlns' => 'http://openebook.org/namespaces/oeb-package/1.0/');
 
-    # If <metadata> doesn't exist, we're in a real mess, but go ahead
-    # and try to create it anyway
-    if(! $metadata)
-    {
-	print "DEBUG: creating <metadata>\n" if($debug);
-	$metadata = $twigroot->insert_new_elt('first_child','metadata');
-    }
-
-    # Make sure that metadata is the first child of the twigroot,
-    # which should be <package>
-    $parent = $metadata->parent;
-    if($parent != $twigroot)
-    {
-	print "DEBUG: moving <metadata>\n" if($debug);
-	$metadata->move('first_child',$twigroot);
-    }
+    # Verify and correct locations for <metadata>, <dc-metadata>, and
+    # <x-metadata>, creating them as needed.
+    $self->fix_oeb12_metastructure;
+    $metadata = $twigroot->first_descendant('metadata');
+    $dcmeta = $metadata->first_descendant('dc-metadata');
+    $xmeta = $metadata->first_descendant('x-metadata');
 
     # Clobber metadata attributes 'xmlns:dc' and 'xmlns:opf'
     # attributes used in OPF2.0
     $metadata->del_atts('xmlns:dc','xmlns:opf');
 
-    $dcmeta = $twigroot->first_descendant('dc-metadata');
-    $xmeta = $metadata->first_descendant('x-metadata');
-
-    # If <dc-metadata> doesn't exist, we'll have to create it.
-    if(! $dcmeta)
-    {
-	print "DEBUG: creating <dc-metadata>\n" if($debug);
-	$dcmeta = $metadata->insert_new_elt('first_child','dc-metadata');
-    }
-
-    # Make sure that $dcmeta is a child of $metadata
-    $parent = $dcmeta->parent;
-    if($parent != $metadata)
-    {
-	print "DEBUG: moving <dc-metadata>\n" if($debug);
-	$dcmeta->move('first_child',$metadata);
-    }
-    
     # Assign the correct namespace attribute for OEB 1.2
     $dcmeta->set_att('xmlns:dc',"http://purl.org/dc/elements/1.1/");
 
@@ -1195,6 +1198,7 @@ sub fix_oeb12
             print "DEBUG: processing '",$el->gi,"'\n" if($debug > 1);
             die("Found invalid DC element '",$el->gi,"'!") if(!$dcelements12{lc $el->gi});
             $el->set_gi($dcelements12{lc $el->gi});
+            $el = twig_fix_oeb12_atts($el);
             $el->move('last_child',$dcmeta);
         }
     }
@@ -1210,20 +1214,13 @@ sub fix_oeb12
 	    foreach my $el (@elements) { print $el->gi," "; }
 	    print "\n";
 	}
-	# Create x-metadata if necessary
+	# Create x-metadata under metadata if necessary
 	if(! $xmeta)
 	{
 	    print "DEBUG: creating <x-metadata>\n" if($debug);
-	    $xmeta = $dcmeta->insert_new_elt('after','x-metadata')
+	    $xmeta = $metadata->insert_new_elt('last_child','x-metadata')
 	}
-	# Make sure x-metadata belongs to metadata
-	$parent = $xmeta->parent;
-	if($parent != $metadata)
-	{
-	    print "DEBUG: moving <x-metadata>\n" if($debug);
-	    $xmeta->move('after',$dcmeta);
-	}
-	
+
 	foreach my $el (@elements)
 	{
 	    $el->move('last_child',$xmeta);
@@ -1246,7 +1243,7 @@ sub fix_oeb12
 }
 
 
-=head2 fix_oeb12_dcmeta()
+=head2 fix_oeb12_dcmetatags()
 
 Makes a case-insensitive search for tags matching a known list of DC
 metadata elements and corrects the capitalization to the OEB 1.2
@@ -1260,10 +1257,10 @@ they are.
 
 =cut
 
-sub fix_oeb12_dcmeta
+sub fix_oeb12_dcmetatags
 {
     my $self = shift;
-    die("method fix_oeb12_dcmeta() called as a procedure") unless(ref $self);
+    die("method fix_oeb12_dcmetatags() called as a procedure") unless(ref $self);
 
     my $topelement = $$self{twigroot};
 
@@ -1280,7 +1277,91 @@ sub fix_oeb12_dcmeta
 		if($dcelements12{lc $el->tag});
 	}
     }
-    return;
+    return 1;
+}
+
+=head2 fix_oeb12_metastructure()
+
+Verifies the existence of <metadata>, <dc-metadata>, and <x-metadata>,
+creating the first two (but not <x-metadata>!) as needed, and making
+sure that <metadata> is a child of <package>, while <dc-metadata> and
+<x-metadata> are children of <metadata>.
+
+Used in fix_oeb12() and fix_mobi().
+
+=cut
+
+sub fix_oeb12_metastructure
+{
+    my $self = shift;
+    die("method fix_oeb12_metastructure() called as a procedure")
+        unless(ref $self);
+
+    my $twig = $$self{twig};
+    my $twigroot = $$self{twigroot};
+    
+    print "DEBUG[fix_oeb12_metastructure]\n" if($debug);
+
+    # Sanity checks
+    die("Tried to fix OEB1.2 metadata structure in undefined twig!")
+        if(!$twig);
+    die("Tried to fix OEB1.2 metadata structure in twig with no root!")
+        if(!$twigroot);
+    die("Tried to fix OEB1.2 metadata structure, but root isn't <package>!")
+	if($twigroot->gi ne 'package');
+
+    my $metadata = $twigroot->first_descendant('metadata');
+    my $dcmeta;
+    my $xmeta;
+    my $parent;
+
+    # If <metadata> doesn't exist, we're in a real mess, but go ahead
+    # and try to create it anyway
+    if(! $metadata)
+    {
+	print "DEBUG: creating <metadata>\n" if($debug);
+	$metadata = $twigroot->insert_new_elt('first_child','metadata');
+    }
+    
+    # If <dc-metadata> doesn't exist, we'll have to create it.
+    $dcmeta = $twigroot->first_descendant('dc-metadata');
+    if(! $dcmeta)
+    {
+	print "DEBUG: creating <dc-metadata>\n" if($debug);
+	$dcmeta = $metadata->insert_new_elt('first_child','dc-metadata');
+    }
+    
+    # Make sure that $dcmeta is a child of $metadata
+    $parent = $dcmeta->parent;
+    if($parent != $metadata)
+    {
+	print "DEBUG: moving <dc-metadata>\n" if($debug);
+	$dcmeta->move('first_child',$metadata);
+    }
+    
+    # Make sure that metadata is the first child of the twigroot,
+    # which should be <package>
+    $parent = $metadata->parent;
+    if($parent != $twigroot)
+    {
+	print "DEBUG: moving <metadata>\n" if($debug);
+	$metadata->move('first_child',$twigroot);
+    }
+    
+    # Make sure that x-metadata is a child of metadata, but don't
+    # create it if it is missing
+    $xmeta = $metadata->first_descendant('x-metadata');
+    if($xmeta)
+    {
+        # Make sure x-metadata belongs to metadata
+        $parent = $xmeta->parent;
+        if($parent != $metadata)
+	{
+	    print "DEBUG: moving <x-metadata>\n" if($debug);
+	    $xmeta->move('after',$dcmeta);
+	}
+    }
+    return 1;
 }
 
 
@@ -1309,7 +1390,7 @@ Specifically, this involves:
 sub fix_opf20
 {
     my $self = shift;
-    die("method fix_oopf20() called as a procedure") unless(ref $self);
+    die("method fix_opf20() called as a procedure") unless(ref $self);
 
     # Sanity checks
     die("Tried to fix undefined OPF2.0 twig!")
@@ -1379,23 +1460,7 @@ sub fix_opf20
 	{
 	    print "DEBUG: checking element '",$el->gi,"'\n" if($debug);
 	    $el->set_gi($dcelements20{$dcmetatag});
-	    foreach my $att ($el->att_names)
-	    {
-		print "DEBUG:   checking attribute '",$att,"'\n" if($debug);
-		if($opfatts_ns{$att})
-		{
-		    # If the opf:att attribute properly exists already, do nothing.
-		    if($el->att($opfatts_ns{att}))
-		    {
-			print "DEBUG:   found both '",$att,"' and '",$opfatts_ns{$att},"' -- skipping.\n"
-			    if($debug);
-			next;
-		    }
-		    print "DEBUG:   changing attribute '",$att,"' => '",$opfatts_ns{$att},"'\n"
-			if($debug);
-		    $el->change_att_name($att,$opfatts_ns{$att});
-		}
-	    }
+            $el = twig_fix_opf20_atts($el);
 	    $el->move('first_child',$metadata);
 	}
     }
@@ -1429,7 +1494,7 @@ sub fix_opf20
 }
 
 
-=head2 fix_opf20_dcmeta()
+=head2 fix_opf20_dcmetatags()
 
 Makes a case-insensitive search for tags matching a known list of DC
 metadata elements and corrects the capitalization to the OPF 2.0
@@ -1443,7 +1508,7 @@ they are.
 
 =cut
 
-sub fix_opf20_dcmeta
+sub fix_opf20_dcmetatags
 {
     my $self = shift;
     die("method fix_opf20_dcmeta() called as a procedure") unless(ref $self);
@@ -1753,7 +1818,7 @@ sub manifest_hrefs
 	    }
 	}
 	$href = $item->att('href');
-	push(@retval,$href);
+	push(@retval,$href) if($href);
     }
     return @retval;
 }
@@ -1887,7 +1952,13 @@ sub search_knownuids    ## no critic (Always unpack @_ first)
 
     foreach my $id (@knownuids)
     {
-	$element = $$self{twig}->elt_id($id);
+	# The twig ID handling system is unreliable, especially when
+	# multiple twigs may be existing simultenously.  Use
+	# XML::Twig->first_elt instead of XML::Twig->elt_id, even
+	# though it's slower.
+	#$element = $$self{twig}->elt_id($id);
+	$element = $$self{twig}->first_elt("*[\@id='$id']");
+
 	if(defined $element)
 	{
 	    if(lc($element->gi) eq $gi)
@@ -1904,20 +1975,15 @@ sub search_knownuids    ## no critic (Always unpack @_ first)
 =head3 sub search_knownuidschemes()
 
 Searches descendants of an XML twig element for the first
-<dc:identifier> subelement with the attribute 'scheme' matching a
-known list of schemes for unique IDs
+<dc:identifier> or <dc:Identifier> subelement with the attribute
+'scheme' or 'opf:scheme' matching a known list of schemes for unique
+IDs
 
-Will search for both:
+NOTE: this is NOT a case-insensitive search!  If you have to deal with
+really bizarre input, make sure that you run fix_oeb12() or
+fix_opf20() before calling fix_packageid() or fix_misc().
 
-=over
-
-=item * opf:scheme in dc:identifier elements (OPF 2.0)
-
-=item * scheme in dc:Identifier elements (OEB 1.2)
-
-=back
-
-Returns the ID if a match is found, undef otherwise
+Returns the ID if a match is found, undef otherwise.
 
 =cut
 
@@ -1959,6 +2025,8 @@ sub search_knownuidschemes   ## no critic (Always unpack @_ first)
     {
 	print "DEBUG: searching for scheme='",$scheme,"'\n" if($debug);
 	@elems = $topelement->descendants("dc:identifier[\@opf:scheme='$scheme']");
+	push(@elems,$topelement->descendants("dc:identifier[\@scheme='$scheme']"));
+	push(@elems,$topelement->descendants("dc:Identifier[\@opf:scheme='$scheme']"));
 	push(@elems,$topelement->descendants("dc:Identifier[\@scheme='$scheme']"));
 	foreach my $elem (@elems)
 	{
@@ -2420,10 +2488,8 @@ sub split_metadata
 
     open($fh_metahtml,"<",$metahtmlfile)
 	or die("Failed to open ",$metahtmlfile," for reading!\n");
-
     open($fh_meta,">",$metafile)
 	or die("Failed to open ",$metafile," for writing!\n");
-
     open($fh_html,">",$htmlfile)
 	or die("Failed to open ",$htmlfile," for writing!\n");
 
@@ -2521,43 +2587,10 @@ sub twig_assign_uid
     return $retval;
 }
 
-
-=head2 twig_create_uuid($gi)
-
-Creates an unlinked element with the specified gi (tag), and then
-assigns it the id and scheme attributes 'UUID'.
-
-head3 Arguments
-
-=over
-
-=item  $gi : The gi (tag) to use for the element
-
-Default: 'dc:identifier'
-
-=back
-
-Returns the element.
-
-=cut
-
-sub twig_create_uuid
-{
-    my ($gi) = @_;
-    my $element;
-
-    if(!defined $gi) { $gi = 'dc:identifier'; }
-    
-    $element = XML::Twig::Elt->new($gi);
-    $element->set_id('UUID');
-    $element->set_att('scheme' => 'UUID');
-    $element->set_text(Data::UUID->create_str());
-    return $element;
-}
-
 =end comment
 
 =cut
+
 
 =begin comment
 
@@ -2831,11 +2864,143 @@ sub system_tidy_xml
 }
 
 
+=head2 twig_create_uuid($gi)
+
+Creates an unlinked element with the specified gi (tag), and then
+assigns it the id and scheme attributes 'UUID'.
+
+head3 Arguments
+
+=over
+
+=item  $gi : The gi (tag) to use for the element
+
+Default: 'dc:identifier'
+
+=back
+
+Returns the element.
+
+=cut
+
+sub twig_create_uuid
+{
+    my ($gi) = @_;
+    my $element;
+
+    if(!defined $gi) { $gi = 'dc:identifier'; }
+    
+    $element = XML::Twig::Elt->new($gi);
+    $element->set_id('UUID');
+    $element->set_att('scheme' => 'UUID');
+    $element->set_text(Data::UUID->create_str());
+    return $element;
+}
+
+
+=head2 twig_fix_oeb12_atts($element)
+
+Checks the attributes in a twig element to see if they match OPF names
+with an opf: namespace, and if so, removes the namespace.  Used by the
+fix_oeb12() method.
+
+Takes as a sole argument a twig element.
+
+Returns that element with the modified attributes, or undef if the
+element didn't exist.  Returns an unmodified element if both att and
+opf:att exist.
+
+=cut
+
+sub twig_fix_oeb12_atts
+{
+    my ($element) = @_;
+    return unless($element);
+
+    my %opfatts_no_ns = (
+        "opf:role" => "role",
+        "opf:file-as" => "file-as",
+        "opf:scheme" => "scheme",
+        "opf:event" => "event"
+        );
+
+    print "DEBUG[twig_fix_opf12_atts]\n" if($debug);
+
+    foreach my $att ($element->att_names)
+    {
+        print "DEBUG:   checking attribute '",$att,"'\n" if($debug);
+        if($opfatts_no_ns{$att})
+        {
+            # If the opf:att attribute properly exists already, do nothing.
+            if($element->att($opfatts_no_ns{att}))
+            {
+                print "DEBUG:   found both '",$att,
+                "' and '",$opfatts_no_ns{$att},"' -- skipping.\n"
+                    if($debug);
+                next;
+            }
+            print "DEBUG:   changing attribute '",$att,
+            "' => '",$opfatts_no_ns{$att},"'\n"
+                if($debug);
+            $element->change_att_name($att,$opfatts_no_ns{$att});
+        }
+    }
+    return $element;
+}
+
+=head2 twig_fix_opf20_atts($element)
+
+Checks the attributes in a twig element to see if they match OPF
+names, and if so, prepends the OPF namespace.  Used by the fix_opf20()
+method.
+
+Takes as a sole argument a twig element.
+
+Returns that element with the modified attributes, or undef if the
+element didn't exist.
+
+=cut
+
+sub twig_fix_opf20_atts
+{
+    my ($element) = @_;
+    return unless($element);
+
+    my %opfatts_ns = (
+        "role" => "opf:role",
+        "file-as" => "opf:file-as",
+        "scheme" => "opf:scheme",
+        "event" => "opf:event"
+        );
+
+    print "DEBUG[twig_fix_opf20_atts]\n" if($debug);
+
+    foreach my $att ($element->att_names)
+    {
+        print "DEBUG:   checking attribute '",$att,"'\n" if($debug);
+        if($opfatts_ns{$att})
+        {
+            # If the opf:att attribute properly exists already, do nothing.
+            if($element->att($opfatts_ns{att}))
+            {
+                print "DEBUG:   found both '",$att,"' and '",$opfatts_ns{$att},
+                "' -- skipping.\n"
+                    if($debug);
+                next;
+            }
+            print "DEBUG:   changing attribute '",$att,"' => '",$opfatts_ns{$att},"'\n"
+                if($debug);
+            $element->change_att_name($att,$opfatts_ns{$att});
+        }
+    }
+    return $element;
+}
+
 =head2 ymd_validate($year,$month,$day)
 
-Make sure month and day are in a plausible range.  Return the passed
-values if they are, return 3 undefs if not.  Testing of month or day
-can be skipped by passing undef in that spot.
+Make sure month and day have valid values.  Return the passed values
+if they are, return 3 undefs if not.  Testing of month or day can be
+skipped by passing undef in that spot.
 
 =cut
 
@@ -2893,7 +3058,7 @@ sub ymd_validate
 
 =item * $datapath points to a relatively useless location by default.
 While nothing very useful is stored there yet, it needs to be fixed to
-a usable system directory or removed entirely
+a usable system directory or removed entirely.
 
 =item * It might be better to use sysread / index / substr / syswrite in
 &split_metadata to handle the split in 10k chunks, to avoid massive
@@ -2904,6 +3069,8 @@ books is less than 500k, and the largest books are rarely if ever over
 10M.
 
 =item * fix_manifest doesn't actually check links yet
+
+=item * No mechanism for generating NCX files.
 
 =item * Need a simple script to generate an OPF file from a single
 text/html file
@@ -2918,6 +3085,8 @@ PalmDoc, eReader, and Mobipocket is eventually planned.
 object, it may be better to throw exceptions on errors and catch them
 later.  This probably won't be implemented until it bites someone who
 complains, though.
+
+=item * Contemplate Carp's croak() instead of die().
 
 =item * Filehandle naming conventions haven't been standardized.
 
