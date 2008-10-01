@@ -32,8 +32,8 @@ if(! $opffile)
 {
     if(-f 'META-INF/container.xml')
     {
-	$opffile = get_container_rootfile();
-	if(! -f $opffile) { undef $opffile; }
+        $opffile = get_container_rootfile();
+        if(! -f $opffile) { undef $opffile; }
     }
 }
 if(! $opffile)
@@ -58,8 +58,10 @@ die ("Errors found while cleaning up '",$opffile,"' for parsing",
      " -- look in '",$tidyfile,"' for details") if($retval > 1);
 
 $ebook = EBook::Tools->new($opffile);
-$ebook->fixoeb12;
-$ebook->fixmisc;
+$ebook->fix_oeb12;
+$ebook->fix_manifest;
+$ebook->fix_spine;
+$ebook->fix_misc;
 $ebook->save;
 
 if($ebook->errors)
