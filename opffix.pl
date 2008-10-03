@@ -60,8 +60,6 @@ die ("Errors found while cleaning up '",$opffile,"' for parsing",
 
 $ebook = EBook::Tools->new($opffile);
 $ebook->fix_oeb12;
-$ebook->fix_manifest;
-$ebook->fix_spine;
 $ebook->fix_misc;
 $ebook->save;
 

@@ -24,7 +24,7 @@
   <manifest>
     <item media-type="application/xhtml+xml" href="part1.html" id="item-text"/>
     <item media-type="application/xhtml+xml" href="missingfile.html"/>
-    <item href="cover.jpg" id="coverimage"/>
+    <item href="toobusy.jpg" id="coverimage"/>
   </manifest>
   <spine>
     <itemref idref="item-text"/>
