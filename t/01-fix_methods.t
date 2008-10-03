@@ -151,5 +151,5 @@ is($ebook1->twigroot->first_descendant('dc:Date[@event="YYYY-xx-DD"]')->text,'20
 
 $ebook1->save;
 $ebook2->save;
-#unlink('emptyuid.opf');
-#unlink('missingfwid.opf');
+unlink('emptyuid.opf');
+unlink('missingfwid.opf');

@@ -43,9 +43,8 @@ $opffile = $filebase . ".opf";
 rename($metafile,$opffile);
 
 $ebook = EBook::Tools->new($opffile);
-$ebook->init;
-$ebook->fixoeb12;
-$ebook->fixmisc;
+$ebook->fix_oeb12;
+$ebook->fix_misc;
 
 # The split metadata never includes manifest/spine info, so add in the
 # HTML file now
