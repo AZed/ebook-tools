@@ -5,7 +5,7 @@
 
 # change 'tests => 1' to 'tests => last_test_to_print';
 
-use Test::More tests => 43;
+use Test::More tests => 45;
 use Cwd qw(chdir getcwd);
 use Data::Dumper;
 use File::Basename qw(basename);
@@ -106,6 +106,18 @@ is(scalar(@manifest = $ebook1->manifest(mtype => 'image/jpeg')),
 %hashtest = %{$manifest[0]};
 is($hashtest{id},'coverimage',
    'manifest(mtype => ...) finds the correct entry');
+
+# manifest(mtype,href,logic)
+is(scalar(@manifest = $ebook1->manifest(mtype => 'image/jpeg',
+                                        href => 'part1.html',
+                                        logic => 'or')),
+          2,
+          'manifest(mtype,href,logic) finds the correct number of entries');
+%hashtest = %{$manifest[0]};
+is($hashtest{id},'item-text',
+   'manifest(mtype,href,logic) finds the correct entries');
+
+# manifest_hrefs()
 ok(@manifest = $ebook1->manifest_hrefs,
    'manifest_hrefs() returns successfully');
 is_deeply(\@manifest,\@manifest_hrefs_expected,
