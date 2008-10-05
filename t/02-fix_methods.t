@@ -5,7 +5,7 @@
 
 # change 'tests => 1' to 'tests => last_test_to_print';
 
-use Test::More tests => 30;
+use Test::More tests => 27;
 use Cwd qw(chdir getcwd);
 use File::Basename qw(basename);
 use File::Copy;
@@ -86,22 +86,19 @@ my @metastruct_expected2 = (
 
 ok( (basename(getcwd()) eq 't') || chdir('t/'), "Working in 't/" ) or die;
 
-$ebook1 = EBook::Tools->new();
-isa_ok($ebook1,'EBook::Tools', 'EBook::Tools->new()');
-is($ebook1->opffile,undef, 'new() has undefined opffile');
 copy('testopf-emptyuid.xml','emptyuid.opf') or die("Could not copy: $!");
 copy('testopf-missingfwid.xml','missingfwid.opf') or die("Could not copy: $!");
 is(system_tidy_xml('emptyuid.opf','emptyuid-tidy.opf'),0,
    'system_tidy_xml: emptyuid.opf');
 is(system_tidy_xml('missingfwid.opf','missingfwid-tidy.opf'),0,
    'system_tidy_xml: missingfwid.opf');
-$ebook2 = EBook::Tools->new('emptyuid.opf');
-is($ebook2->twigroot->att('unique-identifier'),'emptyUID', 'new(): emptyuid.opf found');
 
-
-$ebook1->init('missingfwid.opf');
-is($ebook1->twigroot->tag,'package', 'init(): missingfwid.opf found');
-is($ebook1->twigroot->att('unique-identifier'),undef, 'missingfwid.opf really missing unique-identifier');
+$ebook1 = EBook::Tools->new('missingfwid.opf') or die;
+is($ebook1->twigroot->att('unique-identifier'),undef,
+   'missingfwid.opf really missing unique-identifier') or die;
+$ebook2 = EBook::Tools->new('emptyuid.opf') or die;
+is($ebook2->twigroot->att('unique-identifier'),'emptyUID',
+   'new(): emptyuid.opf found') or die;
 
 ok($ebook1->fix_oeb12,'fix_oeb12(): successful call');
 ok($meta1 = $ebook1->twigroot->first_child('metadata'),'fix_oeb12(): metadata found');
@@ -151,7 +148,10 @@ is($ebook1->twigroot->first_descendant('dc:Date[@event="YYYY-xx-DD"]')->text,'20
    'fixdate(): invalid datestring not touched');
 
 
-$ebook1->save;
-$ebook2->save;
+########## CLEANUP ##########
+
+#$ebook1->save;
+#$ebook2->save;
+
 unlink('emptyuid.opf');
 unlink('missingfwid.opf');
