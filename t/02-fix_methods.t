@@ -134,7 +134,7 @@ is_deeply(\@elementnames,\@metastruct_expected2,'fix_oeb12_dcmetatags(): DC elem
 ok($ebook1->fix_packageid,'fix_packageid[missing]: successful call');
 is($ebook1->twigroot->att('unique-identifier'),'FWID', 'fix_packageid[missing]: FWID found');
 ok($ebook2->fix_packageid,'fix_packageid[blank]: successful call');
-is($ebook2->twigroot->att('unique-identifier'),'GUID', 'fix_packageid[blank]: GUID found');
+is($ebook2->twigroot->att('unique-identifier'),'UID', 'fix_packageid[blank]: UID found');
 
 # Not a comprehensive date test.  See 10-fix_datestring.t
 ok($ebook1->fix_dates,'fix_dates(): successful call');
