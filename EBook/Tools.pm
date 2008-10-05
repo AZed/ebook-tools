@@ -588,7 +588,7 @@ sub identifier
 }
 
 
-=head2 C<manifest({ named args }id => 'id', href => 'href', mtype => 'mtype', logic => 'logic')>
+=head2 C<manifest(named args)>
 
 Returns all of the items in the manifest as a list of hashrefs, with
 one hash per manifest item in the order that they appear, where the
