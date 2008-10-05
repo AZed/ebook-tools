@@ -3910,8 +3910,8 @@ sub twigelt_is_author
     my $ref = ref($element) || '';
 
     croak($subname,"(): argument was of type '",$ref,
-          "', need 'XML::Twig::XPath::Elt'")
-        unless($ref eq 'XML::Twig::XPath::Elt');
+          "', needs to be 'XML::Twig::Elt' or a subclass")
+        unless($element->isa('XML::Twig::Elt'));
 
     return if( (lc $element->gi) ne 'dc:creator');
 
