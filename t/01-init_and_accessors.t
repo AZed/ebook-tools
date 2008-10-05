@@ -64,9 +64,10 @@ is($ebook1->opffile,'missingfwid.opf',
 # init_blank($filename)
 $blank = EBook::Tools->new() or die;
 ok($blank->init_blank('test-blank.opf'),'init_blank() returned successfully');
-is(ref $blank->twig,'XML::Twig','init_blank() created a XML::Twig');
-is(ref $blank->twigroot,'XML::Twig::Elt',
-   'init_blank() created a XML::Twig::Elt root');
+is(ref $blank->twig,'XML::Twig::XPath',
+   'init_blank() created a XML::Twig::XPath');
+is(ref $blank->twigroot,'XML::Twig::XPath::Elt',
+   'init_blank() created a XML::Twig::XPath::Elt root');
 is($blank->twigroot
    ->first_child('metadata')
    ->first_child('dc:identifier')
@@ -83,9 +84,9 @@ ok($ebook1->set_spec('OPF20'), "set_spec('OPF20')");
 is($ebook1->spec,'OPF20', "spec() correctly set to OPF20");
 
 # twig(), twigroot()
-is(ref($ebook1->twig),'XML::Twig', "twig() finds 'XML::Twig'");
-is(ref($ebook1->twigroot),'XML::Twig::Elt',
-   "twigroot() finds 'XML::Twig::Elt'");
+is(ref($ebook1->twig),'XML::Twig::XPath', "twig() finds 'XML::Twig::XPath'");
+is(ref($ebook1->twigroot),'XML::Twig::XPath::Elt',
+   "twigroot() finds 'XML::Twig::XPath::Elt'");
 
 # identifier()
 $ebook1->fix_opf20() or die;
