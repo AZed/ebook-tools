@@ -3445,65 +3445,6 @@ sub split_metadata
 =begin comment
 
 #
-# sub twigelt_assign_uid($topelement,$condition)
-#
-# Finds the first child of $topelement meeting the twig condition in
-# $condition containing any text.  If it has no uid, assigns it the ID
-# 'UID';
-#
-# This was originally planned as a fallback to assign a UID to
-# whatever identifier was available if no recognized UIDs were found,
-# but was reconsidered as a very bad idea, as there is no real way to
-# guess at the uniqueness of a completely unknown identifier.  The
-# code was kept in case it is useful in some other context.
-#
-# Warning: this does not check for the existence of the id 'UID'
-# elsewhere in the tree.  You are responsible for making sure you
-# aren't creating a duplicate before calling this subroutine.
-#
-# Arguments:
-#   $topelement : Top twig element to look under
-#   $condition : Twig search condition
-#                Default value: 'dc:identifier'
-#
-# Returns the element designated to be the package UID, or undef if nothing
-# matching the condition was found.
-# 
-sub twigelt_assign_uid
-{
-    my $topelement;
-    my $condition;
-
-    my @identifiers;
-    my $retval = undef;
-
-    ($topelement,$condition) = @_;
-    if(!defined $condition) { $condition = 'dc:identifier'; }
-
-    @identifiers = $topelement->descendants($condition);
-    foreach my $element (@identifiers)
-    {
-	if($element->text ne '')
-	{
-	    if(!defined $element->id)
-	    {
-		$element->set_id('UID');
-	    }
-	    $retval = $element;
-	    last;
-	}
-    }
-    return $retval;
-}
-
-=end comment
-
-=cut
-
-
-=begin comment
-
-#
 # sub tidy_xml($xmlstring, $inputenc)
 # 
 # An attempt to replace sub system_tidy_xml with a pure perl version.
