@@ -6,7 +6,8 @@
 # change 'tests => 1' to 'tests => last_test_to_print';
 
 use Test::More tests => 30;
-use Cwd qw(chdir);
+use Cwd qw(chdir getcwd);
+use File::Basename qw(basename);
 use File::Copy;
 BEGIN { use_ok('EBook::Tools',qw(system_tidy_xhtml system_tidy_xml)) };
 
@@ -23,6 +24,7 @@ my @dcexpected1 = (
     "dc:Identifier",
     "dc:Identifier",
     "dc:Title",
+    "dc:Creator",
     "dc:Creator",
     "dc:Publisher",
     "dc:Date",
@@ -82,7 +84,7 @@ my @metastruct_expected2 = (
 
 ########## TESTS ##########
 
-ok(chdir('t/'),"Working in 't/");
+ok( (basename(getcwd()) eq 't') || chdir('t/'), "Working in 't/" ) or die;
 
 $ebook1 = EBook::Tools->new();
 isa_ok($ebook1,'EBook::Tools', 'EBook::Tools->new()');
@@ -146,7 +148,7 @@ is($ebook1->twigroot->first_descendant('dc:Date[@event="publication"]')->text,'2
 is($ebook1->twigroot->first_descendant('dc:Date[@event="badfebday"]')->text,'2/31/2004',
    'fixdate(): invalid day not touched');
 is($ebook1->twigroot->first_descendant('dc:Date[@event="YYYY-xx-DD"]')->text,'2009-xx-01',
-   'fixdate(): invalide datestring not touched');
+   'fixdate(): invalid datestring not touched');
 
 
 $ebook1->save;

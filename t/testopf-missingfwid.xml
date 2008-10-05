@@ -2,7 +2,8 @@
 <package>
   <dc:Identifier scheme="FWID">this-is-not-a-fwid</dc:Identifier>
   <dc:title>A Noncompliant OPF Test Sample</dc:title>
-  <dc:creator>Zed Pobre</dc:creator>
+  <dc:creator>Me Myself</dc:creator>
+  <dc:creator opf:role="aut">Zed Pobre</dc:creator>
   <dc:publisher>CPAN</dc:publisher>
   <dc:date event="creation">2008-01-01</dc:date>
   <dc:Date event="publication">03/01/2008</dc:Date>
