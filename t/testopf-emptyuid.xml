@@ -19,7 +19,7 @@
     <dc:language>en-us</dc:language>
     <dc:Language>en-us</dc:Language>
     <dc:rights>Copyright &copy; 1991 by Zed Pobre</dc:rights>
-    <dc:identifier scheme="GUID">{28D17050-173C-11D5-9303-0010DA63A409}</dc:identifier>
+    <dc:identifier id="UID" scheme="GUID">{28D17050-173C-11D5-9303-0010DA63A409}</dc:identifier>
   </metadata>
   <manifest>
     <item media-type="application/xhtml+xml" href="part1.html" id="item-text" />

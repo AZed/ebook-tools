@@ -17,9 +17,9 @@
   <dc:Language>en-us</dc:Language>
   <dc:rights>Copyright &copy; 1991 by Zed Pobre</dc:rights>
   <output encoding="utf-8" content-type="text/x-oeb1-document"/>
-  <item media-type="application/xhtml+xml" href="part1.html" id="item-text"/>
-  <item media-type="application/xhtml+xml" href="missingfile.html" id="file-missing"/>
-  <item media-type="image/jpeg" href="cover.jpg" id="coverimage"/>
+  <item href="part1.html" id="item-text" media-type="application/xhtml+xml" />
+  <item href="missingfile.html" id="file-missing" media-type="application/xhtml+xml" />
+  <item href="cover.jpg"  id="coverimage" media-type="image/jpeg"/>
   <itemref idref="item-text"/>
   <itemref idref="file-missing" />
   <itemref idref="item-missing" />
