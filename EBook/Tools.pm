@@ -58,6 +58,8 @@ http://search.cpan.org/perldoc?Date::Manip#TIME_ZONES
 
 =item XML::Twig::XPath
 
+This requires that either XML::XPath or XML::XPathEngine also be available.
+
 =back
 
 =head2 Other Programs
@@ -92,7 +94,7 @@ use File::MimeInfo::Magic;
 #use HTML::Tidy;
 use Tie::IxHash;
 use Time::Local;
-use XML::Twig;
+use XML::Twig::XPath;
 
 our @EXPORT_OK;
 @EXPORT_OK = qw (
@@ -487,7 +489,7 @@ sub init    ## no critic (Always unpack @_ first)
         if($debug);
 
     # Initialize the twig before use
-    $$self{twig} = XML::Twig->new(
+    $$self{twig} = XML::Twig::XPath->new(
 	keep_atts_order => 1,
 	output_encoding => 'utf-8',
 	pretty_print => 'record'
@@ -519,13 +521,13 @@ sub init_blank    ## no critic (Always unpack @_ first)
     print {*STDERR} "DEBUG[init_blank]\n" if($debug);
 
     if($filename) { $$self{opffile} = $filename; }
-    $$self{twig} = XML::Twig->new(
+    $$self{twig} = XML::Twig::XPath->new(
 	keep_atts_order => 1,
 	output_encoding => 'utf-8',
 	pretty_print => 'record'
         );
 
-    $element = XML::Twig::Elt->new('package');
+    $element = XML::Twig::XPath::Elt->new('package');
     $$self{twig}->set_root($element);
     $$self{twigroot} = $$self{twig}->root;
     $metadata = $$self{twigroot}->insert_new_elt('first_child','metadata');
@@ -760,10 +762,10 @@ sub manifest_hrefs
 =head2 C<primary_author()>
 
 Returns the primary author of the book, defined as the first
-'dc:creator' entry where either the attribute opf:role="aut" or
-role="aut", or the first 'dc:creator' entry if no entries with either
-attribute can be found.  Entries must actually have text to be
-considered.  If no entries are found, returns undef.
+'dc:creator' entry (case-insensitive) where either the attribute
+opf:role="aut" or role="aut", or the first 'dc:creator' entry if no
+entries with either attribute can be found.  Entries must actually
+have text to be considered.  If no entries are found, returns undef.
 
 Uses L</twigelt_is_author()> in the first half of the search.
 
@@ -986,12 +988,10 @@ sub search_knownuidschemes   ## no critic (Always unpack @_ first)
     foreach my $scheme (@knownuidschemes)
     {
 	print "DEBUG: searching for scheme='",$scheme,"'\n" if($debug);
-	@elems = $topelement->descendants(
-            "dc:identifier[\@opf:scheme='$scheme' or \@scheme='$scheme']"
+	@elems = $topelement->findnodes(
+            "*[(name()='dc:identifier' or name()='dc:Identifier')"
+            . " and (\@opf:scheme='$scheme' or \@scheme='$scheme')]"
             );
-	push(@elems, $topelement->descendants(
-                 "dc:Identifier[\@opf:scheme='$scheme' or \@scheme='$scheme']"
-             ));
 	foreach my $elem (@elems)
 	{
 	    print "DEBUG: working on scheme '",$scheme,"'\n" if($debug);
@@ -2342,7 +2342,7 @@ sub fix_opf20
 Makes a case-insensitive search for tags matching a known list of DC
 metadata elements and corrects the capitalization to the OPF 2.0
 standard.  Also corrects 'dc:copyrights' to 'dc:rights'.  See package
-variable $dcelements20.
+variable %dcelements20.
 
 The L</fix_opf20()> method does this also, but
 C<fix_opf20_dcmetatags()> is usable separately for the case where you
@@ -2751,7 +2751,7 @@ sub gen_ncx    ## no critic (Always unpack @_ first)
         return;
     }
 
-    $ncx = XML::Twig->new(
+    $ncx = XML::Twig::XPath->new(
 	output_encoding => 'utf-8',
 	pretty_print => 'record'
 	);
@@ -2894,12 +2894,12 @@ sub twigcheck
 
     croak($calledfrom[3],"(): undefined twig")
         if(!$$self{twig});
-    croak($calledfrom[3],"(): twig isn't a XML::Twig")
-        if( (ref $$self{twig}) ne 'XML::Twig' );
+    croak($calledfrom[3],"(): twig isn't a XML::Twig::XPath")
+        if( (ref $$self{twig}) ne 'XML::Twig::XPath' );
     croak($calledfrom[3],"(): twig root missing")
         if(!$$self{twigroot});
-    croak($calledfrom[3],"(): twig root isn't a XML::Twig::Elt")
-        if( (ref $$self{twigroot}) ne 'XML::Twig::Elt' );
+    croak($calledfrom[3],"(): twig root isn't a XML::Twig::XPath::Elt")
+        if( (ref $$self{twigroot}) ne 'XML::Twig::XPath::Elt' );
     croak($calledfrom[3],"(): twig root is '" . $$self{twigroot}->gi 
           . "' (needs to be 'package')")
         if($$self{twigroot}->gi ne 'package');
@@ -2970,7 +2970,7 @@ sub create_epub_container
     }
     else { mkdir('META-INF') or return; }
 
-    $twig = XML::Twig->new(
+    $twig = XML::Twig::XPath->new(
 	output_encoding => 'utf-8',
 	pretty_print => 'record'
 	);
@@ -3269,7 +3269,7 @@ The OPS container to parse.  Defaults to 'META-INF/container.xml'
 sub get_container_rootfile
 {
     my ($container) = @_;
-    my $twig = XML::Twig->new();
+    my $twig = XML::Twig::XPath->new();
     my $rootfile;
     my $retval = undef;
 
@@ -3910,8 +3910,8 @@ sub twigelt_is_author
     my $ref = ref($element) || '';
 
     croak($subname,"(): argument was of type '",$ref,
-          "', need 'XML::Twig::Elt'")
-        unless($ref eq 'XML::Twig::Elt');
+          "', need 'XML::Twig::XPath::Elt'")
+        unless($ref eq 'XML::Twig::XPath::Elt');
 
     return if( (lc $element->gi) ne 'dc:creator');
 
@@ -3986,6 +3986,8 @@ sub ymd_validate
 =item * $datapath points to a relatively useless location by default.
 While nothing very useful is stored there yet, it needs to be fixed to
 a usable system directory or removed entirely.
+
+=item * File opens need to be assigned binmode :utf8.
 
 =item * It might be better to use sysread / index / substr / syswrite in
 &split_metadata to handle the split in 10k chunks, to avoid massive
