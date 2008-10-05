@@ -3,8 +3,10 @@ Makefile.PL
 MANIFEST
 README
 t/00-errorhandling.t
-t/01-fix_methods.t
+t/01-init_and_accessors.t
+t/02-fix_methods.t
 t/10-fix_datestring.t
+t/50-user_scripts.t
 t/99-pod_coverage.t
 t/parts.css
 t/part1-orig.html
