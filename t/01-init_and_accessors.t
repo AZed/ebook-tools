@@ -76,7 +76,7 @@ is($blank->twigroot
 # spec() and set_spec()
 is($ebook1->spec,undef,'spec() undefined after init');
 ok($ebook1->set_spec('OPF99'), "set_spec('OPF99')");
-is($ebook1->spec,undef,'spec() still undefined after invalid set');
+is($ebook1->spec,'OPF99','spec() correctly set to invalid OPF99');
 ok($ebook1->set_spec('OEB12'), "set_spec('OEB12')");
 is($ebook1->spec,'OEB12', "spec() correctly set to OEB12");
 ok($ebook1->set_spec('OPF20'), "set_spec('OPF20')");
