@@ -6,10 +6,11 @@
 # change 'tests => 1' to 'tests => last_test_to_print';
 
 use Test::More tests => 4;
-use Cwd qw(chdir);
+use Cwd qw(chdir getcwd);
+use File::Basename qw(basename);
 use File::Copy;
 
-ok(chdir('t/'),"Working in 't/");
+ok( (basename(getcwd()) eq 't') || chdir('t/'), "Working in 't/" ) or die;
 
 copy('testopf-emptyuid.xml','emptyuid.opf') or die("Could not copy: $!");
 copy('testopf-missingfwid.xml','missingfwid.opf') or die("Could not copy: $!");
