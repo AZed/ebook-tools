@@ -11,6 +11,10 @@ use File::Basename qw(basename);
 use File::Copy;
 BEGIN { use_ok('EBook::Tools',qw(system_tidy_xhtml system_tidy_xml)) };
 
+# Set this to 1 or 2 to stress the debugging code, but expect lots of
+# output.
+$EBook::Tools::debug = 0;
+
 my ($ebook1,$ebook2);
 my ($meta1,$meta2,$dcmeta1,$dcmeta2);
 my @elementnames;
@@ -132,11 +136,14 @@ foreach my $el (@elements)
 is_deeply(\@elementnames,\@metastruct_expected2,'fix_oeb12_dcmetatags(): DC elements found in expected order');
 
 ok($ebook1->fix_packageid,'fix_packageid[missing]: successful call');
-is($ebook1->twigroot->att('unique-identifier'),'FWID', 'fix_packageid[missing]: FWID found');
+is($ebook1->twigroot->att('unique-identifier'),'FWID',
+   'fix_packageid[missing]: FWID found');
 ok($ebook2->fix_packageid,'fix_packageid[blank]: successful call');
-is($ebook2->twigroot->att('unique-identifier'),'UID', 'fix_packageid[blank]: UID found');
+is($ebook2->twigroot->att('unique-identifier'),'UID',
+   'fix_packageid[blank]: UID found');
 
 # Not a comprehensive date test.  See 10-fix_datestring.t
+
 ok($ebook1->fix_dates,'fix_dates(): successful call');
 is($ebook1->twigroot->first_descendant('dc:Date[@event="creation"]')->text,'2008-01-01',
    'fixdate(): YYYY-01-01 not clobbered');
@@ -150,8 +157,8 @@ is($ebook1->twigroot->first_descendant('dc:Date[@event="YYYY-xx-DD"]')->text,'20
 
 ########## CLEANUP ##########
 
-#$ebook1->save;
-#$ebook2->save;
+$ebook1->save;
+$ebook2->save;
 
-unlink('emptyuid.opf');
-unlink('missingfwid.opf');
+#unlink('emptyuid.opf');
+#unlink('missingfwid.opf');
