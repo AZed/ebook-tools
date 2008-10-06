@@ -1,10 +1,9 @@
 #!/usr/bin/perl
 use warnings; use strict;
 
-use Carp;
-use EBook::Tools;
+use File::Basename 'fileparse';
+use EBook::Tools qw(split_metadata system_tidy_xml);
 use Getopt::Long;
-use List::MoreUtils;
 
 
 #####################################
@@ -17,7 +16,8 @@ my %opt = (
     'mobi'    => 0,
     'oeb12'   => 0,
     'opf20'   => 0,
-    'tidy'    => '',
+    'opffile' => '',
+    'tidycmd' => '',
     'verbose' => 0,
     );
 
@@ -26,9 +26,10 @@ GetOptions(
     "dir|d=s",
     "help|h|?",
     "mobi|m",
-    "oeb12|oeb",
-    "opf20|opf",
-    "tidy",
+    "oeb12",
+    "opf20",
+    "opffile|opf=s",
+    "tidycmd",
     'verbose|v+',
     );
 
@@ -119,7 +120,8 @@ sub fix
     if($ebook->errors)
     {
         $ebook->print_errors;
-        die("Unrecoverable errors while fixing '",$opffile,"'!");
+        print "Unrecoverable errors while fixing '",$opffile,"'!\n";
+        exit(10);
     }
     
     $ebook->print_warnings;
@@ -129,14 +131,43 @@ sub fix
     die ("Errors found during final cleanup of '",$opffile,"'",
          " -- look in '",$tidyfile,"' for details") if($retval > 1);
     
-    exit($warncount);
+    exit(0);
 }
 
 
 sub metasplit
 {
-    print "STUB!\n";
-    exit(255);
+    my ($infile) = @_;
+    if(!$infile) { die("You must specify a file to parse.\n"); }
+
+    my $metafile;
+    my $opffile;
+    my $ebook;
+    my ($filebase,$filedir,$fileext);
+
+    $metafile = split_metadata($infile);
+
+    if(!$metafile)
+    {
+        print {*STDERR} "No metadata block was found in '",$infile,"'\n";
+        exit(20);
+    }
+    
+    ($filebase,$filedir,$fileext) = fileparse($metafile,'\.\w+$');
+    $opffile = $filebase . ".opf";
+    rename($metafile,$opffile);
+    
+    $ebook = EBook::Tools->new($opffile);
+    $ebook->fix_oeb12;
+    $ebook->fix_misc;
+    $ebook->fix_mobi if($opt{mobi});
+    
+    # The split metadata never includes manifest/spine info, so add in the
+    # HTML file now
+    $ebook->add_document('item-text',$ARGV[0]);
+    $ebook->save;
+
+    exit(0);
 }
 
 sub genepub
@@ -156,3 +187,7 @@ sub tidyxml
     print "STUB!\n";
     exit(255);
 }
+
+##########
+
+__DATA__
