@@ -12,7 +12,9 @@ our $debug = 0;
 
 =head1 NAME
 
-EBook::Tools - A collection of tools to manipulate documents in Open E-book formats.
+EBook::Tools - An object class for the manipulation and generation of
+E-books based on IDPF standards
+
 
 =head1 DESCRIPTION
 
@@ -48,9 +50,9 @@ TZ environment variable is set in a specific manner. See:
 
 http://search.cpan.org/perldoc?Date::Manip#TIME_ZONES
 
-=item File::Basename
-
 =item File::MimeInfo::Magic
+
+=item HTML::Parser (for HTML::Entities)
 
 =item Tie::IxHash
 
@@ -65,6 +67,11 @@ http://search.cpan.org/perldoc?Date::Manip#TIME_ZONES
 =over
 
 =item Tidy
+
+The command "tidy" needs to be available, and ideally on the path.  If
+it isn't on the path, L</$tidycmd> can be set to its absolute path.
+If tidy cannot be found, L</system_tidy_xml()> and
+L</system_tidy_xhtml()> will be nonfunctional.
 
 =back
 
@@ -89,6 +96,7 @@ use File::MimeInfo::Magic;
 # detect XHTML), but detects CSS as x-system, and has a number of
 # other weird bugs.
 #use File::MMagic;
+use HTML::Entities;
 #use HTML::Tidy;
 use Tie::IxHash;
 use Time::Local;
@@ -3387,7 +3395,7 @@ sub split_metadata
 
     open($fh_metahtml,"<",$metahtmlfile)
 	or croak("split_metadata(): Failed to open ",$metahtmlfile," for reading!");
-    open($fh_meta,">",$metafile)
+    open($fh_meta,">:utf8",$metafile)
 	or croak("split_metadata(): Failed to open ",$metafile," for writing!");
     open($fh_html,">",$htmlfile)
 	or croak("split_metadata(): Failed to open ",$htmlfile," for writing!");
@@ -3408,9 +3416,10 @@ sub split_metadata
     {
 	($metastring) = /(<metadata>.*<\/metadata>)/x;
 	if(!defined $metastring) { last; }
-	print $fh_meta $metastring,"\n";
+        $metastring = decode_entities($metastring);
+	print {*$fh_meta} $metastring,"\n";
 	s/(<metadata>.*<\/metadata>)//x;
-	print $fh_html $_,"\n";
+	print {*$fh_html} $_,"\n";
     }
     print $fh_meta "</package>\n";
 
@@ -3426,8 +3435,6 @@ sub split_metadata
     # memory.  Just going out of scope will not necessarily do this.
     undef($metastring);
 
-    system_tidy_xml($metafile,"$filebase-tidy.opf");
-#    system_tidy_xhtml($htmlfile,$metahtmlfile);
     rename($htmlfile,$metahtmlfile)
 	or croak("split_metadata(): Failed to rename ",$htmlfile," to ",$metahtmlfile,"!\n");
 
