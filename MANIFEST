@@ -13,6 +13,7 @@ t/99-pod_coverage.t
 t/parts.css
 t/part1-orig.html
 t/part2-orig.html
+t/test-containsmetadata.html
 t/testopf-emptyuid.xml
 t/testopf-missingfwid.xml
 t/toobusy.jpg
