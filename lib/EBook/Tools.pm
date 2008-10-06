@@ -429,7 +429,7 @@ sub new   ## no critic (Always unpack @_ first)
     my $class = ref($self) || $self;
     my ($filename) = @_;
     my $subname = (caller(0))[3];
-    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
 
     $self = fields::new($class);
 
@@ -465,7 +465,7 @@ sub init    ## no critic (Always unpack @_ first)
     my ($filename) = @_;
     my $subname = (caller(0))[3];
     croak($subname . "() called as a procedure") unless(ref $self);
-    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
 
     if($filename) { $$self{opffile} = $filename; }
 
@@ -504,7 +504,7 @@ sub init    ## no critic (Always unpack @_ first)
     $$self{twig}->parsefile($$self{opffile});
     $$self{twigroot} = $$self{twig}->root;
     $self->twigcheck;
-    print {*STDERR} "DEBUG[/",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[/",$subname,"]\n" if($debug >= 2);
     return $self;
 }
 
@@ -523,7 +523,7 @@ sub init_blank    ## no critic (Always unpack @_ first)
     my ($filename) = @_;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
-    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
 
     my $metadata;
     my $element;
@@ -580,7 +580,7 @@ sub identifier
     my ($filename) = @_;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
-    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
     $self->twigcheck;
 
     my $identid = $$self{twigroot}->att('unique-identifier');
@@ -657,7 +657,7 @@ sub manifest
         );
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
-    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
     $self->twigcheck();
 
     foreach my $arg (keys %args)
@@ -732,7 +732,7 @@ sub manifest_hrefs
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
-    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
     $self->twigcheck();
 
     my @items;
@@ -748,7 +748,7 @@ sub manifest_hrefs
     @items = $manifest->descendants('item');
     foreach my $item (@items)
     {
-	if($debug > 1)
+	if($debug >= 3)
 	{
 	    if(-f $item->att('href'))
 	    {
@@ -760,7 +760,7 @@ sub manifest_hrefs
 	$href = $item->att('href');
 	push(@retval,$href) if($href);
     }
-    print {*STDERR} "DEBUG[/",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[/",$subname,"]\n" if($debug >= 2);
     return @retval;
 }
 
@@ -782,7 +782,7 @@ sub primary_author()
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
-    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
 
     my $twigroot = $$self{twigroot};
     my $element;
@@ -807,7 +807,7 @@ sub print_errors
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
-    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
 
     my $errorref = $$self{errors};
 
@@ -837,7 +837,7 @@ sub print_warnings
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
-    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
 
     my $warningref = $$self{warnings};
 
@@ -868,11 +868,45 @@ sub print_opf
     my $filehandle = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
-    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
 
     if(defined $filehandle) { $$self{twig}->print($filehandle); }
     else { $$self{twig}->print; }
     return 1;
+}
+
+
+=head2 C<rights()>
+
+Returns a list containing the text of all of dc:rights or
+dc:copyrights (case-insensitive) entries in the e-book, or an empty
+list if none are found.
+
+Note that dc:copyrights is not a valid Dublin Core element -- it is
+included only because some broken Mobipocket books use it.
+
+=cut
+
+sub rights()
+{
+    my $self = shift;
+    my ($filename) = @_;
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
+    $self->twigcheck;
+    
+    my $twigroot = $$self{twigroot};
+    my @rights = ();
+
+    my @elements = $twigroot->descendants(qr/dc:rights/ix);
+    push @elements, $twigroot->descendants(qr/dc:copyrights/ix);
+
+    foreach my $element (@elements)
+    {
+        push @rights,$element->text if($element->text);
+    }
+    return @rights;
 }
 
 
@@ -890,7 +924,7 @@ sub search_knownuids    ## no critic (Always unpack @_ first)
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
-    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
 
     my @knownuids = qw (
         OverDriveGUID
@@ -953,7 +987,7 @@ sub search_knownuidschemes   ## no critic (Always unpack @_ first)
     if(!defined $gi) { $gi = 'dc:identifier'; }
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
-    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
     $self->twigcheck;
 
     my $topelement = $$self{twigroot}->first_descendant('metadata');
@@ -1024,7 +1058,7 @@ sub search_knownuidschemes   ## no critic (Always unpack @_ first)
 	} # foreach my $elem (@elems)
 	last if(defined $retval);
     }
-    print "[/",$subname,"]\n" if($debug);
+    print "[/",$subname,"]\n" if($debug >= 2);
     return $retval;
 }
 
@@ -1050,7 +1084,7 @@ sub spine
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
-    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
     $self->twigcheck();
 
     my $spine = $$self{twigroot}->first_child('spine');
@@ -1119,7 +1153,7 @@ sub spine_idrefs
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
-    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
     $self->twigcheck();
 
     my $spine = $$self{twigroot}->first_child('spine');;
@@ -1154,7 +1188,7 @@ sub title()
     my ($filename) = @_;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
-    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
     $self->twigcheck;
     
     my $twigroot = $$self{twigroot};
@@ -1222,7 +1256,7 @@ sub add_document   ## no critic (Always unpack @_ first)
     my ($href,$id,$mediatype) = @_;
     my $subname = (caller(0))[3];
     croak($subname . "() called as a procedure") unless(ref $self);
-    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
     $self->twigcheck();
 
     $href = trim($href);
@@ -1292,7 +1326,7 @@ sub add_errors   ## no critic (Always unpack @_ first)
     my (@newerrors) = @_;
     my $subname = (caller(0))[3];
     croak($subname . "() called as a procedure") unless(ref $self);
-    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
 
     my $currenterrors = $$self{errors} if($$self{errors});
 
@@ -1349,7 +1383,7 @@ sub add_item   ## no critic (Always unpack @_ first)
     my ($href,$id,$mediatype) = @_;
     my $subname = (caller(0))[3];
     croak($subname . "() called as a procedure") unless(ref $self);
-    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
     $self->twigcheck();
 
     $href = trim($href);
@@ -1370,7 +1404,7 @@ sub add_item   ## no critic (Always unpack @_ first)
             $subname . "(): ID '" . $id . "' already exists"
             . " (in a '" . $element->gi ."' tag)"
             );
-        print {*STDERR} "DEBUG[/",$subname,"]\n" if($debug);
+        print {*STDERR} "DEBUG[/",$subname,"]\n" if($debug >= 2);
         return;
     }
 
@@ -1395,7 +1429,7 @@ sub add_item   ## no critic (Always unpack @_ first)
 	'media-type' => $mediatype
 	);
 
-    print {*STDERR} "DEBUG[/",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[/",$subname,"]\n" if($debug >= 2);
     return 1;
 }
 
@@ -1416,7 +1450,7 @@ sub add_warnings   ## no critic (Always unpack @_ first)
     my (@newwarnings) = @_;
     my $subname = (caller(0))[3];
     croak($subname . "() called as a procedure") unless(ref $self);
-    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
             
     my @currentwarnings = @{$$self{warnings}} if($$self{warnings});
     
@@ -1428,7 +1462,7 @@ sub add_warnings   ## no critic (Always unpack @_ first)
     }
     $$self{warnings} = \@currentwarnings;
 
-    print {*STDERR} "DEBUG[/",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[/",$subname,"]\n" if($debug >= 2);
     return 1;
 }
 
@@ -1444,7 +1478,7 @@ sub clear_errors
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
-    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
 
     $self->{errors} = ();
     return 1;
@@ -1462,7 +1496,7 @@ sub clear_warnerr
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
-    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
 
     $self->{errors} = ();
     $self->{warnings} = ();
@@ -1481,7 +1515,7 @@ sub clear_warnings
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
-    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
 
     $self->{warnings} = ();
     return 1;
@@ -1503,7 +1537,7 @@ sub delete_meta_filepos
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
-    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
     $self->twigcheck();
 
     my @elements = $$self{twigroot}->descendants('metadata[@filepos]');
@@ -1529,7 +1563,7 @@ sub fix_dates
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
-    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
     $self->twigcheck();
 
     my @dates;
@@ -1583,7 +1617,7 @@ sub fix_links
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
-    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
     $self->twigcheck();
 
     my $twig = $$self{twig};
@@ -1697,7 +1731,7 @@ sub fix_manifest
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
-    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
     $self->twigcheck();
 
     my $twig = $$self{twig};
@@ -1774,7 +1808,7 @@ sub fix_manifest
         {
             # We have an ID and a href
             print {*STDERR} "DEBUG: processing item '",$id,"' (href='",$href,"')\n"
-                if($debug > 1);
+                if($debug >= 3);
             $el->move('last_child',$manifest);
         }
     }
@@ -1798,7 +1832,7 @@ sub fix_misc
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
-    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
     $self->twigcheck();
 
     my @dates;
@@ -1809,7 +1843,7 @@ sub fix_misc
     $self->fix_dates();
     $self->fix_links();
 
-    print {*STDERR} "DEBUG: returning from fixmisc\n" if($debug > 1);
+    print {*STDERR} "DEBUG[/",$subname,"]\n" if($debug >= 2);
     return 1;
 }
 
@@ -1840,7 +1874,7 @@ sub fix_mobi
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
-    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
     $self->twigcheck();
 
     my $twigroot = $$self{twigroot};
@@ -1943,7 +1977,7 @@ sub fix_mobi
 	{
 	    $output->set_att('encoding','utf-8') if(!$encoding);
 	    print "DEBUG: setting encoding only and returning\n"
-		if($debug > 1);
+		if($debug >= 2);
 	    return 1;
 	}
     }
@@ -1958,7 +1992,7 @@ sub fix_mobi
     # Set the attributes and return.
     $output->set_att('encoding' => 'utf-8',
 		     'content-type' => 'text/x-oeb1-document');
-    print "DEBUG: returning from fix_mobi" if($debug > 1);
+    print "DEBUG[/",$subname,"]\n" if($debug >= 2);
     return 1;
 }
 
@@ -1995,7 +2029,7 @@ sub fix_oeb12
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
-    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
     $self->twigcheck();
     
     my $twig = $$self{twig};
@@ -2040,7 +2074,7 @@ sub fix_oeb12
         @elements = $twigroot->descendants(qr/^$dcel$/ix);
         foreach my $el (@elements)
         {
-            print "DEBUG: processing '",$el->gi,"'\n" if($debug > 1);
+            print "DEBUG: processing '",$el->gi,"'\n" if($debug >= 3);
             croak("Found invalid DC element '",$el->gi,"'!") if(!$dcelements12{lc $el->gi});
             $el->set_gi($dcelements12{lc $el->gi});
             $el = twigelt_fix_oeb12_atts($el);
@@ -2087,7 +2121,7 @@ sub fix_oeb12
     $self->fix_spine;
 
     $$self{spec} = $oebspecs{'OEB12'};
-    print "DEBUG: returning from fix_oeb12\n" if($debug > 1);
+    print "DEBUG[/",$subname,"]\n" if($debug >= 2);
     return 1;
 }
 
@@ -2111,7 +2145,7 @@ sub fix_oeb12_dcmetatags
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
-    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
     $self->twigcheck();
 
     my $topelement = $$self{twigroot};
@@ -2149,7 +2183,7 @@ sub fix_oeb12_metastructure
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
-    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
     $self->twigcheck();
 
     my $twig = $$self{twig};
@@ -2239,7 +2273,7 @@ sub fix_opf20
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
-    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
     $self->twigcheck();
 
     my $twigroot = $$self{twigroot};
@@ -2357,7 +2391,7 @@ sub fix_opf20_dcmetatags
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
-    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
     $self->twigcheck();
 
     my $topelement = $$self{twigroot};
@@ -2397,7 +2431,7 @@ sub fix_packageid
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
-    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
     $self->twigcheck();
 
     my $twigroot = $$self{twigroot};
@@ -2468,7 +2502,7 @@ sub fix_packageid
 
     # At this point, we have a unique ID.  Assign it to package
     $twigroot->set_att('unique-identifier',$packageid);
-    print "[/",$subname,"]\n" if($debug);
+    print "[/",$subname,"]\n" if($debug >= 2);
     return 1;
 }
 
@@ -2491,7 +2525,7 @@ sub fix_spine
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
-    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
     $self->twigcheck();
 
     my $twig = $$self{twig};
@@ -2528,7 +2562,7 @@ sub fix_spine
             next;
         }
         print "DEBUG: processing itemref '",$el->att('idref'),"')\n"
-            if($debug > 1);
+            if($debug >= 3);
         $el->move('last_child',$spine);
     }
 
@@ -2554,7 +2588,7 @@ sub gen_epub    ## no critic (Always unpack @_ first)
     my ($filename) = @_;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
-    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
 
     my $zip = Archive::Zip->new();
     my $member;
@@ -2628,7 +2662,7 @@ sub gen_epub_files
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
-    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
 
     create_epub_mimetype();
     create_epub_container($$self{opffile});
@@ -2674,7 +2708,7 @@ sub gen_ncx    ## no critic (Always unpack @_ first)
     my ($filename) = @_;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
-    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
     $self->twigcheck;
 
     $filename = 'toc.ncx' if(!$filename);
@@ -2855,7 +2889,7 @@ sub save
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
-    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
 
     my $opffile;
     
@@ -2888,7 +2922,7 @@ sub twigcheck
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
-    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
 
     my @calledfrom = caller(1);
     croak("twigcheck called from unknown location") if(!@calledfrom);
@@ -2904,12 +2938,14 @@ sub twigcheck
     croak($calledfrom[3],"(): twig root is '" . $$self{twigroot}->gi 
           . "' (needs to be 'package')")
         if($$self{twigroot}->gi ne 'package');
-    print {*STDERR} "DEBUG[/",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[/",$subname,"]\n" if($debug >= 2);
     return 1;
 }
 
 
+################################
 ########## PROCEDURES ##########
+################################
 
 =head1 PROCEDURES
 
@@ -2951,7 +2987,7 @@ sub create_epub_container
 {
     my ($opffile) = @_;
     my $subname = ( caller(0) )[3];
-    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
 
     my $twig;
     my $twigroot;
@@ -3008,7 +3044,7 @@ Returns the mimetype string if successful, undef otherwise.
 sub create_epub_mimetype
 {
     my $subname = ( caller(0) )[3];
-    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
 
     my $mimetype = "application/epub+zip";
     my $fh;
@@ -3114,7 +3150,7 @@ sub fix_datestring
     my ($datestring) = @_;
     return unless($datestring);
     my $subname = ( caller(0) )[3];
-    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
 
     my $date;
     my ($year,$month,$day);
@@ -3122,11 +3158,11 @@ sub fix_datestring
 
     $_ = $datestring;
 
-    print "DEBUG: checking M(M)/D(D)/YYYY\n" if($debug > 1);
+    print "DEBUG: checking M(M)/D(D)/YYYY\n" if($debug >= 3);
     if(( ($month,$day,$year) = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/x ) == 3)
     {
 	# We have a XX/XX/XXXX datestring
-	print "DEBUG: found '",$month,"/",$day,"/",$year,"'\n" if($debug > 1);
+	print "DEBUG: found '",$month,"/",$day,"/",$year,"'\n" if($debug >= 3);
 	($year,$month,$day) = ymd_validate($year,$month,$day);
 	if($year)
 	{
@@ -3134,21 +3170,21 @@ sub fix_datestring
 	    $fixeddate .= sprintf("-%02u",$month)
 		unless( ($month == 1) && ($day == 1) );
 	    $fixeddate .= sprintf("-%02u",$day) unless($day == 1);
-	    print "DEBUG: returning '",$fixeddate,"'\n" if($debug > 1);
+	    print "DEBUG: returning '",$fixeddate,"'\n" if($debug >= 3);
 	    return $fixeddate;
 	}
     }
 
-    print "DEBUG: checking M(M)/YYYY\n" if($debug > 1);
+    print "DEBUG: checking M(M)/YYYY\n" if($debug >= 3);
     if(( ($month,$year) = /^(\d{1,2})\/(\d{4})$/x ) == 2)
     {
 	# We have a XX/XXXX datestring
-	print "DEBUG: found '",$month,"/",$year,"'\n" if($debug > 1);
+	print "DEBUG: found '",$month,"/",$year,"'\n" if($debug >= 3);
 	if($month <= 12)
 	{
 	    # We probably have MM/YYYY
 	    $fixeddate = sprintf("%04u-%02u",$year,$month);
-	    print "DEBUG: returning '",$fixeddate,"'\n" if($debug > 1);
+	    print "DEBUG: returning '",$fixeddate,"'\n" if($debug >= 3);
 	    return $fixeddate;
 	}
     }
@@ -3159,27 +3195,27 @@ sub fix_datestring
 #    ($year,$month,$day) = /(\d{4})(?:-?(\d{2})-?(\d{2}))?/;
 
     # Force exact match)
-    print "DEBUG: checking YYYY-MM-DD\n" if($debug > 1);
+    print "DEBUG: checking YYYY-MM-DD\n" if($debug >= 3);
     ($year,$month,$day) = /^(\d{4})-(\d{2})-(\d{2})$/x;
     ($year,$month,$day) = ymd_validate($year,$month,$day);
 
     if(!$year)
     {
-	print "DEBUG: checking YYYYMMDD\n" if($debug > 1);
+	print "DEBUG: checking YYYYMMDD\n" if($debug >= 3);
 	($year,$month,$day) = /^(\d{4})(\d{2})(\d{2})$/x;
 	($year,$month,$day) = ymd_validate($year,$month,$day);
     }
 
     if(!$year)
     {
-	print "DEBUG: checking YYYY-M(M)\n" if($debug > 1);
+	print "DEBUG: checking YYYY-M(M)\n" if($debug >= 3);
 	($year,$month) = /^(\d{4})-(\d{1,2})$/x;
 	($year,$month) = ymd_validate($year,$month,undef);
     }
 
     if(!$year)
     {
-	print "DEBUG: checking YYYY\n" if($debug > 1);
+	print "DEBUG: checking YYYY\n" if($debug >= 3);
 	($year) = /^(\d{4})$/x;
     }
 
@@ -3226,7 +3262,7 @@ sub fix_datestring
     if(!$year)
     {
 	printf("fix_date: didn't find a valid date in '%s'!",$datestring)
-	    if($debug > 1);
+	    if($debug >= 3);
 	return;
     }
     elsif($debug)
@@ -3270,6 +3306,9 @@ The OPS container to parse.  Defaults to 'META-INF/container.xml'
 sub get_container_rootfile
 {
     my ($container) = @_;
+    my $subname = ( caller(0) )[3];
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
+
     my $twig = XML::Twig->new();
     my $rootfile;
     my $retval = undef;
@@ -3311,6 +3350,9 @@ Returns nothing
 sub print_memory
 {
     my ($label) = @_;
+    my $subname = ( caller(0) )[3];
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
+
     my @mem;
     my $PROCSTATM;
       
@@ -3341,64 +3383,75 @@ sub print_memory
 
 
 
-=head2 C<split_metadata($metahtmlfile)>
+=head2 C<split_metadata($metahtmlfile, $metafile)>
 
-Takes a psuedo-HTML containing one or more <metadata> segments (such
-as in many files output by mobi2html) and splits out the metadata
-values into an XML file in preparation for conversion to OPF.
-Rewrites the html file without the metadata.
+Takes a psuedo-HTML containing one or more <metadata>...</metadata>
+blocks and splits out the metadata blocks into an XML file ready to be
+used as an OPF document.  The input HTML file is rewritten without the
+metadata.
 
-If tidy cannot be run, split_metadata MUST output the OEB 1.2
-doctype (and thus not conform to OPF 2.0, which doesn't use a dtd at
-all), as the the metadata values may contain HTML entities and Tidy
-is needed to convert them to UTF-8 characters
+If $metafile (or the temporary HTML-only file created during the
+split) already exists, it will be moved to filename.backup.
 
 =head3 Arguments
 
 =over
 
-=item $metahtmlfile
+=item C<$metahtmlfile>
 
 The filename of the pseudo-HTML file
 
-=back
+=item C<$metafile> (optional)
 
-
-=head3 Returns ($xmlstring,$basename)
-
-=over
-
-=item $xmlstring: a string containing the XML
-
-=item $basename: the base filename with the final extension stripped
+The filename to write out any extracted metadata.  If not specified,
+will default to the basename of $metahtmlfile with '.opf' appended.
 
 =back
 
-Dies horribly on failure
+Returns the filename the metadata was written to, or undef if no
+metadata was found.
 
 =cut
 
 sub split_metadata
 {
-    my ($metahtmlfile) = @_;
+    my ($metahtmlfile,$metafile) = @_;
+    my $subname = ( caller(0) )[3];
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
 
-    my $metafile;
+    croak($subname,"(): no input file specified")
+        if(!$metahtmlfile);
+
     my $metastring;
     my $htmlfile;
 
     my ($filebase,$filedir,$fileext);
     my ($fh_metahtml,$fh_meta,$fh_html);
-    
+
     ($filebase,$filedir,$fileext) = fileparse($metahtmlfile,'\.\w+$');
-    $metafile = $filebase . ".opf";
+    $metafile = $filebase . ".opf" if(!$metafile);
     $htmlfile = $filebase . "-html.html";
 
+    # Move existing output files to avoid overwriting them
+    if(-f $metafile)
+    {
+        croak ($subname,"(): output file '",$metafile,
+               "' exists and could not be moved!")
+            if(! rename($metafile,"$metafile.backup") );
+    }
+    if(-f $htmlfile)
+    {
+        croak ($subname,"(): output file '",$htmlfile,
+               "' exists and could not be moved!")
+            if(! rename($htmlfile,"$metafile.backup") );
+    }
+
     open($fh_metahtml,"<",$metahtmlfile)
-	or croak("split_metadata(): Failed to open ",$metahtmlfile," for reading!");
+	or croak($subname,"(): Failed to open ",$metahtmlfile," for reading!");
     open($fh_meta,">:utf8",$metafile)
-	or croak("split_metadata(): Failed to open ",$metafile," for writing!");
+	or croak($subname,"(): Failed to open ",$metafile," for writing!");
     open($fh_html,">",$htmlfile)
-	or croak("split_metadata(): Failed to open ",$htmlfile," for writing!");
+	or croak($subname,"(): Failed to open ",$htmlfile," for writing!");
 
 
     # Preload the return value with the OPF headers
@@ -3424,20 +3477,29 @@ sub split_metadata
     print $fh_meta "</package>\n";
 
     close($fh_html)
-        or croak("split_metadata(): Failed to close '",$htmlfile,"'!");
+        or croak($subname,"(): Failed to close '",$htmlfile,"'!");
     close($fh_meta)
-        or croak("split_metadata(): Failed to close '",$metafile,"'!");
+        or croak($subname,"(): Failed to close '",$metafile,"'!");
     close($fh_metahtml)
-        or croak("split_metadata(): Failed to close '",$metahtmlfile,"'!");
+        or croak($subname,"(): Failed to close '",$metahtmlfile,"'!");
 
     # It is very unlikely that split_metadata will be called twice
-    # from the same program, so undef $metastring to reclaim the
-    # memory.  Just going out of scope will not necessarily do this.
+    # from the same program, so undef $metastring and $_ to reclaim
+    # the memory.  Just going out of scope will not necessarily do
+    # this.
     undef($metastring);
+    undef($_);
 
     rename($htmlfile,$metahtmlfile)
 	or croak("split_metadata(): Failed to rename ",$htmlfile," to ",$metahtmlfile,"!\n");
 
+    if(! -s $metafile)
+    {
+        croak($subname,
+              "(): unable to remove empty output file '",$metafile,"'!")
+            if(! unlink($metafile) );
+        return;
+    }
     return $metafile;
 }
 
@@ -3771,7 +3833,7 @@ sub twigelt_create_uuid
 {
     my ($gi) = @_;
     my $subname = ( caller(0) )[3];
-    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
     my $element;
 
     if(!defined $gi) { $gi = 'dc:identifier'; }
@@ -3803,7 +3865,7 @@ sub twigelt_fix_oeb12_atts
     my ($element) = @_;
     return unless($element);
     my $subname = ( caller(0) )[3];
-    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
 
     my %opfatts_no_ns = (
         "opf:role" => "role",
@@ -3811,8 +3873,6 @@ sub twigelt_fix_oeb12_atts
         "opf:scheme" => "scheme",
         "opf:event" => "event"
         );
-
-    print "DEBUG[twigelt_fix_opf12_atts]\n" if($debug);
 
     foreach my $att ($element->att_names)
     {
@@ -3855,7 +3915,7 @@ sub twigelt_fix_opf20_atts
     my ($element) = @_;
     return unless($element);
     my $subname = ( caller(0) )[3];
-    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug);
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
 
     my %opfatts_ns = (
         "role" => "opf:role",
@@ -3866,7 +3926,7 @@ sub twigelt_fix_opf20_atts
 
     foreach my $att ($element->att_names)
     {
-        print "DEBUG:   checking attribute '",$att,"'\n" if($debug);
+        print "DEBUG:   checking attribute '",$att,"'\n" if($debug >= 2);
         if($opfatts_ns{$att})
         {
             # If the opf:att attribute properly exists already, do nothing.
@@ -3903,7 +3963,7 @@ sub twigelt_is_author
 {
     my ($element) = @_;
     my $subname = ( caller(0) )[3];
-    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug > 1);
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 3);
 
     croak($subname,"(): no element provided") unless($element);
 
