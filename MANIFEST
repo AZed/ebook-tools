@@ -1,7 +1,9 @@
 Changes
+Build.PL
 Makefile.PL
 MANIFEST
 README
+lib/EBook/Tools.pm
 t/00-errorhandling.t
 t/01-init_and_accessors.t
 t/02-fix_methods.t
@@ -14,9 +16,9 @@ t/part2-orig.html
 t/testopf-emptyuid.xml
 t/testopf-missingfwid.xml
 t/toobusy.jpg
-EBook/Tools.pm
 epubgen.pl
 metasplit.pl
 opffix.pl
 tidyxhtml.pl
 tidyxml.pl
+META.yml
