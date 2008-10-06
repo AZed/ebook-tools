@@ -126,14 +126,6 @@ our @EXPORT_OK;
 
 =over
 
-=item C<$datapath>
-
-The location where various external files (such as tidy configuration
-files) can be found.
-
-Defaults to the subdirectory 'data' in whatever directory the calling
-script is actually in.  (See BUGS/TODO)
-
 =item C<%dcelements12>
 
 A tied IxHash mapping an all-lowercase list of Dublin Core metadata
@@ -169,12 +161,6 @@ and 'OPF20'.
 
 The tidy executable name.  This has to be a fully qualified pathname
 if tidy isn't on the path.  Defaults to 'tidy'.
-
-=item C<$tidyconfig>
-
-The name of the tidy configuration file.  It will be looked for as
-"$datapath/$tidyconfig".  Defaults to 'tidy-oeb.conf', but nothing bad
-will happen if it can't be found.
 
 =item C<$tidyxhtmlerrors>
 
@@ -224,11 +210,8 @@ warnings.
 
 =cut
 
-our $datapath = dirname(realpath($0)) . "/data";
-
 our $mobi2htmlcmd = 'mobi2html';
 our $tidycmd = 'tidy'; # Specify full pathname if not on path
-our $tidyconfig = 'tidy-oeb.conf';
 our $tidyxhtmlerrors = 'tidyxhtml-errors.txt';
 our $tidyxmlerrors = 'tidyxml-errors.txt';
 our $tidysafety = 1;
@@ -331,16 +314,17 @@ C<fix_oeb12> or C<fix_opf20> is called, as there is no way for the
 object to know what specification is being conformed to (if any) until
 it attempts to enforce it.
 
-=head2 C<twig> [RW]
+=head2 C<twig> [RO]
 
-The main twig object used to store the OPF XML tree.
+The main twig object used to store the OPF XML tree.  It can be
+modified via its own internal methods (see L<XML::Twig>), but not
+directly.
 
 =head2 C<twigroot> [RO]
 
-The twig object corresponding to the root tag, which should always be
-<package>.  Modifying this will modify the twig, but since it has its
-own methods for self-modification, and simply assigning a new value
-will _not_ link the new root to the twig, this is technically read-only.
+The twig root element, which should always be <package>.  This can be
+modified via its own internal methods (see L<XML::Twig>), and
+modifying this will modify the twig.
 
 =head2 C<errors> [RO]
 
@@ -355,9 +339,9 @@ An arrayref containing any generated warning messages.
 my %rwfields = (
     'opffile'  => 'string',
     'spec'     => 'string',
-    'twig'     => 'scalar'
     );
 my %rofields = (
+    'twig'     => 'scalar'
     'twigroot' => 'scalar',
     'errors'   => 'arrayref',
     'warnings' => 'arrayref'
@@ -3540,9 +3524,7 @@ sub tidy_xml
     $inputenc = $encodings{$inputenc} if(defined $inputenc);
     $inputenc = "win1252" if(!defined $inputenc);
     print "DEBUG: tidy_xml input encoding: '",$inputenc,"'\n";
-    print "DEBUG: tidy_xml config: '$datapath/$tidyconfig'\n";
 #    my %tidyopts = (
-#	config_file => "$datapath/$tidyconfig",
 #	quiet => "yes",
 #	input_xml => "yes",
 #	input_encoding => $inputenc,
@@ -3551,7 +3533,6 @@ sub tidy_xml
 	
     my $tidy = HTML::Tidy->new(
 	{
-#	    config_file => "$datapath/$tidyconfig",
 #	    quiet => "yes",
 #	    input_xml => "yes",
 #	    input_encoding => $inputenc,
@@ -3593,10 +3574,6 @@ overwrite the input file isn't met.
 
 the location of the tidy executable
 
-=item $tidyconfig
-
-the location of the config file to use
-
 =item $tidyxhtmlerrors
 
 the filename to use to output errors
@@ -3634,10 +3611,7 @@ sub system_tidy_xhtml
     croak("system_tidy_xhtml called with no input file") if(!$infile);
     croak("system_tidy_xhtml called with no output file") if(!$outfile);
     
-    @configopt = ('-config',"$datapath/$tidyconfig")
-	if(-f "$datapath/$tidyconfig");
-
-    $retval = system($tidycmd,@configopt,
+    $retval = system($tidycmd,
 		     '-q','-utf8',
 		     '-asxhtml',
 		     '--doctype','transitional',
@@ -3695,17 +3669,9 @@ overwrite the input file isn't met.
 
 =over
 
-=item $datapath
-
-the location of the config file
-
 =item $tidycmd
 
 the name of the tidy executable
-
-=item $tidyconfig
-
-the name of the tidy config file to use
 
 =item $tidyxmlerrors
 
@@ -3744,10 +3710,7 @@ sub system_tidy_xml
     croak("system_tidy_xml called with no input file") if(!$infile);
     croak("system_tidy_xml called with no output file") if(!$outfile);
 
-    @configopt = ('-config',"$datapath/$tidyconfig")
-	if(-f "$datapath/$tidyconfig");
-
-    $retval = system($tidycmd,@configopt,
+    $retval = system($tidycmd,
 		     '-q','-utf8',
 		     '-xml',
 		     '-f',$tidyxmlerrors,
@@ -4044,15 +4007,17 @@ sub ymd_validate
 
 =over
 
-=item * $datapath points to a relatively useless location by default.
-While nothing very useful is stored there yet, it needs to be fixed to
-a usable system directory or removed entirely.
-
 =item * File opens need to be assigned binmode :utf8.
 
 =item * File writes clobber existing data.  It would probably be
 better to move existing files to filename.backup before writing if the
 target file exists.
+
+=item * NCX generation only generates from the spine.  It should be
+possible to use a TOC html file for generation instead.
+
+=item * rights() should be able to search by attribute the way
+manifest() can.
 
 =item * It might be better to use sysread / index / substr / syswrite in
 &split_metadata to handle the split in 10k chunks, to avoid massive
