@@ -56,9 +56,7 @@ http://search.cpan.org/perldoc?Date::Manip#TIME_ZONES
 
 =item Time::Local
 
-=item XML::Twig::XPath
-
-This requires that either XML::XPath or XML::XPathEngine also be available.
+=item XML::Twig
 
 =back
 
@@ -94,7 +92,7 @@ use File::MimeInfo::Magic;
 #use HTML::Tidy;
 use Tie::IxHash;
 use Time::Local;
-use XML::Twig::XPath;
+use XML::Twig;
 
 our @EXPORT_OK;
 @EXPORT_OK = qw (
@@ -489,7 +487,7 @@ sub init    ## no critic (Always unpack @_ first)
         if($debug);
 
     # Initialize the twig before use
-    $$self{twig} = XML::Twig::XPath->new(
+    $$self{twig} = XML::Twig->new(
 	keep_atts_order => 1,
 	output_encoding => 'utf-8',
 	pretty_print => 'record'
@@ -515,19 +513,21 @@ sub init_blank    ## no critic (Always unpack @_ first)
 {
     my $self = shift;
     my ($filename) = @_;
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug);
+
     my $metadata;
     my $element;
 
-    print {*STDERR} "DEBUG[init_blank]\n" if($debug);
-
     if($filename) { $$self{opffile} = $filename; }
-    $$self{twig} = XML::Twig::XPath->new(
+    $$self{twig} = XML::Twig->new(
 	keep_atts_order => 1,
 	output_encoding => 'utf-8',
 	pretty_print => 'record'
         );
 
-    $element = XML::Twig::XPath::Elt->new('package');
+    $element = XML::Twig::Elt->new('package');
     $$self{twig}->set_root($element);
     $$self{twigroot} = $$self{twig}->root;
     $metadata = $$self{twigroot}->insert_new_elt('first_child','metadata');
@@ -601,15 +601,13 @@ C<manifest()> takes four optional named arguments:
 
 =over
 
-=item C<id> - 'id' attribute to match
+=item * C<id> - 'id' attribute to match
 
-=item C<href> - 'href' attribute to match
+=item * C<href> - 'href' attribute to match
 
-=item C<mtype> - 'media-type' attribute to match
+=item * C<mtype> - 'media-type' attribute to match
 
-=item C<logic> - logic to use (valid values are 'and' or 'or')
-
-If not specified, logic will default to 'and'.
+=item * C<logic> - logic to use (valid values are 'and' or 'or', default: 'and')
 
 =back
 
@@ -958,22 +956,15 @@ sub search_knownuidschemes   ## no critic (Always unpack @_ first)
 	return;
     }
 
-    my @knownuidschemes = qw (
-	GUID
-        guid
-	UUID
-        uuid
-	FWID
-	ISBN
-        isbn
-        ISBN10
-        isbn10
-        ISBN-10
-        isbn-10
-        ISBN13
-        isbn13
-        ISBN-13
-        isbn-13
+    my @knownuidschemes = (
+        'GUID',
+	'UUID',
+	'FWID',
+	'ISBN',
+        'ISBN10',
+        'ISBN-10',
+        'ISBN13',
+        'ISBN-13'
 	);
 
     # Creating a regexp to search on works, but doesn't let you
@@ -988,9 +979,11 @@ sub search_knownuidschemes   ## no critic (Always unpack @_ first)
     foreach my $scheme (@knownuidschemes)
     {
 	print "DEBUG: searching for scheme='",$scheme,"'\n" if($debug);
-	@elems = $topelement->findnodes(
-            "*[(name()='dc:identifier' or name()='dc:Identifier')"
-            . " and (\@opf:scheme='$scheme' or \@scheme='$scheme')]"
+	@elems = $topelement->descendants(
+            "dc:identifier[\@opf:scheme=~/$scheme/ix or \@scheme=~/$scheme/ix]"
+            );
+        push @elems, $topelement->descendants(
+            "dc:Identifier[\@opf:scheme=~/$scheme/ix or \@scheme=~/$scheme/ix]"
             );
 	foreach my $elem (@elems)
 	{
@@ -2751,7 +2744,7 @@ sub gen_ncx    ## no critic (Always unpack @_ first)
         return;
     }
 
-    $ncx = XML::Twig::XPath->new(
+    $ncx = XML::Twig->new(
 	output_encoding => 'utf-8',
 	pretty_print => 'record'
 	);
@@ -2894,12 +2887,12 @@ sub twigcheck
 
     croak($calledfrom[3],"(): undefined twig")
         if(!$$self{twig});
-    croak($calledfrom[3],"(): twig isn't a XML::Twig::XPath")
-        if( (ref $$self{twig}) ne 'XML::Twig::XPath' );
+    croak($calledfrom[3],"(): twig isn't a XML::Twig")
+        if( (ref $$self{twig}) ne 'XML::Twig' );
     croak($calledfrom[3],"(): twig root missing")
         if(!$$self{twigroot});
-    croak($calledfrom[3],"(): twig root isn't a XML::Twig::XPath::Elt")
-        if( (ref $$self{twigroot}) ne 'XML::Twig::XPath::Elt' );
+    croak($calledfrom[3],"(): twig root isn't a XML::Twig::Elt")
+        if( (ref $$self{twigroot}) ne 'XML::Twig::Elt' );
     croak($calledfrom[3],"(): twig root is '" . $$self{twigroot}->gi 
           . "' (needs to be 'package')")
         if($$self{twigroot}->gi ne 'package');
@@ -2970,7 +2963,7 @@ sub create_epub_container
     }
     else { mkdir('META-INF') or return; }
 
-    $twig = XML::Twig::XPath->new(
+    $twig = XML::Twig->new(
 	output_encoding => 'utf-8',
 	pretty_print => 'record'
 	);
@@ -3112,12 +3105,12 @@ sub fix_datestring
 {
     my ($datestring) = @_;
     return unless($datestring);
+    my $subname = ( caller(0) )[3];
+    print {*STDERR} "DEBUG[",$subname,"]\n" if($debug);
 
     my $date;
     my ($year,$month,$day);
     my $fixeddate;
-
-    print "DEBUG[fix_date]: '",$datestring,"'\n" if($debug);
 
     $_ = $datestring;
 
@@ -3269,7 +3262,7 @@ The OPS container to parse.  Defaults to 'META-INF/container.xml'
 sub get_container_rootfile
 {
     my ($container) = @_;
-    my $twig = XML::Twig::XPath->new();
+    my $twig = XML::Twig->new();
     my $rootfile;
     my $retval = undef;
 
@@ -3922,6 +3915,7 @@ sub twigelt_is_author
     return;
 }
 
+
 =head2 C<ymd_validate($year,$month,$day)>
 
 Make sure month and day have valid values.  Return the passed values
@@ -3989,6 +3983,10 @@ a usable system directory or removed entirely.
 
 =item * File opens need to be assigned binmode :utf8.
 
+=item * File writes clobber existing data.  It would probably be
+better to move existing files to filename.backup before writing if the
+target file exists.
+
 =item * It might be better to use sysread / index / substr / syswrite in
 &split_metadata to handle the split in 10k chunks, to avoid massive
 memory usage on large files.
@@ -3996,6 +3994,8 @@ memory usage on large files.
 This may not be worth the effort, since the average size for most
 books is less than 500k, and the largest books are rarely if ever over
 10M.
+
+=item * Need to merge the user tools into a single user tool
 
 =item * Need a simple script to generate an OPF file from a single
 text/html file
