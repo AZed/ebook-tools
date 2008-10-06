@@ -341,10 +341,10 @@ my %rwfields = (
     'spec'     => 'string',
     );
 my %rofields = (
-    'twig'     => 'scalar'
+    'twig'     => 'scalar',
     'twigroot' => 'scalar',
     'errors'   => 'arrayref',
-    'warnings' => 'arrayref'
+    'warnings' => 'arrayref',
     );
 my %privatefields = ();
 
@@ -355,7 +355,7 @@ my %methods = (
     'init_blank' => 'PUBLIC',
     'add_document' => 'PUBLIC',
     'add_errors' => 'PUBLIC',
-    'add_warnings' => 'PUBLIC'
+    'add_warnings' => 'PUBLIC',
     );
     
 # A simple 'use fields' will not work here: use takes place inside
