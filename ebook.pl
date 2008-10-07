@@ -1,6 +1,17 @@
 #!/usr/bin/perl
 use warnings; use strict;
 
+=head1 NAME
+
+ebook - create and manipulate e-books from the command line
+
+=head1 SYNOPSIS
+
+ ebook COMMAND arg1 arg2 --opt1 --opt2
+
+=cut
+
+
 use File::Basename 'fileparse';
 use EBook::Tools qw(split_metadata system_tidy_xhtml system_tidy_xml);
 use Getopt::Long;
@@ -11,6 +22,7 @@ use Getopt::Long;
 #####################################
 
 my %opt = (
+    'author'     => '',
     'dir'        => '',
     'help'       => 0,
     'mobi'       => 0,
@@ -19,6 +31,7 @@ my %opt = (
     'opffile'    => '',
     'tidycmd'    => '',
     'tidysafety' => 1,
+    'title'      => '',
     'verbose'    => 0,
     );
 
@@ -80,6 +93,22 @@ $dispatch{$cmd}(@ARGV);
 ########## COMMAND SUBROUTINES ##########
 #########################################
 
+=head1 COMMANDS
+
+=head2 adddoc
+
+Add a document to both the book manifest and spine
+
+=head2 additem
+
+Add an item to the book manifest, but not the spine
+
+=head2 blank
+
+Create a blank e-book
+
+=cut
+
 sub blank
 {
     my ($opffile) = @_;
@@ -97,6 +126,15 @@ sub blank
     $ebook->save;
     exit(0);
 }
+
+
+=head2 fix
+
+Find and fix problems with an e-book, including enforcing a standard
+specification and ensuring that all linked objects are present in the
+manifest.
+
+=cut
 
 sub fix
 {
@@ -128,6 +166,13 @@ sub fix
     exit(0);
 }
 
+
+=head2 metasplit
+
+Split the <metadata>...</metadata> block out of pseudo-HTML files that
+contain them.
+
+=cut
 
 sub metasplit
 {
@@ -171,6 +216,12 @@ sub metasplit
 }
 
 
+=head2 genepub
+
+Generate a .epub book from existing OPF data
+
+=cut
+
 sub genepub
 {
     my ($opffile) = @_;
@@ -196,6 +247,13 @@ sub genepub
     exit(0);
 }
 
+=head2 tidyxhtml
+
+Run tidy on a HTML file to enforce valid XHTML output (required by the
+OPF 2.0 specification).
+
+=cut
+
 sub tidyxhtml
 {
     my ($inputfile,$tidyfile) = @_;
@@ -213,6 +271,12 @@ sub tidyxhtml
 }
 
 
+=head2 tidyxml
+
+Run tidy an a XML file (for neatness).
+
+=cut
+
 sub tidyxml
 {
     my ($inputfile,$tidyfile) = @_;
@@ -229,6 +293,47 @@ sub tidyxml
     exit($retval);
 }
 
-##########
+########## END CODE ##########
+
+=head1 EXAMPLES
+
+ ebook metasplit book.html mybook.opf
+ ebook tidyxhtml book.html
+ ebook tidyxml mybook.opf
+ ebook fix mybook.opf --oeb12 --mobi
+ ebook genepub 
+
+ ebook blank newbook.opf --title "My Title" --author "My Name"
+ ebook adddoc myfile.html
+ ebook fix newbook.opf --opf20 -v
+ ebook genepub
+
+
+=head1 BUGS/TODO
+
+=over
+
+=item * adddoc and additem commands not yet implemented
+
+=item * blank command doesn't use options yet
+
+=item * documentation is very minimal
+
+=item * output will overwrite files without warning or backup
+
+=back
+
+=head1 COPYRIGHT
+
+Copyright 2008 Zed Pobre
+
+=head1 LICENSE
+
+Licensed to the public under the terms of the GNU GPL, version 2.
+
+=cut
+
+
+########## DATA ##########
 
 __DATA__
