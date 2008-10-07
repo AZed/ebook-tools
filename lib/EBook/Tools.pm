@@ -439,7 +439,7 @@ META-INF/container.xml, and if nothing is found there, by looking in
 the current directory for a single OPF file.
 
 If no such files or found (or more than one is found), the
-initialization will die horribly.
+initialization croaks.
 
 =cut
 
@@ -447,6 +447,8 @@ sub init    ## no critic (Always unpack @_ first)
 {
     my $self = shift;
     my ($filename) = @_;
+    my $fh_opffile;
+    my $opfstring;
     my $subname = (caller(0))[3];
     croak($subname . "() called as a procedure") unless(ref $self);
     print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
@@ -465,14 +467,14 @@ sub init    ## no critic (Always unpack @_ first)
 	$self->opffile($candidates[0]);
     }
     
+    if(! -f $self->opffile)
+    {
+	croak($subname,"(): '",$self->opffile,"' does not exist or is not a regular file!")
+    }
+
     if(-z $self->opffile)
     {
 	croak("OPF file '",$self->opffile,"' has zero size!");
-    }
-
-    if(! -f $self->opffile)
-    {
-	croak("Could not initialize EBook object from '",$$self{opffile},"'!")
     }
 
     print {*STDERR} "DEBUG: initializing from '",$$self{opffile},"'\n"
@@ -483,9 +485,19 @@ sub init    ## no critic (Always unpack @_ first)
 	keep_atts_order => 1,
 	output_encoding => 'utf-8',
 	pretty_print => 'record'
-	),
+	);
 
-    $$self{twig}->parsefile($$self{opffile});
+    # Read and decode entities before parsing to avoid parsing errors
+    open($fh_opffile,'<:utf8',$self->opffile)
+        or croak($subname,"(): failed to open '",$self->opffile,"' for reading!");
+    read($fh_opffile,$opfstring,-s $self->opffile)
+        or croak($subname,"(): failed to read from '",$self->opffile,"'!");
+    close($fh_opffile)
+        or croak($subname,"(): failed to close '",$self->opffile,"'!");
+    $opfstring = decode_entities($opfstring);
+
+    $$self{twig}->parse($opfstring);
+#    $$self{twig}->parsefile($$self{opffile});
     $$self{twigroot} = $$self{twig}->root;
     $self->twigcheck;
     print {*STDERR} "DEBUG[/",$subname,"]\n" if($debug >= 2);
@@ -1250,7 +1262,7 @@ sub add_document   ## no critic (Always unpack @_ first)
     my $topelement = $$self{twigroot};
     my $element;
 
-    $id = $href unless(!$id);
+    $id = $href unless($id);
     $id =~ s/[^\w.-]//gx; # Delete all nonvalid XML 1.0 namechars
     $id =~ s/^[.\d -]+//gx; # Delete all nonvalid XML 1.0 namestartchars
 
@@ -2832,11 +2844,13 @@ sub gen_ncx    ## no critic (Always unpack @_ first)
         $element->set_att('src' => $$spineitem{'href'});
     }
 
+    # Twig handles utf-8.  Setting binmode :utf8 here will cause
+    # double-conversion.
     open(my $fh_ncx,'>',$filename)
-        or croak("gen_ncx(): failed to open '",$filename,"' for writing!");
+        or croak($subname,"(): failed to open '",$filename,"' for writing!");
     $ncx->print(\*$fh_ncx);
     close($fh_ncx)
-        or croak("gen_ncx(): failed to close '",$filename,"'!");
+        or croak($subname,"(): failed to close '",$filename,"'!");
 
     # Search for existing NCX entries and modify the first one found,
     # creating a new one if there are no matches.
@@ -2877,6 +2891,9 @@ sub save
 
     my $opffile;
     
+    # Don't open this file with binmode :utf8 -- the XML::Twig printer
+    # will take care of this properly, and if you set it here, it will
+    # double-convert.
     if(!open($opffile,">",$self->{opffile}))
     {
 	add_errors(sprintf("Could not open '%s' to save to!",$self->{opffile}));
@@ -3007,6 +3024,8 @@ sub create_epub_container
     $element->set_att('full-path',$opffile);
     $element->set_att('media-type','application/oebps-package+xml');
 
+    # Twig handles utf-8 properly.  Setting binmode :utf8 here will
+    # cause a double-conversion.
     open($containerfh,'>','META-INF/container.xml') or die;
     $twig->print(\*$containerfh);
     close($containerfh);
@@ -3075,7 +3094,7 @@ sub find_links
     my @links;
     my $test;
 
-    open($fh,'<',$filename);
+    open($fh,'<:utf8',$filename);
     
     while(<$fh>)
     {
@@ -3430,11 +3449,11 @@ sub split_metadata
             if(! rename($htmlfile,"$metafile.backup") );
     }
 
-    open($fh_metahtml,"<",$metahtmlfile)
+    open($fh_metahtml,"<:utf8",$metahtmlfile)
 	or croak($subname,"(): Failed to open ",$metahtmlfile," for reading!");
     open($fh_meta,">:utf8",$metafile)
 	or croak($subname,"(): Failed to open ",$metafile," for writing!");
-    open($fh_html,">",$htmlfile)
+    open($fh_html,">:utf8",$htmlfile)
 	or croak($subname,"(): Failed to open ",$htmlfile," for writing!");
 
 
@@ -3477,7 +3496,7 @@ sub split_metadata
     rename($htmlfile,$metahtmlfile)
 	or croak("split_metadata(): Failed to rename ",$htmlfile," to ",$metahtmlfile,"!\n");
 
-    if(! -s $metafile)
+    if(-z $metafile)
     {
         croak($subname,
               "(): unable to remove empty output file '",$metafile,"'!")
@@ -3564,6 +3583,8 @@ The filename to tidy
 The filename to use for tidy output if the safety condition to
 overwrite the input file isn't met.
 
+Defaults to C<infile-tidy.ext> if not specified.
+
 =back
 
 =head3 Global variables used
@@ -3605,14 +3626,20 @@ Returns the return value from tidy
 sub system_tidy_xhtml 
 {
     my ($infile,$outfile) = @_;
-    my @configopt = ();
     my $retval;
 
     croak("system_tidy_xhtml called with no input file") if(!$infile);
+    if(!$outfile)
+    {
+        my ($filebase,$filedir,$fileext) = fileparse($infile,'\.\w+$');
+        $outfile = $filebase . "-tidy" . $fileext;
+    }
     croak("system_tidy_xhtml called with no output file") if(!$outfile);
     
     $retval = system($tidycmd,
-		     '-q','-utf8',
+		     '-q','-utf8','--tidy-mark','no',
+                     '--wrap','0',
+                     '--clean','yes',
 		     '-asxhtml',
 		     '--doctype','transitional',
 		     '-f',$tidyxhtmlerrors,
@@ -3654,14 +3681,16 @@ Runs tidy on an XML file semi-safely (using a secondary file)
 
 =over
 
-=item $infile
+=item C<$infile>
 
 The filename to tidy
 
-=item $outfile
+=item C<$outfile> (optional)
 
 The filename to use for tidy output if the safety condition to
 overwrite the input file isn't met.
+
+Defaults to C<infile-tidy.ext> if not specified.
 
 =back
 
@@ -3669,15 +3698,15 @@ overwrite the input file isn't met.
 
 =over
 
-=item $tidycmd
+=item C<$tidycmd>
 
 the name of the tidy executable
 
-=item $tidyxmlerrors
+=item C<$tidyxmlerrors>
 
 the filename to use to output errors
 
-=item $tidysafety
+=item C<$tidysafety>
 
 the safety factor to use (see CONFIGURABLE GLOBAL VARIABLES, above)
 
@@ -3704,14 +3733,20 @@ Returns the return value from tidy
 sub system_tidy_xml
 {
     my ($infile,$outfile) = @_;
-    my @configopt = ();
     my $retval;
     
     croak("system_tidy_xml called with no input file") if(!$infile);
+
+    if(!$outfile)
+    {
+        my ($filebase,$filedir,$fileext) = fileparse($infile,'\.\w+$');
+        $outfile = $filebase . "-tidy" . $fileext;
+    }
     croak("system_tidy_xml called with no output file") if(!$outfile);
 
     $retval = system($tidycmd,
-		     '-q','-utf8',
+		     '-q','-utf8','--tidy-mark','no',
+                     '--wrap','0',
 		     '-xml',
 		     '-f',$tidyxmlerrors,
 		     '-o',$outfile,
@@ -3744,7 +3779,7 @@ sub system_tidy_xml
 }
 
 
-=head2 C<trim(@list)>
+=head2 C<trim>
 
 Removes any whitespace characters from the beginning or end of every
 string in @list (also works on scalars).
@@ -3765,7 +3800,8 @@ String::Strip.
 
 =cut
 
-sub trim {
+sub trim
+{
     @_ = $_ if not @_ and defined wantarray;
     @_ = @_ if defined wantarray;
     for ( @_ ? @_ : $_ ) { s/^\s+//, s/\s+$// }
@@ -4007,8 +4043,6 @@ sub ymd_validate
 
 =over
 
-=item * File opens need to be assigned binmode :utf8.
-
 =item * File writes clobber existing data.  It would probably be
 better to move existing files to filename.backup before writing if the
 target file exists.
@@ -4029,8 +4063,10 @@ books is less than 500k, and the largest books are rarely if ever over
 
 =item * Need to merge the user tools into a single user tool
 
-=item * Need a simple script to generate an OPF file from a single
+=item * Need a user tool command to generate an OPF file from a single
 text/html file
+
+=item * gen_epub() should allow the user to specify an output file
 
 =item * The only generator is currently for .epub books.  PDF,
 PalmDoc, Mobipocket, and iSiloX are eventually planned.
