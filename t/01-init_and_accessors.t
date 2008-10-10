@@ -5,7 +5,7 @@
 
 # change 'tests => 1' to 'tests => last_test_to_print';
 
-use Test::More tests => 45;
+use Test::More tests => 54;
 use Cwd qw(chdir getcwd);
 use Data::Dumper;
 use File::Basename qw(basename);
@@ -17,6 +17,7 @@ BEGIN { use_ok('EBook::Tools',qw(system_tidy_xhtml system_tidy_xml)) };
 $EBook::Tools::debug = 0;
 
 my ($ebook1,$ebook2,$blank);
+my $meta;
 my @manifest;
 my @manifest_hrefs_expected = (
     'part1.html',
@@ -61,18 +62,45 @@ is($ebook1->twigroot->att('unique-identifier'),undef,
 is($ebook1->opffile,'missingfwid.opf',
    'opffile() found correct value after init()');
 
-# init_blank($filename)
+# init_blank()
 $blank = EBook::Tools->new() or die;
-ok($blank->init_blank('test-blank.opf'),'init_blank() returned successfully');
+ok(!eval { $blank->init_blank() },'init_blank() fails with no argument');
+
+# init_blank(opffile => $filename)
+ok($blank->init_blank(opffile => 'test-blank.opf'),
+   'init_blank(opffile => $filename) returned successfully');
 is(ref $blank->twig,'XML::Twig',
-   'init_blank() created a XML::Twig');
+   'init_blank(opffile => $filename) created a XML::Twig');
 is(ref $blank->twigroot,'XML::Twig::Elt',
-   'init_blank() created a XML::Twig::Elt root');
-is($blank->twigroot
-   ->first_child('metadata')
+   'init_blank(opffile => $filename) created a XML::Twig::Elt root');
+$meta = $blank->twigroot->first_child('metadata') or die;
+is($meta
    ->first_child('dc:identifier')
-   ->att('scheme'),'UUID',
-   'init_blank() has a structure with a UUID');
+   ->att('opf:scheme'),'UUID',
+   'init_blank(opffile => $filename) has a structure with a UUID');
+is($meta->first_child('dc:title')->text,'Unknown Title',
+   'init_blank(opffile => $filename) generates the default title');
+is($meta->first_child('dc:creator')->text,'Unknown Author',
+   'init_blank(opffile => $filename) generates the default creator');
+is($meta->first_child('dc:creator')->att('opf:role'),'aut',
+   'init_blank(opffile => $filename) creator has role "aut"');
+
+# init_blank(all args)
+ok($blank->init_blank(opffile => 'test-blank.opf',
+                      author => 'New Author',
+                      title => 'New Title'),
+   'init_blank(all args) returned successfully');
+$meta = $blank->twigroot->first_child('metadata') or die;
+is($meta
+   ->first_child('dc:identifier')
+   ->att('opf:scheme'),'UUID',
+   'init_blank(all args) has a structure with a UUID');
+is($meta->first_child('dc:title')->text,'New Title',
+   'init_blank(all args) generates the assigned title');
+is($meta->first_child('dc:creator')->text,'New Author',
+   'init_blank(all args) generates the assigned creator');
+is($meta->first_child('dc:creator')->att('opf:role'),'aut',
+   'init_blank(all args) creator has role "aut"');
 
 # spec() and set_spec()
 is($ebook1->spec,undef,'spec() undefined after init');
