@@ -1,13 +1,17 @@
 package EBook::Tools;
 use warnings; use strict; use utf8;
+require Exporter;
+use base qw(Exporter);
 use version; our $VERSION = qv("0.1.0");
 # $Revision$ $Date$
+
 #use warnings::unused;
 
 ## Perl Critic overrides:
 ## RequireBriefOpen seems to be way too brief to be useful
 ## no critic (RequireBriefOpen)
 our $debug = 0;
+
 
 
 =head1 NAME
@@ -25,8 +29,23 @@ both OEBPS v1.2 and OPS/OPF v2.0.
 
 =cut
 
-require Exporter;
-use base qw(Exporter);
+=head1 SYNOPSIS
+
+ package EBook::Tools qw(split_metadata system_tidy_xml);
+ $EBook::Tools::tidysafety = 2;
+
+ my $opffile = split_metadata('ebook.html');
+ my $otheropffile = 'alternate.opf';
+ my $retval = system_tidy_xml($opffile,'tidy-backup.xml');
+ my $ebook = EBook::Tools->new($opffile);
+ $ebook->fix_opf20;
+ $ebook->fix_misc;
+ $ebook->print;
+ $ebook->save;
+
+ $ebook->init($otheropffile);
+ $ebook->fix_oeb12;
+ $ebook->gen_epub;
 
 
 =head1 DEPENDENCIES
@@ -36,8 +55,6 @@ use base qw(Exporter);
 =over
 
 =item Archive::Zip
-
-=item Carp
 
 =item Class::Meta
 
@@ -50,9 +67,9 @@ TZ environment variable is set in a specific manner. See:
 
 http://search.cpan.org/perldoc?Date::Manip#TIME_ZONES
 
-=item File::MimeInfo::Magic
+=item File::MimeInfo
 
-=item HTML::Parser (for HTML::Entities)
+=item HTML::Parser
 
 =item Tie::IxHash
 
@@ -69,13 +86,14 @@ http://search.cpan.org/perldoc?Date::Manip#TIME_ZONES
 =item Tidy
 
 The command "tidy" needs to be available, and ideally on the path.  If
-it isn't on the path, L</$tidycmd> can be set to its absolute path.
-If tidy cannot be found, L</system_tidy_xml()> and
+it isn't on the path, package variable L</$tidycmd> can be set to its
+absolute path.  If tidy cannot be found, L</system_tidy_xml()> and
 L</system_tidy_xhtml()> will be nonfunctional.
 
 =back
 
 =cut
+
 
 # OSSP::UUID will provide Data::UUID on systems such as Debian that do
 # not distribute the original Data::UUID.
@@ -96,6 +114,7 @@ use File::MimeInfo::Magic;
 # detect XHTML), but detects CSS as x-system, and has a number of
 # other weird bugs.
 #use File::MMagic;
+use File::Path;     # Exports 'mkpath' and 'rmtree'
 use HTML::Entities;
 #use HTML::Tidy;
 use Tie::IxHash;
@@ -174,7 +193,8 @@ The name of the error output file from system_tidy_xml().  Defaults to
 
 =item C<$tidysafety>
 
-The safety level to use when running tidy.  Potential values are:
+The safety level to use when running tidy (default is 1).  Potential
+values are:
 
 =over
 
@@ -497,7 +517,6 @@ sub init    ## no critic (Always unpack @_ first)
     $opfstring = decode_entities($opfstring);
 
     $$self{twig}->parse($opfstring);
-#    $$self{twig}->parsefile($$self{opffile});
     $$self{twigroot} = $$self{twig}->root;
     $self->twigcheck;
     print {*STDERR} "DEBUG[/",$subname,"]\n" if($debug >= 2);
@@ -505,26 +524,70 @@ sub init    ## no critic (Always unpack @_ first)
 }
 
 
-=head2 C<init_blank()>
+=head2 C<init_blank(named => args)>
 
 Initializes an object containing nothing more than the basic OPF
 framework, suitable for adding new documents when creating an e-book
 from scratch.
+
+=head3 Arguments
+
+C<init_blank> takes up to three named arguments, only one of which is
+mandatory:
+
+=over
+
+=item C<opffile> (mandatory)
+
+This specifies the OPF filename to use.  If not specified,
+C<init_blank> croaks.
+
+=item C<author>
+
+This specifies the content of the initial dc:creator element.  If not
+specified, defaults to "Unknown Author".
+
+=item C<title>
+
+This specifies the content of the initial dc:title element. If not
+specified, defaults to "Unknown Title".
+
+=back
+
+=head3 Example
+
+ init_blank('opffile' => 'newfile.opf',
+            'title' => 'The Great Unknown');
 
 =cut
 
 sub init_blank    ## no critic (Always unpack @_ first)
 {
     my $self = shift;
-    my ($filename) = @_;
+    my (%args) = @_;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
     print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
 
+
+    my %valid_args = (
+        'opffile' => 1,
+        'author' => 1,
+        'title' => 1,
+        );
+    foreach my $arg (keys %args)
+    {
+        croak($subname,"(): invalid argument '",$arg,"'")
+            if(!$valid_args{$arg});
+    }
+    croak($subname,"(): opffile not specified!") if(!$args{opffile});
+
+    my $author = $args{author} || 'Unknown Author';
+    my $title = $args{title} || 'Unknown Title';
     my $metadata;
     my $element;
 
-    if($filename) { $$self{opffile} = $filename; }
+    $$self{opffile} = $args{opffile};
     $$self{twig} = XML::Twig->new(
 	keep_atts_order => 1,
 	output_encoding => 'utf-8',
@@ -535,19 +598,21 @@ sub init_blank    ## no critic (Always unpack @_ first)
     $$self{twig}->set_root($element);
     $$self{twigroot} = $$self{twig}->root;
     $metadata = $$self{twigroot}->insert_new_elt('first_child','metadata');
+
+    # dc:identifier
     $element = twigelt_create_uuid();
     $element->paste('first_child',$metadata);
 
-    # Fix the <package> attributes
-    $$self{twigroot}->set_atts('version' => '2.0',
-                               'xmlns' => 'http://www.idpf.org/2007/opf');
+    # dc:title
+    $element = $metadata->insert_new_elt('last_child','dc:title');
+    $element->set_text($title);
 
-    # Fix the <metadata> attributes
-    $metadata->set_atts('xmlns:dc' => "http://purl.org/dc/elements/1.1/",
-			'xmlns:opf' => "http://www.idpf.org/2007/opf");
+    # dc:creator (author)
+    $element = $metadata->insert_new_elt('last_child','dc:creator');
+    $element->set_atts('opf:role','aut');
+    $element->set_text($author);
 
-    # Set the specification
-    $$self{spec} = $oebspecs{'OPF20'};
+    $self->fix_opf20;
     return 1;
 }
 
@@ -748,7 +813,6 @@ sub manifest_hrefs
 	{
 	    if(-f $item->att('href'))
 	    {
-		undef $type;
 		$type = mimetype($item->att('href'));
 		print "DEBUG: '",$item->att('href'),"' has mime-type '",$type,"'\n";
 	    }
@@ -872,11 +936,16 @@ sub print_opf
 }
 
 
-=head2 C<rights()>
+=head2 C<rights('id' => 'identifier')>
 
 Returns a list containing the text of all of dc:rights or
 dc:copyrights (case-insensitive) entries in the e-book, or an empty
 list if none are found.
+
+If the optional named argument 'id' is specified, it will only return
+entries where the id attribute matches the specified identifier.
+Although this still returns a list, if more than one entry is found, a
+warning is logged.
 
 Note that dc:copyrights is not a valid Dublin Core element -- it is
 included only because some broken Mobipocket books use it.
@@ -886,21 +955,46 @@ included only because some broken Mobipocket books use it.
 sub rights()
 {
     my $self = shift;
-    my ($filename) = @_;
+    my (%args) = @_;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
     print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
     $self->twigcheck;
     
-    my $twigroot = $$self{twigroot};
-    my @rights = ();
+    my %valid_args = (
+        'id' => 1,
+        );
+    foreach my $arg (keys %args)
+    {
+        croak($subname,"(): invalid argument '",$arg,"'")
+            if(!$valid_args{$arg});
+    }
 
-    my @elements = $twigroot->descendants(qr/dc:rights/ix);
-    push @elements, $twigroot->descendants(qr/dc:copyrights/ix);
+
+    my @rights = ();
+    my $id = $args{id};
+
+    my @elements = $$self{twigroot}->descendants(qr/dc:(copy)?rights/ix);
 
     foreach my $element (@elements)
     {
-        push @rights,$element->text if($element->text);
+        if($id)
+        {
+            next if($element->att('id') ne $id);
+            push @rights,$element->text if($element->text);
+        }
+        else
+        {
+            push @rights,$element->text if($element->text);
+        }
+    }
+    
+    if($id)
+    {
+        add_warnings($subname 
+                     . "(): More than one rights entry found with id '" 
+                     . $id ."'" )
+            if(scalar(@rights) > 1);
     }
     return @rights;
 }
@@ -2844,8 +2938,15 @@ sub gen_ncx    ## no critic (Always unpack @_ first)
         $element->set_att('src' => $$spineitem{'href'});
     }
 
-    # Twig handles utf-8.  Setting binmode :utf8 here will cause
-    # double-conversion.
+    # Backup existing file
+    if(-e $filename)
+    {
+        rename($filename,"$filename.backup")
+            or croak($subname,"(): could not backup ",$filename,"!");
+    }
+
+    # Twig handles utf-8 on its own.  Setting binmode :utf8 here will
+    # cause double-conversion.
     open(my $fh_ncx,'>',$filename)
         or croak($subname,"(): failed to open '",$filename,"' for writing!");
     $ncx->print(\*$fh_ncx);
@@ -2889,21 +2990,32 @@ sub save
     croak($subname . "() called as a procedure") unless(ref $self);
     print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
 
-    my $opffile;
-    
-    # Don't open this file with binmode :utf8 -- the XML::Twig printer
-    # will take care of this properly, and if you set it here, it will
-    # double-convert.
-    if(!open($opffile,">",$self->{opffile}))
+    croak($subname,"(): no opffile specified (did you forget to init?)")
+        if(!$$self{opffile});
+
+    my $fh_opf;
+    my $filename = $$self{opffile};
+
+    # Backup existing file
+    if(-e $filename)
     {
-	add_errors(sprintf("Could not open '%s' to save to!",$self->{opffile}));
+        rename($filename,"$filename.backup")
+            or croak($subname,"(): could not backup ",$filename,"!");
+    }
+
+
+    # Twig handles utf8 on its own.  If you open this file with
+    # binmode :utf8, it will double-convert.
+    if(!open($fh_opf,">",$$self{opffile}))
+    {
+	add_errors(sprintf("Could not open '%s' to save to!",$$self{opffile}));
 	return;
     }
-    $self->{twig}->print(\*$opffile);
+    $$self{twig}->print(\*$fh_opf);
 
-    if(!close($opffile))
+    if(!close($fh_opf))
     {
-	add_errors(sprintf("Failure while closing '%s'!",$self->{opffile}));
+	add_errors(sprintf("Failure while closing '%s'!",$$self{opffile}));
 	return;
     }
     return 1;
@@ -2959,7 +3071,9 @@ Creates the XML file META-INF/container.xml pointing to the
 specified OPF file.
 
 Creates the META-INF directory if necessary.  Will destroy any
-non-directory file named 'META-INF' in the current directory.
+non-directory file named 'META-INF' in the current directory.  If
+META-INF/container.xml already exists, it will rename that file to
+META-INF/container.xml.backup.
 
 =head3 Arguments
 
@@ -2994,7 +3108,7 @@ sub create_epub_container
     my $twigroot;
     my $rootfiles;
     my $element;
-    my $containerfh;
+    my $fh_container;
 
     if($opffile eq '') { return; }
 
@@ -3024,11 +3138,19 @@ sub create_epub_container
     $element->set_att('full-path',$opffile);
     $element->set_att('media-type','application/oebps-package+xml');
 
-    # Twig handles utf-8 properly.  Setting binmode :utf8 here will
+
+    # Backup existing file
+    if(-e 'META-INF/container.xml')
+    {
+        rename('META-INF/container.xml','META-INF/container.xml.backup')
+            or croak($subname,"(): could not backup container.xml!");
+    }
+
+    # Twig handles utf-8 on its own.  Setting binmode :utf8 here will
     # cause a double-conversion.
-    open($containerfh,'>','META-INF/container.xml') or die;
-    $twig->print(\*$containerfh);
-    close($containerfh);
+    open($fh_container,'>','META-INF/container.xml') or die;
+    $twig->print(\*$fh_container);
+    close($fh_container);
     return $twig;
 }
 
@@ -3050,11 +3172,11 @@ sub create_epub_mimetype
     print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
 
     my $mimetype = "application/epub+zip";
-    my $fh;
+    my $fh_mimetype;
     
-    open($fh,">",'mimetype') or return;
-    print $fh,$mimetype;
-    close($fh) or croak($subname,"(): failed to close filehandle [$!]");
+    open($fh_mimetype,">",'mimetype') or return;
+    print $fh_mimetype,$mimetype;
+    close($fh_mimetype) or croak($subname,"(): failed to close filehandle [$!]");
 
     return $mimetype;
 }
@@ -3357,16 +3479,16 @@ sub print_memory
     print {*STDERR} "DEBUG[",$subname,"]\n" if($debug >= 2);
 
     my @mem;
-    my $PROCSTATM;
+    my $fh_procstatm;
       
-    if(!open($PROCSTATM,"<","/proc/$$/statm"))
+    if(!open($fh_procstatm,"<","/proc/$$/statm"))
     {
 	print "[",$label,"]: " if(defined $label);
 	print "Couldn't open /proc/$$/statm [$!]\n";
     }
 
-    @mem = split(/\s+/,<$PROCSTATM>);
-    close($PROCSTATM);
+    @mem = split(/\s+/,<$fh_procstatm>);
+    close($fh_procstatm);
 
     # @mem[0]*4 = size (kb)
     # @mem[1]*4 = resident (kb)
@@ -3641,6 +3763,7 @@ sub system_tidy_xhtml
                      '--wrap','0',
                      '--clean','yes',
 		     '-asxhtml',
+                     '--output-xhtml','yes',
 		     '--doctype','transitional',
 		     '-f',$tidyxhtmlerrors,
 		     '-o',$outfile,
@@ -4020,38 +4143,12 @@ sub ymd_validate
 
 ########## END CODE ##########
 
-=head1 EXAMPLE
-
- package EBook::Tools qw(split_metadata system_tidy_xml);
- $EBook::Tools::tidysafety = 2;
-
- my $opffile = split_metadata('ebook.html');
- my $otheropffile = 'alternate.opf';
- my $retval = system_tidy_xml($opffile,'tidy-backup.xml');
- my $ebook = EBook::Tools->new($opffile);
- $ebook->fix_opf20;
- $ebook->fix_misc;
- $ebook->print;
- $ebook->save;
-
- $ebook->init($otheropffile);
- $ebook->fix_oeb12;
- $ebook->save;
-
-
 =head1 BUGS/TODO
 
 =over
 
-=item * File writes clobber existing data.  It would probably be
-better to move existing files to filename.backup before writing if the
-target file exists.
-
 =item * NCX generation only generates from the spine.  It should be
 possible to use a TOC html file for generation instead.
-
-=item * rights() should be able to search by attribute the way
-manifest() can.
 
 =item * It might be better to use sysread / index / substr / syswrite in
 &split_metadata to handle the split in 10k chunks, to avoid massive
@@ -4061,15 +4158,8 @@ This may not be worth the effort, since the average size for most
 books is less than 500k, and the largest books are rarely if ever over
 10M.
 
-=item * Need to merge the user tools into a single user tool
-
-=item * Need a user tool command to generate an OPF file from a single
-text/html file
-
-=item * gen_epub() should allow the user to specify an output file
-
 =item * The only generator is currently for .epub books.  PDF,
-PalmDoc, Mobipocket, and iSiloX are eventually planned.
+PalmDoc, Mobipocket, Plucker, and iSiloX are eventually planned.
 
 =item * There are no import/extraction tools yet.  Extraction from
 PalmDoc, eReader, and Mobipocket is eventually planned.
@@ -4079,9 +4169,7 @@ object, it may be better to throw exceptions on errors and catch them
 later.  This probably won't be implemented until it bites someone who
 complains, though.
 
-=item * Filehandle naming conventions haven't been standardized.
-
-=item * Unit tests are very incomplete
+=item * Unit tests are incomplete
 
 =back
 
