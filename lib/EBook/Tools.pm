@@ -115,6 +115,7 @@ use File::MimeInfo::Magic;
 # other weird bugs.
 #use File::MMagic;
 use File::Path;     # Exports 'mkpath' and 'rmtree'
+use File::Temp;
 use HTML::Entities;
 #use HTML::Tidy;
 use Tie::IxHash;
@@ -131,6 +132,7 @@ our @EXPORT_OK;
     &get_container_rootfile
     &print_memory
     &split_metadata
+    &split_pre
     &system_tidy_xml
     &system_tidy_xhtml
     &trim
@@ -3717,11 +3719,11 @@ sub split_metadata
     }
 
     open($fh_metahtml,"<:utf8",$metahtmlfile)
-	or croak($subname,"(): Failed to open ",$metahtmlfile," for reading!");
+	or croak($subname,"(): Failed to open '",$metahtmlfile,"' for reading!");
     open($fh_meta,">:utf8",$metafile)
-	or croak($subname,"(): Failed to open ",$metafile," for writing!");
+	or croak($subname,"(): Failed to open '",$metafile,"' for writing!");
     open($fh_html,">:utf8",$htmlfile)
-	or croak($subname,"(): Failed to open ",$htmlfile," for writing!");
+	or croak($subname,"(): Failed to open '",$htmlfile,"' for writing!");
 
 
     # Preload the return value with the OPF headers
@@ -3738,7 +3740,7 @@ sub split_metadata
     while(<$fh_metahtml>)
     {
 	($metastring) = /(<metadata>.*<\/metadata>)/x;
-	if(!defined $metastring) { last; }
+	last unless($metastring);
         $metastring = decode_entities($metastring);
 	print {*$fh_meta} $metastring,"\n";
 	s/(<metadata>.*<\/metadata>)//x;
@@ -3771,6 +3773,92 @@ sub split_metadata
         return;
     }
     return $metafile;
+}
+
+
+=head2 C<split_pre($htmlfile,$outfilebase)>
+
+Splits <pre>...</pre> blocks out of a source HTML file into their own
+separate HTML files including required headers.  Each block will be
+written to its own file following the naming format
+C<$outfilebase-###.html>, where ### is a three-digit number beginning
+at 001 and incrementing for each block found.  If C<$outfilebase> is
+not specified, it defaults to the basename of C<$htmlfile> with
+"-pre-###.html" appended.  The 
+
+Returns the number of segments found.
+
+=cut
+
+sub split_pre
+{
+    my ($htmlfile,$outfilebase) = @_;
+    my $subname = ( caller(0) )[3];
+    debug(2,"DEBUG[",$subname,"]");
+
+    croak($subname,"(): no input file specified")
+        if(!$htmlfile);
+
+    my ($filebase,$filedir,$fileext);
+    my ($fh_html,$fh_htmlout,$fh_pre);
+    my $htmloutfile;
+    my @preblocks;
+    my $prefile;
+    my $count = 0;
+
+    my $htmlheader = <<END;
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html>
+<head>
+<title></title>
+</head>
+<body>
+END
+
+    ($filebase,$filedir,$fileext) = fileparse($htmlfile,'\.\w+$');
+    $outfilebase = "$filebase-pre" if(!$outfilebase);
+    $htmloutfile = "$filebase-nopre.html";
+
+    open($fh_html,"<:utf8",$htmlfile)
+	or croak($subname,"(): Failed to open '",$htmlfile,"' for reading!");
+    open($fh_htmlout,">:utf8",$htmloutfile)
+        or croak($subname,"(): Failed to open '",$htmloutfile,"' for writing!");
+
+    local $/;
+    while(<$fh_html>)
+    {
+	(@preblocks) = /(<pre>.*?<\/pre>)/gisx;
+	last unless(@preblocks);
+        
+        foreach my $pre (@preblocks)
+        {
+            $count++;
+            debug(1,"DEBUG: split_pre() splitting block ",sprintf("%03d",$count));
+            $prefile = sprintf("%s-%03d.html",$outfilebase,$count);
+            if(-f $prefile)
+            {
+                rename($prefile,"$prefile.backup")
+                    or croak("Unable to rename '",$prefile,
+                             "' to '",$prefile,".backup'");
+            }
+            open($fh_pre,">:utf8",$prefile)
+                or croak("Unable to open '",$prefile,"' for writing!");
+            print {*$fh_pre} $utf8xmldec;
+            print {*$fh_pre} $htmlheader,"\n";
+            print {*$fh_pre} $pre,"\n";
+            print {*$fh_pre} "</body>\n</html>\n";
+            close($fh_pre) or croak("Unable to close '",$prefile,"'!");
+        }
+	s/(<pre>.*?<\/pre>)//gisx;
+	print {*$fh_htmlout} $_,"\n";
+        close($fh_htmlout)
+            or croak($subname,"(): Failed to close '",$htmloutfile,"'!");
+        rename($htmloutfile,$htmlfile)
+            or croak($subname,"(): Failed to rename '",$htmloutfile,"' to '",
+                     $htmlfile,"'!");
+    }
+    return $count;
 }
 
 

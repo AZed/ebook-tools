@@ -14,7 +14,8 @@ See also L</EXAMPLES>.
 =cut
 
 
-use EBook::Tools qw(split_metadata system_tidy_xhtml system_tidy_xml);
+use EBook::Tools qw(split_metadata split_pre 
+                    system_tidy_xhtml system_tidy_xml);
 use File::Basename 'fileparse';
 use File::Path;    # Exports 'mkpath' and 'rmtree'
 use Getopt::Long qw(:config bundling);
@@ -72,9 +73,10 @@ my %dispatch = (
     'additem'   => \&additem,
     'blank'     => \&blank,
     'fix'       => \&fix,
-    'metasplit' => \&metasplit,
     'genepub'   => \&genepub,
     'setmeta'   => \&setmeta,
+    'splitmeta' => \&splitmeta,
+    'splitpre'  => \&splitpre,
     'tidyxhtml' => \&tidyxhtml,
     'tidyxml'   => \&tidyxml,
     );
@@ -339,14 +341,29 @@ sub genepub
 }
 
 
-=head2 C<metasplit>
+=head2 C<setmeta>
+
+Set metadata values on existing OPF data.
+
+Not yet implemented.
+
+=cut
+
+sub setmeta
+{
+    print "STUB!\n";
+    exit(255);
+}
+
+
+=head2 C<splitmeta>
 
 Split the <metadata>...</metadata> block out of a pseudo-HTML file
 that contains one.
 
 =cut
 
-sub metasplit
+sub splitmeta
 {
     my ($infile,$opffile) = @_;
     if(!$infile) { die("You must specify a file to parse.\n"); }
@@ -388,18 +405,18 @@ sub metasplit
 }
 
 
-=head2 C<setmeta>
+=head2 C<splitpre>
 
-Set metadata values on existing OPF data.
-
-Not yet implemented.
+Split <pre>...</pre> blocks out of an existing HTML file.
 
 =cut
 
-sub setmeta
+sub splitpre
 {
-    print "STUB!\n";
-    exit(255);
+    my ($infile,$outfilebase) = @_;
+    if(!$infile) { die("You must specify a file to parse.\n"); }
+    split_pre($infile,$outfilebase);
+    exit(0);
 }
 
 
@@ -470,7 +487,7 @@ sub useoptdir ()
 
 =head1 EXAMPLES
 
- ebook metasplit book.html mybook.opf
+ ebook splitmeta book.html mybook.opf
  ebook tidyxhtml book.html
  ebook tidyxml mybook.opf
  ebook fix mybook.opf --oeb12 --mobi

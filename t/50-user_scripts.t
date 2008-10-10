@@ -78,13 +78,13 @@ is($exitval,0,'ebook fix -d testdir exits successfully');
 ok(-f 'testdir/emptyuid.opf',
    'ebook fix -d testdir created file in correct place');
 
-# ebook metasplit
+# ebook splitmeta
 unlink('containsmetadata.opf');
 $exitval = system('perl','-I../lib',
-                  '../ebook.pl','metasplit','containsmetadata.html');
+                  '../ebook.pl','splitmeta','containsmetadata.html');
 $exitval >>= 8;
-is($exitval,0,'ebook metasplit generates right return value');
-ok(-f 'containsmetadata.opf','ebook metasplit created containsmetadata.opf');
+is($exitval,0,'ebook splitmeta generates right return value');
+ok(-f 'containsmetadata.opf','ebook splitmeta created containsmetadata.opf');
 
 ok($ebook = EBook::Tools->new('containsmetadata.opf'),
    'split metadata parsed successfully');
