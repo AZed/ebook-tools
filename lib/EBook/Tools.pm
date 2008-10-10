@@ -104,7 +104,7 @@ use Carp;
 use Class::Meta::Express;
 use Class::Meta::Types::Perl 'semi-affordance';
 use Class::Meta::Types::String 'semi-affordance';
-use Cwd 'realpath';
+use Cwd qw(getcwd realpath);
 use Date::Manip;
 use File::Basename qw(dirname fileparse);
 # File::MimeInfo::Magic gets *.css right, but detects all html as
@@ -2645,35 +2645,70 @@ sub fix_spine
 }
 
 
-=head2 C<gen_epub($filename)>
+=head2 C<gen_epub(named args)>
 
 Creates a .epub format e-book.  This will create (or overwrite) the
 files 'mimetype' and 'META-INF/container.xml' in the current
 directory, creating the subdirectory META-INF as needed.
 
-Takes as an optional argument the filename of the .epub output file.
-If not specified, takes the base name of the opf file and adds a .epub
-extension.
+=head3 Arguments
+
+This method can take two optional named arguments.
+
+=over
+
+=item C<filename>
+
+The filename of the .epub output file.  If not specified, takes the
+base name of the opf file and adds a .epub extension.
+
+=item C<dir>
+
+The directory to output the .epub file.  If not specified, uses the
+current working directory.  If a specified directory does not exist,
+it will be created, or the method will croak.
+
+=back
+
+=head3 Example
+
+ gen_epub(filename => 'mybook.epub',
+          dir => '../epub_books');
 
 =cut
 
 sub gen_epub    ## no critic (Always unpack @_ first)
 {
     my $self = shift;
-    my ($filename) = @_;
+    my (%args) = @_;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
 
+    my %valid_args = (
+        'filename' => 1,
+        'dir' => 1,
+        );
+    foreach my $arg (keys %args)
+    {
+        croak($subname,"(): invalid argument '",$arg,"'")
+            if(!$valid_args{$arg});
+    }
+
+    my $filename;
+    my $dir;
     my $zip = Archive::Zip->new();
     my $member;
 
-    $self->gen_epub_files();
+    $filename = $args{filename} if($args{filename});
+    $dir = $args{dir} if($args{dir});
 
+    $self->gen_epub_files();
     if(! $$self{opffile} )
     {
 	$self->add_errors(
 	    "Cannot create epub without an OPF (did you forget to init?)");
+        debug(1,"Cannot create epub without an OPF");
 	return;
     }
     if(! -f $$self{opffile} )
@@ -2682,6 +2717,7 @@ sub gen_epub    ## no critic (Always unpack @_ first)
 	    sprintf("OPF '%s' does not exist (did you forget to save?)",
 		    $$self{opffile})
 	    );
+        debug(1,"OPF '",$$self{opffile},"' does not exist");
 	return;
     }
 
@@ -2699,6 +2735,7 @@ sub gen_epub    ## no critic (Always unpack @_ first)
 	if(! $file)
 	{
 	    error("No items found in manifest!");
+            debug(1,"No items found in manifest!");
 	    return;
 	}
 	if(-f $file)
@@ -2715,9 +2752,21 @@ sub gen_epub    ## no critic (Always unpack @_ first)
 	$filename .= ".epub";
     }
 
+    if($dir)
+    {
+        unless(-d $dir)
+        {
+            mkpath($dir)
+                or croak("Unable to create working directory '",$dir,"'!");
+        }
+        $filename = "$dir/$filename";
+    }
+
     unless ( $zip->writeToFileNamed($filename) == AZ_OK )
     {
-	error(sprintf("Failed to create epub as '%s'",$filename));
+	$self->add_errors(
+            sprintf("Failed to create epub as '%s'",$filename));
+        debug(1,"Failed to create epub as '",$filename,"'");
 	return;
     }
     return 1;
@@ -3160,7 +3209,7 @@ sub create_epub_mimetype
     my $fh_mimetype;
     
     open($fh_mimetype,">",'mimetype') or return;
-    print $fh_mimetype,$mimetype;
+    print {*$fh_mimetype} $mimetype;
     close($fh_mimetype) or croak($subname,"(): failed to close filehandle [$!]");
 
     return $mimetype;

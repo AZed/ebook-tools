@@ -14,9 +14,10 @@ See also L</EXAMPLES>.
 =cut
 
 
-use File::Basename 'fileparse';
 use EBook::Tools qw(split_metadata system_tidy_xhtml system_tidy_xml);
-use Getopt::Long;
+use File::Basename 'fileparse';
+use File::Path;    # Exports 'mkpath' and 'rmtree'
+use Getopt::Long qw(:config bundling);
 
 
 #####################################
@@ -26,6 +27,7 @@ use Getopt::Long;
 my %opt = (
     'author'     => '',
     'dir'        => '',
+    'filename'   => '',
     'help'       => 0,
     'mobi'       => 0,
     'oeb12'      => 0,
@@ -41,6 +43,7 @@ GetOptions(
     \%opt,
     'author=s',
     'dir|d=s',
+    'filename|file|f=s',
     'help|h|?',
     'mobi|m',
     'oeb12',
@@ -133,13 +136,13 @@ Create a blank e-book structure.
 
 =over
 
-=item C<--opffile> <filename.opf>
+=item C<--opffile filename.opf>
 
-The filename of the OPF file to use to store the metadata structure.
-Specifying this is mandatory, though it can also be specified as the
-first non-option argument.  If both C<--opffile> and the argument are
-passed, the argument value is used.
+=item C<--opf filename.opf>
 
+Use the specified OPF file.  This can also be specified as the first
+non-option argument, which will override this option if it exists.  If
+no file is specified, the program will abort with an error.
 =item C<--author> "Author Name"
 
 The author of the book.  If not specified, defaults to "Unknown
@@ -149,6 +152,12 @@ Author".
 
 The title of the book.  If not specified, defaults to "Unknown Title".
 
+=item C<--dir directory>
+
+=item C<-d directory>
+
+Output the OPF file in this directory, creating it if necessary.
+
 =back
 
 =head3 Example
@@ -156,7 +165,7 @@ The title of the book.  If not specified, defaults to "Unknown Title".
  ebook blank newfile.opf --author "Me Myself" --title "New File"
  ebook blank --opffile newfile.opf --author "Me Myself" --title "New File"
 
-Both of those links have the same effect.
+Both of those commands have the same effect.
 
 =cut
 
@@ -173,12 +182,14 @@ sub blank
         print "You must specify an OPF filename to start with.\n";
         exit(10);
     }
+
     $args{opffile} = $opffile;
     $args{author} = $opt{author} if($opt{author});
     $args{title} = $opt{title} if($opt{title});
 
     $ebook = EBook::Tools->new();
     $ebook->init_blank(%args);
+    useoptdir();
     $ebook->save;
     exit(0);
 }
@@ -189,6 +200,42 @@ sub blank
 Find and fix problems with an e-book, including enforcing a standard
 specification and ensuring that all linked objects are present in the
 manifest.
+
+=head3 Options
+
+=over
+
+=item C<--opffile filename.opf>
+
+=item C<--opf filename.opf>
+
+Use the specified OPF file.  This can also be specified as the first
+non-option argument, which will override this option if it exists.  If
+no file is specified, one will be searched for.
+
+=item C<--oeb12>
+
+Force the OPF to conform to the OEB 1.2 standard.  This is the default.
+
+=item C<--opf20>
+
+Force the OPF to conform to the OPF 2.0 standard.  If both this and
+C<--oeb12> are specified, the program will abort with an error.
+
+=item C<--mobi>
+
+Correct Mobipocket-specific elements, creating an output element to
+force UTF-8 output if one does not yet exist.
+
+=item C<--dir directory>
+
+=item C<-d directory>
+
+Save the fixed output into the specified directory.  The default is to
+write all output in the current working directory.  Note that this
+only affects the output, and not where the OPF file is found.
+
+=back
 
 =cut
 
@@ -209,13 +256,14 @@ sub fix
     $ebook->fix_opf20 if($opt{opf20});
     $ebook->fix_misc;
     $ebook->fix_mobi if($opt{mobi});
+    useoptdir();
     $ebook->save;
     
     if($ebook->errors)
     {
         $ebook->print_errors;
         print "Unrecoverable errors while fixing '",$opffile,"'!\n";
-        exit(scalar(11));
+        exit(11);
     }
     
     $ebook->print_warnings if($ebook->warnings);
@@ -223,10 +271,78 @@ sub fix
 }
 
 
+=head2 C<genepub>
+
+Generate a .epub book from existing OPF data.
+
+=head3 Options
+
+=over
+
+=item C<--opffile filename.opf>
+
+=item C<--opf filename.opf>
+
+Use the specified OPF file.  This can also be specified as the first
+non-option argument, which will override this option if it exists.  If
+no file is specified, one will be searched for.
+
+=item C<--filename bookname.epub>
+
+=item C<--file bookname.epub>
+
+=item C<-f bookname.epub>
+
+Use the specified name for the final output file.  If not specified,
+the bok will have the same filename as the OPF file, with the
+extension changed to C<.epub>.
+
+=item C<--dir directory>
+
+=item C<-d directory>
+
+Output the final .epub book into the specified directory.  The default
+is to use the current working directory.
+
+=back
+
+=head3 Example
+
+ ebook genepub mybook.opf -f my_special_book.epub -d ../epubbooks
+
+or in the simplest case:
+
+ ebook genepub
+
+=cut
+
+sub genepub
+{
+    my ($opffile) = @_;
+    my $ebook;
+    
+    $opffile = $opt{opffile} if(!$opffile);
+
+    if($opffile) { $ebook = EBook::Tools->new($opffile); }
+    else {$ebook = EBook::Tools->new(); $ebook->init(); }
+
+    if(! $ebook->gen_epub(filename => $opt{filename},
+                          dir => $opt{dir}) )
+    {
+        print {*STDERR} "Failed to generate .epub file!\n";
+        $ebook->print_errors;
+        $ebook->print_warnings;
+        exit(12);
+    }
+    $ebook->print_warnings if($ebook->warnings);
+    exit(0);
+}
+
+
 =head2 C<metasplit>
 
-Split the <metadata>...</metadata> block out of pseudo-HTML files that
-contain them.
+Split the <metadata>...</metadata> block out of a pseudo-HTML file
+that contains one.
 
 =cut
 
@@ -272,41 +388,11 @@ sub metasplit
 }
 
 
-=head2 C<genepub>
-
-Generate a .epub book from existing OPF data.
-
-=cut
-
-sub genepub
-{
-    my ($opffile) = @_;
-    my $metastring = '';
-    my $metafile;
-    my $ebookpackage;
-    my $elem;
-    my $ebook;
-    
-    my ($filebase,$filedir,$fileext);
-    
-    if($opffile) { $ebook = EBook::Tools->new($opffile); }
-    else {$ebook = EBook::Tools->new(); $ebook->init(); }
-    $ebook->fixoeb12 if($opt{oeb12});
-    $ebook->fixopf20 if($opt{opf20});
-    $ebook->fixmisc;
-    $ebook->save;
-
-    my @manifest = $ebook->manifest_hrefs;
-
-    $ebook->gen_epub();
-
-    exit(0);
-}
-
-
 =head2 C<setmeta>
 
 Set metadata values on existing OPF data.
+
+Not yet implemented.
 
 =cut
 
@@ -315,6 +401,7 @@ sub setmeta
     print "STUB!\n";
     exit(255);
 }
+
 
 =head2 C<tidyxhtml>
 
@@ -340,7 +427,7 @@ sub tidyxhtml
 }
 
 
-=head2 tidyxml
+=head2 C<tidyxml>
 
 Run tidy an a XML file (for neatness).
 
@@ -360,6 +447,23 @@ sub tidyxml
     if($tidyfile) { $retval = system_tidy_xml($inputfile,$tidyfile); }
     else { $retval = system_tidy_xml($inputfile); }
     exit($retval);
+}
+
+########## PRIVATE PROCEDURES ##########
+
+sub useoptdir ()
+{
+    if($opt{dir})
+    {
+        if(! -d $opt{dir})
+        { 
+            mkpath($opt{dir})
+                or die("Unable to create working directory '",$opt{dir},"'!");
+        }
+        chdir($opt{dir})
+            or die("Unable to chdir to working directory '",$opt{dir},"'!");
+    }        
+    return 1;
 }
 
 ########## END CODE ##########
