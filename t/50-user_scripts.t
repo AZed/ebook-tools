@@ -50,7 +50,7 @@ ok($ebook = EBook::Tools->new('containsmetadata.opf'),
 is($ebook->title,'A Noncompliant OPF Test Sample',
    'split metadata has correct title');
 is(@rights = $ebook->rights,1,'split metadata contains dc:rights');
-is(@rights[0],"Copyright \x{00A9} 2008 by Zed Pobre",
+is($rights[0],"Copyright \x{00A9} 2008 by Zed Pobre",
    'split metadata has correct rights (HTML entity handled)');
 
 ########## CLEANUP ##########
