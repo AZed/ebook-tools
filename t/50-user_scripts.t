@@ -5,7 +5,7 @@
 
 # change 'tests => 1' to 'tests => last_test_to_print';
 
-use Test::More tests => 9;
+use Test::More tests => 13;
 use Cwd qw(chdir getcwd);
 use File::Basename qw(basename);
 use File::Copy;
@@ -34,10 +34,27 @@ my @rights;
 
 ########## TESTS ##########
 
+# ebook blank
+unlink('blank.opf');
+$exitval = system('perl','-I../lib','../ebook.pl',
+                  'blank','blank.opf',
+                  '--title','Testing Title',
+                  '--author','Testing Author' );
+$exitval >>= 8;
+is($exitval,0,'ebook blank exits successfully');
+ok($ebook = EBook::Tools->new('blank.opf'),
+   'ebook blank created parseable blank.opf');
+is($ebook->twigroot->first_descendant('dc:title')->text,'Testing Title',
+   'ebook blank created correct title');
+is($ebook->twigroot->first_descendant('dc:creator')->text,'Testing Author',
+   'ebook blank created correct author');
+
+# ebook fix
 $exitval = system('perl','-I../lib','../ebook.pl','fix','emptyuid.opf');
 $exitval >>= 8;
 is($exitval,0,'ebook fix exits successfully');
 
+# ebook metasplit
 unlink('containsmetadata.opf');
 $exitval = system('perl','-I../lib',
                   '../ebook.pl','metasplit','containsmetadata.html');

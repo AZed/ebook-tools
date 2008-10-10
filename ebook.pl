@@ -9,6 +9,8 @@ ebook - create and manipulate e-books from the command line
 
  ebook COMMAND arg1 arg2 --opt1 --opt2
 
+See also L</EXAMPLES>.
+
 =cut
 
 
@@ -37,14 +39,16 @@ my %opt = (
 
 GetOptions(
     \%opt,
-    "dir|d=s",
-    "help|h|?",
-    "mobi|m",
-    "oeb12",
-    "opf20",
-    "opffile|opf=s",
-    "tidycmd",
+    'author=s',
+    'dir|d=s',
+    'help|h|?',
+    'mobi|m',
+    'oeb12',
+    'opf20',
+    'opffile|opf=s',
+    'tidycmd',
     'tidysafety|ts=i',
+    'title=s',
     'verbose|v+',
     );
 
@@ -67,6 +71,7 @@ my %dispatch = (
     'fix'       => \&fix,
     'metasplit' => \&metasplit,
     'genepub'   => \&genepub,
+    'setmeta'   => \&setmeta,
     'tidyxhtml' => \&tidyxhtml,
     'tidyxml'   => \&tidyxml,
     );
@@ -95,17 +100,63 @@ $dispatch{$cmd}(@ARGV);
 
 =head1 COMMANDS
 
-=head2 adddoc
+=head2 C<adddoc>
 
 Add a document to both the book manifest and spine
 
-=head2 additem
+=cut
+
+sub addoc
+{
+    print "STUB!\n";
+    exit(255);
+}
+
+
+=head2 C<additem>
 
 Add an item to the book manifest, but not the spine
 
-=head2 blank
+=cut
 
-Create a blank e-book
+sub additem
+{
+    print "STUB!\n";
+    exit(255);
+}
+
+=head2 C<blank>
+
+Create a blank e-book structure.
+
+=head3 Options
+
+=over
+
+=item C<--opffile> <filename.opf>
+
+The filename of the OPF file to use to store the metadata structure.
+Specifying this is mandatory, though it can also be specified as the
+first non-option argument.  If both C<--opffile> and the argument are
+passed, the argument value is used.
+
+=item C<--author> "Author Name"
+
+The author of the book.  If not specified, defaults to "Unknown
+Author".
+
+=item C<--title> "Title Name"
+
+The title of the book.  If not specified, defaults to "Unknown Title".
+
+=back
+
+=head3 Example
+
+ ebook blank newfile.opf --author "Me Myself" --title "New File"
+ ebook blank --opffile newfile.opf --author "Me Myself" --title "New File"
+
+Both of those links have the same effect.
 
 =cut
 
@@ -113,22 +164,27 @@ sub blank
 {
     my ($opffile) = @_;
     my $ebook;
+    my %args;
 
     $opffile = $opt{opffile} if(!$opffile);
+    
     if(!$opffile)
     {
         print "You must specify an OPF filename to start with.\n";
         exit(10);
     }
+    $args{opffile} = $opffile;
+    $args{author} = $opt{author} if($opt{author});
+    $args{title} = $opt{title} if($opt{title});
 
     $ebook = EBook::Tools->new();
-    $ebook->init_blank($opffile);
+    $ebook->init_blank(%args);
     $ebook->save;
     exit(0);
 }
 
 
-=head2 fix
+=head2 C<fix>
 
 Find and fix problems with an e-book, including enforcing a standard
 specification and ensuring that all linked objects are present in the
@@ -167,7 +223,7 @@ sub fix
 }
 
 
-=head2 metasplit
+=head2 C<metasplit>
 
 Split the <metadata>...</metadata> block out of pseudo-HTML files that
 contain them.
@@ -216,9 +272,9 @@ sub metasplit
 }
 
 
-=head2 genepub
+=head2 C<genepub>
 
-Generate a .epub book from existing OPF data
+Generate a .epub book from existing OPF data.
 
 =cut
 
@@ -247,7 +303,20 @@ sub genepub
     exit(0);
 }
 
-=head2 tidyxhtml
+
+=head2 C<setmeta>
+
+Set metadata values on existing OPF data.
+
+=cut
+
+sub setmeta
+{
+    print "STUB!\n";
+    exit(255);
+}
+
+=head2 C<tidyxhtml>
 
 Run tidy on a HTML file to enforce valid XHTML output (required by the
 OPF 2.0 specification).
