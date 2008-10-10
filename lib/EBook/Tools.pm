@@ -177,6 +177,15 @@ A hash mapping valid specification strings to themselves, primarily
 used to undefine unrecognized values.  Default valid values are 'OEB12'
 and 'OPF20'.
 
+=item C<%publishermap>
+
+A hash mapping known variants of publisher names to a canonical form,
+used by L</fix_publisher()>, and thus also indirectly by
+L</fix_misc()>.
+
+Keys should be entered in lowercase.  The hash can also be set empty
+to prevent fix_publisher() from taking any action at all.
+
 =item C<$tidycmd>
 
 The tidy executable name.  This has to be a fully qualified pathname
@@ -306,6 +315,46 @@ our %oebspecs = (
     'OEB12' => 'OEB12',
     'OPF20' => 'OPF20'
     );
+
+our %publishermap = (
+    'ace'                   => 'Ace Books',
+    'acebooks'              => 'Ace Books',
+    'ace books'             => 'Ace Books',
+    'baen'                  => 'Baen Publishing Enterprises',
+    'baen publishing'       => 'Baen Publishing Enterprises',
+    'ballantine'            => 'Ballantine Books',
+    'ballantine books'      => 'Ballantine Books',
+    'barnes and noble'      => 'Barnes and Noble Publishing',
+    'barnesandnoble.com'    => 'Barnes and Noble Publishing',
+    'delrey'                => 'Del Rey Books',
+    'del rey'               => 'Del Rey Books',
+    'del rey books'         => 'Del Rey Books',
+    'e-reads'               => 'E-Reads',
+    'ereads'                => 'E-Reads',
+    'ereads.com'            => 'E-Reads',
+    'www.ereads.com'        => 'E-Reads',
+    'fictionwise'           => 'Fictionwise',
+    'fictionwise.com'       => 'Fictionwise',
+    'www.fictionwise.com'   => 'Fictionwise',
+    'harmony'               => 'Harmony Books',
+    'harmony books'         => 'Harmony Books',
+    'harpercollins'         => 'HarperCollins',
+    'harper collins'        => 'HarperCollins',
+    'harper-collins'        => 'HarperCollins',
+    'randomhouse'           => 'Random House',
+    'randomhouse.co.uk'     => 'Random House',
+    'www.randomhouse.co.uk' => 'Random House',
+    'random-house.com'      => 'Random House',
+    'www.random-house.com'  => 'Random House',
+    'rosetta'               => 'Rosetta Books',
+    'rosettabooks'          => 'Rosetta Books',
+    'rosetta books'         => 'Rosetta Books',
+    'siren'                 => 'Siren Publishing',
+    'siren publishing'      => 'Siren Publishing',
+    'wildside'              => 'Wildside Press',
+    'wildside press'        => 'Wildside Press',
+    );
+        
 
 
 ####################################
@@ -477,24 +526,24 @@ sub init    ## no critic (Always unpack @_ first)
 
     if(!$self->opffile) { $self->set_opffile( get_container_rootfile() ); }
     
-    if(!$self->opffile)
+    if(!$$self{opffile})
     {
 	my @candidates = glob("*.opf");
 	croak("No OPF file specified, and there are multiple files to choose from")
 	    if(scalar(@candidates) > 1);
 	croak("No OPF file specified, and I couldn't find one nearby")
 	    if(scalar(@candidates) < 1);
-	$self->opffile($candidates[0]);
+	$$self{opffile} = $candidates[0];
     }
     
-    if(! -f $self->opffile)
+    if(! -f $$self{opffile})
     {
-	croak($subname,"(): '",$self->opffile,"' does not exist or is not a regular file!")
+	croak($subname,"(): '",$$self{opffile},"' does not exist or is not a regular file!")
     }
 
-    if(-z $self->opffile)
+    if(-z $$self{opffile})
     {
-	croak("OPF file '",$self->opffile,"' has zero size!");
+	croak("OPF file '",$$self{opffile},"' has zero size!");
     }
 
     debug(2,"DEBUG: init using '",$$self{opffile},"'");
@@ -1902,7 +1951,8 @@ sub fix_manifest
 
 Fixes miscellaneous potential problems in OPF data.  Specifically,
 this is a shortcut to calling L</delete_meta_filepos()>,
-L</fix_dates()>, L</fix_packageid()>, and L</fix_links()>.
+L</fix_packageid()>, L</fix_dates()>, L</fix_publisher()>, and
+L</fix_links()>.
 
 The objective here is that you can run either C<fix_misc()> and either
 L</fix_oeb12()> or L</fix_opf20()> and a perfectly valid OPF file will
@@ -1924,6 +1974,7 @@ sub fix_misc
     $self->delete_meta_filepos();
     $self->fix_packageid();
     $self->fix_dates();
+    $self->fix_publisher();
     $self->fix_links();
 
     debug(2,"DEBUG[/",$subname,"]");
@@ -2579,6 +2630,45 @@ sub fix_packageid
     # At this point, we have a unique ID.  Assign it to package
     $twigroot->set_att('unique-identifier',$packageid);
     debug(2,"[/",$subname,"]");
+    return 1;
+}
+
+
+=head2 C<fix_publisher()>
+
+Standardizes publisher names in all dc:publisher entities, mapping
+known variants of a publisher's name to a canonical form via package
+variable %publishermap.
+
+Publisher entries with no text are deleted.
+
+=cut
+
+sub fix_publisher
+{
+    my $self = shift;
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+    $self->twigcheck();
+
+    my @publishers = $self->twigroot->descendants(qr/^dc:publisher$/i);
+    foreach my $pub (@publishers)
+    {
+        debug(3,"Examining publisher entry in element '",$pub->gi,"'");
+        if(!$pub->text)
+        {
+            debug(1,'Deleting empty publisher entry');
+            $pub->delete;
+            next;
+        }
+        elsif($publishermap{lc $pub->text})
+        {
+            debug(1,"Changing publisher from '",$pub->text,"' to '",
+                  $publishermap{lc $pub->text},"'");
+            $pub->set_text($publishermap{lc $pub->text});
+        }
+    }
     return 1;
 }
 
@@ -3356,7 +3446,7 @@ sub fix_datestring
 	}
     }
 
-    debug(3,"DEBUG: checking M(M)/YYYY\n");
+    debug(3,"DEBUG: checking M(M)/YYYY");
     if(( ($month,$year) = /^(\d{1,2})\/(\d{4})$/x ) == 2)
     {
 	# We have a XX/XXXX datestring
@@ -3819,6 +3909,7 @@ sub system_tidy_xhtml
                      '--clean','yes',
 		     '-asxhtml',
                      '--output-xhtml','yes',
+                     '--add-xml-decl','yes',
 		     '--doctype','transitional',
 		     '-f',$tidyxhtmlerrors,
 		     '-o',$outfile,
@@ -3926,6 +4017,7 @@ sub system_tidy_xml
 		     '-q','-utf8','--tidy-mark','no',
                      '--wrap','0',
 		     '-xml',
+                     '--add-xml-decl','yes',
 		     '-f',$tidyxmlerrors,
 		     '-o',$outfile,
 		     $infile);
