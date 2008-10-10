@@ -3786,7 +3786,7 @@ at 001 and incrementing for each block found.  If C<$outfilebase> is
 not specified, it defaults to the basename of C<$htmlfile> with
 "-pre-###.html" appended.  The 
 
-Returns the number of segments found.
+Returns a list containing all filenames created.
 
 =cut
 
@@ -3803,6 +3803,7 @@ sub split_pre
     my ($fh_html,$fh_htmlout,$fh_pre);
     my $htmloutfile;
     my @preblocks;
+    my @prefiles = ();
     my $prefile;
     my $count = 0;
 
@@ -3849,6 +3850,7 @@ END
             print {*$fh_pre} $pre,"\n";
             print {*$fh_pre} "</body>\n</html>\n";
             close($fh_pre) or croak("Unable to close '",$prefile,"'!");
+            push @prefiles,$prefile;
         }
 	s/(<pre>.*?<\/pre>)//gisx;
 	print {*$fh_htmlout} $_,"\n";
@@ -3858,7 +3860,7 @@ END
             or croak($subname,"(): Failed to rename '",$htmloutfile,"' to '",
                      $htmlfile,"'!");
     }
-    return $count;
+    return @prefiles;
 }
 
 
