@@ -30,6 +30,8 @@ my %opt = (
     'dir'        => '',
     'filename'   => '',
     'help'       => 0,
+    'id'         => '',
+    'mimetype'   => '',
     'mobi'       => 0,
     'oeb12'      => 0,
     'opf20'      => 0,
@@ -46,6 +48,8 @@ GetOptions(
     'dir|d=s',
     'filename|file|f=s',
     'help|h|?',
+    'id=s',
+    'mimetype|mtype=s',
     'mobi|m',
     'oeb12',
     'opf20',
@@ -107,28 +111,135 @@ $dispatch{$cmd}(@ARGV);
 
 =head2 C<adddoc>
 
-Add a document to both the book manifest and spine
+Adds a documents to both the book manifest and spine.
+
+=head3 Options
+
+=over
+
+=item C<--opffile>
+
+=item C<--opf>
+
+The OPF file to modify.  If not specified one will be searched for in
+the current directory.
+
+=item C<--id>
+
+The ID attribute to use for the added manifest item.  This is
+required, and ebook will abort if it is not specified.
+
+=item C<--mimetype>
+
+=item C<--mtype>
+
+The mime type string to use for the added manifest item.  If not
+specified, it will be autodetected via File::Mimeinfo::Magic.  This
+may not result in an optimal string.
+
+=back
+
+=head3 Example
+
+ ebook adddoc --opf mybook.opf --id 'text-ch1' chapter1.html
 
 =cut
 
-sub addoc
+sub adddoc
 {
-    print "STUB!\n";
-    exit(255);
+    my ($newdoc) = @_;
+    my $opffile = $opt{opffile};
+    my $id = $opt{id};
+    my $mtype = $opt{mimetype};
+
+    if(!$id)
+    {
+        print {*STDERR} "You must specify an ID when adding a document!\n";
+        exit(21);
+    }
+
+    my $ebook = EBook::Tools->new();
+    $ebook->init($opffile);
+    $ebook->add_document($newdoc,$id,$mtype);
+    if($ebook->errors)
+    {
+        print {*STDERR} "Unrecoverable errors found.  Aborting.\n";
+        $ebook->print_errors;
+    }
+    $ebook->save;
+    $ebook->print_warnings;
+    exit(0);
 }
 
 
 =head2 C<additem>
 
-Add an item to the book manifest, but not the spine
+Add an item to the book manifest, but not the spine.
+
+Note that the L</fix> command will automatically insert manifest items
+for any local files referenced by existing manifest items.
+
+=head3 Options
+
+=over
+
+=item C<--opffile>
+
+=item C<--opf>
+
+The OPF file to modify.  If not specified one will be searched for in
+the current directory.
+
+=item C<--id>
+
+The ID attribute to use for the added manifest item.  This is
+required, and ebook will abort if it is not specified.
+
+=item C<--mimetype>
+
+=item C<--mtype>
+
+The mime type string to use for the added manifest item.  If not
+specified, it will be autodetected via File::Mimeinfo::Magic.  This
+may not result in an optimal string.
+
+=back
+
+=head3 Example
+
+ ebook additem --opf mybook.opf --id 'illus-ch1' chapter1-illus.jpg
 
 =cut
 
 sub additem
 {
+    my ($newitem) = @_;
+    my $opffile = $opt{opffile};
+    my $id = $opt{id};
+    my $mtype = $opt{mimetype};
+
+    if(!$id)
+    {
+        print {*STDERR} "You must specify an ID when adding a document!\n";
+        exit(21);
+    }
+
+    my $ebook = EBook::Tools->new();
+    $ebook->init($opffile);
+    $ebook->add_item($newitem,$id,$mtype);
+    if($ebook->errors)
+    {
+        print {*STDERR} "Unrecoverable errors found.  Aborting.\n";
+        $ebook->print_errors;
+    }
+    $ebook->save;
+    $ebook->print_warnings;
+    exit(0);
+    
     print "STUB!\n";
     exit(255);
 }
+
 
 =head2 C<blank>
 
@@ -174,8 +285,8 @@ Both of those commands have the same effect.
 sub blank
 {
     my ($opffile) = @_;
-    my $ebook;
     my %args;
+    my $ebook;
 
     $opffile = $opt{opffile} if(!$opffile);
     
@@ -252,8 +363,7 @@ sub fix
 
     $opffile = $opt{opffile} if(!$opffile);
     $ebook = EBook::Tools->new();
-    if($opffile) { $ebook->init($opffile); }
-    else { $ebook->init(); }
+    $ebook->init($opffile);
     $ebook->fix_oeb12 if($opt{oeb12});
     $ebook->fix_opf20 if($opt{opf20});
     $ebook->fix_misc;
@@ -367,15 +477,11 @@ sub splitmeta
 {
     my ($infile,$opffile) = @_;
     if(!$infile) { die("You must specify a file to parse.\n"); }
-
-    my ($filebase,$filedir,$fileext) = fileparse($infile,'\.\w+$');
-    
     $opffile = $opt{opffile} if(!$opffile);
-    $opffile = $filebase . ".opf" if(!$opffile);
 
     my $ebook;
 
-    split_metadata($infile,$opffile);
+    $opffile = split_metadata($infile,$opffile);
 
     if(!$opffile)
     {
