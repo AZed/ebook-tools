@@ -1118,7 +1118,7 @@ sub search_knownuidschemes   ## no critic (Always unpack @_ first)
 {
     my $self = shift;
     my ($gi) = @_;
-    if(!defined $gi) { $gi = 'dc:identifier'; }
+    if(!$gi) { $gi = 'dc:identifier'; }
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
@@ -1423,10 +1423,10 @@ sub add_document   ## no critic (Always unpack @_ first)
 
     my $manifest = $topelement->first_child('manifest');
     $manifest = $topelement->insert_new_elt('last_child','manifest')
-        if(!defined $manifest);
+        if(!$manifest);
     my $spine = $topelement->first_child('spine');
     $spine = $topelement->insert_new_elt('last_child','spine')
-        if(!defined $spine);
+        if(!$spine);
     
     my $item = $manifest->insert_new_elt('last_child','item');
     $item->set_id($id);
@@ -1539,7 +1539,7 @@ sub add_item   ## no critic (Always unpack @_ first)
         return;
     }
 
-    if(!defined $mediatype)
+    if(!$mediatype)
     {
 	my $mimetype = mimetype($href);
 	if($mimetype) { $mediatype = $mimetype; }
@@ -1549,7 +1549,7 @@ sub add_item   ## no critic (Always unpack @_ first)
 
     my $manifest = $$self{twigroot}->first_child('manifest');
     $manifest = $topelement->insert_new_elt('last_child','manifest')
-        if(!defined $manifest);
+        if(!$manifest);
 
     debug(1,"DEBUG: adding item '",$id,"': '",$href,"'");
     my $item = $manifest->insert_new_elt('last_child','item');
@@ -2607,21 +2607,21 @@ sub fix_packageid
 	else { undef($packageid); };
     }
 
-    if(!defined $packageid)
+    if(!$packageid)
     {
 	# Search known IDs for a unique Package ID
 	$packageid = $self->search_knownuids;
     }
 
     # If no unique ID found so far, start searching known schemes
-    if(!defined $packageid)
+    if(!$packageid)
     {
 	$packageid = $self->search_knownuidschemes;
     }
 
     # And if we still don't have anything, we have to make one from
     # scratch using Data::UUID
-    if(!defined $packageid)
+    if(!$packageid)
     {
 	debug(1,"DEBUG: creating new UUID");
 	$element = twigelt_create_uuid();
@@ -3591,7 +3591,7 @@ sub get_container_rootfile
     {
 	$twig->parsefile($container) or return;
 	$rootfile = $twig->root->first_descendant('rootfile');
-	return if(!defined $rootfile);
+	return unless($rootfile);
 	$retval = $rootfile->att('full-path');
     }
     return $retval;
@@ -3898,7 +3898,7 @@ sub tidy_xml
         );
 
     $inputenc = $encodings{$inputenc} if(defined $inputenc);
-    $inputenc = "win1252" if(!defined $inputenc);
+    $inputenc = "win1252" if(!$inputenc);
     print "DEBUG: tidy_xml input encoding: '",$inputenc,"'\n";
 #    my %tidyopts = (
 #	quiet => "yes",
@@ -4195,7 +4195,7 @@ sub twigelt_create_uuid
     debug(2,"DEBUG[",$subname,"]");
     my $element;
 
-    if(!defined $gi) { $gi = 'dc:identifier'; }
+    if(!$gi) { $gi = 'dc:identifier'; }
     
     $element = XML::Twig::Elt->new($gi);
     $element->set_id('UUID');
