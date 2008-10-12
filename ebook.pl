@@ -16,6 +16,7 @@ See also L</EXAMPLES>.
 
 use EBook::Tools qw(split_metadata split_pre 
                     system_tidy_xhtml system_tidy_xml);
+use EBook::Tools::Unpack qw(unpack_ebook);
 use File::Basename 'fileparse';
 use File::Path;    # Exports 'mkpath' and 'rmtree'
 use Getopt::Long qw(:config bundling);
@@ -83,6 +84,7 @@ my %dispatch = (
     'splitpre'  => \&splitpre,
     'tidyxhtml' => \&tidyxhtml,
     'tidyxml'   => \&tidyxml,
+    'unpack'    => \&unpack,
     );
 
 my $cmd = shift;
@@ -513,7 +515,8 @@ sub splitmeta
 
 =head2 C<splitpre>
 
-Split <pre>...</pre> blocks out of an existing HTML file.
+Split <pre>...</pre> blocks out of an existing HTML file, wrapping
+each one found into a separate HTML file.
 
 =cut
 
@@ -572,6 +575,87 @@ sub tidyxml
     exit($retval);
 }
 
+
+=head2 C<unpack>
+
+Unpacks an ebook into its component parts, creating an OPF for them if
+necessary.
+
+=head3 Arguments
+
+=over
+
+=item C<--filename>
+=item C<--file>
+=item C<-f>
+
+The filename of the ebook to unpack.  This can also be specified as
+the first non-option argument, in which case it will override the
+option if it exists.
+
+=item C<--dir>
+=item C<-d>
+
+The directory to unpack into, which will be created if it does not
+exist, defaulting to the filename with the extension removed.  This
+can also be specified as the second non-option argument, in which case
+it will override the option if it exists.
+
+=item C<--format>
+
+The unpacking routines should autodetect the type of book under normal
+conditions.  If autodetection fails, a format can be forced here.  See
+L<EBook::Tools::Unpack> for a list of available formats.
+
+=item C<--author>
+
+Set the primary author of the unpacked e-book, overriding what is
+detected.  Not all e-book formats contain author metadata, and if none
+is found and this is not specified the primary author will be set to
+'Unknown Author'.
+
+=item C<--title>
+
+Set the title of the unpacked e-book, overriding what is detected.  A
+title will always be detected in some form from the e-book, but the
+exact text can be overridden here.
+
+=item C<--opffile>
+
+=item C<--opf>
+
+The filename of the OPF metadata file that will be generated.  If not
+specified, defaults to the title with a .opf extension.
+
+=back
+
+=head3 Examples
+
+ ebook unpack mybook.pdb My_Book --author "By Me"
+ ebook unpack -f mybook.pdb -d My_Book --author "By Me"
+
+Both of the above commands do the same thing
+
+=cut
+
+sub unpack
+{
+    my ($filename,$dir) = @_;
+    $filename = $filename || $opt{filename};
+    $dir = $dir || $opt{dir};
+
+    unpack_ebook(
+        'file' => $filename,
+        'dir' => $dir,
+        'format' => $opt{format},
+        'author' => $opt{author},
+        'title' => $opt{title},
+        'opffile' => $opt{opffile},
+        );
+
+     exit(0);
+}
+
 ########## PRIVATE PROCEDURES ##########
 
 sub useoptdir ()
@@ -604,18 +688,19 @@ sub useoptdir ()
  ebook fix newbook.opf --opf20 -v
  ebook genepub
 
+ ebook unpack mybook.pdb my_book
+ cd my_book
+ ebook addoc new_document.html
+ ebook fix
+ ebook genepub
 
 =head1 BUGS/TODO
 
 =over
 
-=item * adddoc and additem commands not yet implemented
+=item * setmeta command not yet implemented
 
-=item * blank command doesn't use options yet
-
-=item * documentation is very minimal
-
-=item * output will overwrite files without warning or backup
+=item * documentation is incomplete
 
 =back
 

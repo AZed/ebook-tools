@@ -87,7 +87,8 @@ sub detect_ebook
         $index = index($info,"\0");
         if($index < 0)
         {
-            debug(0,"WARNING: detected header is not null-terminated.");
+            debug(0,"WARNING: detected header in '",$filename,
+                  "' is not null-terminated.");
         }
         else
         {
@@ -109,6 +110,7 @@ sub unpack_ebook
         'format' => 1,
         'author' => 1,
         'title' => 1,
+        'opffile' => 1,
         );
     my $subname = ( caller(0) )[3];
     debug(2,"DEBUG[",$subname,"]");
@@ -151,6 +153,7 @@ sub unpack_palmdoc
         'dir' => 1,
         'author' => 1,
         'title' => 1,
+        'opffile' => 1,
         );
     my $subname = ( caller(0) )[3];
     debug(2,"DEBUG[",$subname,"]");
@@ -165,29 +168,25 @@ sub unpack_palmdoc
     croak($subname,"(): no input file specified")
         if(!$filename);
 
+    my ($filebase,$filedir,$fileext) = fileparse($filename,'\.\w+$');
     my $ebook = EBook::Tools->new();
     my $pdb = Palm::PDB->new();
     my $author = $args{author};
     my $title = $args{title};
-    my $dir = $args{dir};
-    my $opffile;
+    my $dir = $args{dir} || $filebase;
+    my $opffile = $args{opffile};
     my ($outfile,$fh_outfile);
-    my ($filebase,$filedir,$fileext) = fileparse($filename,'\.\w+$');
     $outfile = "$filebase.txt";
 
     $pdb->Load($filename);
 
-    if($dir)
+    unless(-d $dir)
     {
-        unless(-d $dir)
-        {
-            mkpath($dir)
-                or croak("Unable to create output directory '",$dir,"'!");
-        }
-        chdir($dir)
-            or croak("Unable to change working directory to '",$dir,"'!");
+        mkpath($dir)
+            or croak("Unable to create output directory '",$dir,"'!");
     }
-
+    chdir($dir)
+        or croak("Unable to change working directory to '",$dir,"'!");
 
     open($fh_outfile,">:utf8",$outfile)
         or croak("Failed to open '",$outfile,"' for writing!");
@@ -197,7 +196,7 @@ sub unpack_palmdoc
 
     $title = $title || $pdb->{'name'};
     $author = $author || 'Unknown Author';
-    $opffile = $title . ".opf";
+    $opffile = $opffile || $title . ".opf";
 
     debug(2,"DEBUG: PalmDoc Name: ",$pdb->{'name'});
     debug(2,"DEBUG: PalmDoc Version: ",$pdb->{'version'});
