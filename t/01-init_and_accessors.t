@@ -5,7 +5,7 @@
 
 # change 'tests => 1' to 'tests => last_test_to_print';
 
-use Test::More tests => 54;
+use Test::More tests => 56;
 use Cwd qw(chdir getcwd);
 use Data::Dumper;
 use File::Basename qw(basename);
@@ -73,6 +73,8 @@ is(ref $blank->twig,'XML::Twig',
    'init_blank(opffile => $filename) created a XML::Twig');
 is(ref $blank->twigroot,'XML::Twig::Elt',
    'init_blank(opffile => $filename) created a XML::Twig::Elt root');
+is($blank->twigroot->att('unique-identifier'),'UUID',
+   'init_blank(opffile => $filename) correctly set unique-identifier');
 $meta = $blank->twigroot->first_child('metadata') or die;
 is($meta
    ->first_child('dc:identifier')
@@ -90,6 +92,8 @@ ok($blank->init_blank(opffile => 'test-blank.opf',
                       author => 'New Author',
                       title => 'New Title'),
    'init_blank(all args) returned successfully');
+is($blank->twigroot->att('unique-identifier'),'UUID',
+   'init_blank(all args) correctly set unique-identifier');
 $meta = $blank->twigroot->first_child('metadata') or die;
 is($meta
    ->first_child('dc:identifier')

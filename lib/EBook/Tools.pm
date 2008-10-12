@@ -650,8 +650,7 @@ sub init_blank    ## no critic (Always unpack @_ first)
     $metadata = $$self{twigroot}->insert_new_elt('first_child','metadata');
 
     # dc:identifier
-    $element = twigelt_create_uuid();
-    $element->paste('first_child',$metadata);
+    $self->fix_packageid;
 
     # dc:title
     $element = $metadata->insert_new_elt('last_child','dc:title');
@@ -659,7 +658,7 @@ sub init_blank    ## no critic (Always unpack @_ first)
 
     # dc:creator (author)
     $element = $metadata->insert_new_elt('last_child','dc:creator');
-    $element->set_atts('opf:role','aut');
+    $element->set_att('opf:role','aut');
     $element->set_text($author);
 
     $self->fix_opf20;
@@ -1074,7 +1073,6 @@ sub search_knownuids    ## no critic (Always unpack @_ first)
         );
 
     my $element;
-
     my $retval = undef;
 
     foreach my $id (@knownuids)
@@ -1124,13 +1122,7 @@ sub search_knownuidschemes   ## no critic (Always unpack @_ first)
     debug(2,"DEBUG[",$subname,"]");
     $self->twigcheck;
 
-    my $topelement = $$self{twigroot}->first_descendant('metadata');
-
-    if(!$topelement)
-    {
-	$self->add_errors("search_knownuidschemes(): no metadata element present!");
-	return;
-    }
+    my $topelement = $$self{twigroot};
 
     my @knownuidschemes = (
         'GUID',
@@ -1949,6 +1941,101 @@ sub fix_manifest
     return 1;
 }
 
+=head2 C<fix_metastructure_basic()>
+
+Verifies that <metadata> exists (creating it if necessary), and moves
+it to be the first child of <package>.
+
+Used in L</fix_metastructure_oeb12()> and L</fix_packageid()>.
+
+=cut
+
+sub fix_metastructure_basic
+{
+    my $self = shift;
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+    $self->twigcheck();
+
+    my $twigroot = $$self{twigroot};
+    my $metadata = $twigroot->first_descendant('metadata');
+
+    if(! $metadata)
+    {
+	debug(1,"DEBUG: creating <metadata>");
+	$metadata = $twigroot->insert_new_elt('first_child','metadata');
+    }
+    debug(1,"DEBUG: moving <metadata> to be the first child of <package>");
+    $metadata->move('first_child',$twigroot);
+    return 1;
+}
+
+
+=head2 C<fix_metastructure_oeb12()>
+
+Verifies the existence of <metadata>, <dc-metadata>, and <x-metadata>,
+creating the first two (but not <x-metadata>!) as needed, and making
+sure that <metadata> is a child of <package>, while <dc-metadata> and
+<x-metadata> are children of <metadata>.
+
+Used in L</fix_oeb12()> and L</fix_mobi()>.
+
+=cut
+
+sub fix_metastructure_oeb12
+{
+    my $self = shift;
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+    $self->twigcheck();
+
+    my $twig = $$self{twig};
+    my $twigroot = $$self{twigroot};
+
+    my $metadata;
+    my $dcmeta;
+    my $xmeta;
+    my $parent;
+
+    # Start by forcing the basic <package><metadata> structure
+    $self->fix_metastructure_basic;
+    $metadata = $twigroot->first_child('metadata');
+
+    # If <dc-metadata> doesn't exist, we'll have to create it.
+    $dcmeta = $twigroot->first_descendant('dc-metadata');
+    if(! $dcmeta)
+    {
+	debug(1,"DEBUG: creating <dc-metadata>");
+	$dcmeta = $metadata->insert_new_elt('first_child','dc-metadata');
+    }
+
+    # Make sure that $dcmeta is a child of $metadata
+    $parent = $dcmeta->parent;
+    if($parent != $metadata)
+    {
+	debug(1,"DEBUG: moving <dc-metadata>");
+	$dcmeta->move('first_child',$metadata);
+    }
+
+    # Make sure that x-metadata is a child of metadata, but don't
+    # create it if it is missing
+    $xmeta = $metadata->first_descendant('x-metadata');
+    if($xmeta)
+    {
+        # Make sure x-metadata belongs to metadata
+        $parent = $xmeta->parent;
+        if($parent != $metadata)
+	{
+	    debug(1,"DEBUG: moving <x-metadata>");
+	    $xmeta->move('after',$dcmeta);
+	}
+    }
+    return 1;
+}
+
+
 =head2 C<fix_misc()>
 
 Fixes miscellaneous potential problems in OPF data.  Specifically,
@@ -2068,7 +2155,7 @@ sub fix_mobi
     # requires that the Dublin Core tags be under <dc-metadata>, we
     # have to use at least the OEB1.2 structure (deprecated, but still
     # allowed in OPF2.0), though we don't have to convert everything.
-    $self->fix_oeb12_metastructure();
+    $self->fix_metastructure_oeb12();
     $dcmeta = $twigroot->first_descendant('dc-metadata');
     $xmeta = $twigroot->first_descendant('x-metadata');
 
@@ -2176,41 +2263,30 @@ sub fix_oeb12
     my $xmeta;
     my @elements;
 
-    # Start by setting the OEB 1.2 doctype
-    $$self{twig}->set_doctype('package',
-                              "http://openebook.org/dtds/oeb-1.2/oebpkg12.dtd",
-                              "+//ISBN 0-9673008-1-9//DTD OEB 1.2 Package//EN");
-    
-    # Remove <package> version attribute used in OPF 2.0
-    $twigroot->del_att('version');
-
-    # Set OEB 1.2 namespace attribute on <package>
-    $twigroot->set_att('xmlns' => 'http://openebook.org/namespaces/oeb-package/1.0/');
-
     # Verify and correct locations for <metadata>, <dc-metadata>, and
     # <x-metadata>, creating them as needed.
-    $self->fix_oeb12_metastructure;
+    $self->fix_metastructure_oeb12;
     $metadata = $twigroot->first_descendant('metadata');
     $dcmeta = $metadata->first_descendant('dc-metadata');
     $xmeta = $metadata->first_descendant('x-metadata');
 
     # Clobber metadata attributes 'xmlns:dc' and 'xmlns:opf'
-    # attributes used in OPF2.0
+    # used only in OPF2.0
     $metadata->del_atts('xmlns:dc','xmlns:opf');
 
-    # Assign the correct namespace attribute for OEB 1.2
+    # Assign the DC namespace attribute to dc-metadata for OEB 1.2
     $dcmeta->set_att('xmlns:dc',"http://purl.org/dc/elements/1.1/");
 
-    # Set the correct tag name and move it into <dc-metadata>
-#    $regexp = "(" . join('|',keys(%dcelements12)) .")";
-
+    # Set the correct tag name and move it into <dc-metadata> in the
+    # right order
     foreach my $dcel (keys %dcelements12)
     {
         @elements = $twigroot->descendants(qr/^$dcel$/ix);
         foreach my $el (@elements)
         {
             debug(3,"DEBUG: processing '",$el->gi,"'");
-            croak("Found invalid DC element '",$el->gi,"'!") if(!$dcelements12{lc $el->gi});
+            croak("Found invalid DC element '",$el->gi,"'!")
+                if(!$dcelements12{lc $el->gi});
             $el->set_gi($dcelements12{lc $el->gi});
             $el = twigelt_fix_oeb12_atts($el);
             $el->move('last_child',$dcmeta);
@@ -2255,6 +2331,19 @@ sub fix_oeb12
     $self->fix_manifest;
     $self->fix_spine;
 
+    # Set the OEB 1.2 doctype
+    $$self{twig}->set_doctype('package',
+                              "http://openebook.org/dtds/oeb-1.2/oebpkg12.dtd",
+                              "+//ISBN 0-9673008-1-9//DTD OEB 1.2 Package//EN");
+    
+    # Remove <package> version attribute used in OPF 2.0
+    $twigroot->del_att('version');
+
+    # Set OEB 1.2 namespace attribute on <package>
+    $twigroot->set_att('xmlns' => 'http://openebook.org/namespaces/oeb-package/1.0/');
+    # Fix the package unique-identifier while we're here
+    $self->fix_packageid;
+
     $$self{spec} = $oebspecs{'OEB12'};
     debug(2,"DEBUG[/",$subname,"]");
     return 1;
@@ -2296,83 +2385,6 @@ sub fix_oeb12_dcmetatags
 	{
 	    $el->set_tag($dcelements12{lc $el->tag})
 		if($dcelements12{lc $el->tag});
-	}
-    }
-    return 1;
-}
-
-
-=head2 C<fix_oeb12_metastructure()>
-
-Verifies the existence of <metadata>, <dc-metadata>, and <x-metadata>,
-creating the first two (but not <x-metadata>!) as needed, and making
-sure that <metadata> is a child of <package>, while <dc-metadata> and
-<x-metadata> are children of <metadata>.
-
-Used in L</fix_oeb12()> and L</fix_mobi()>.
-
-=cut
-
-sub fix_oeb12_metastructure
-{
-    my $self = shift;
-    my $subname = ( caller(0) )[3];
-    croak($subname . "() called as a procedure") unless(ref $self);
-    debug(2,"DEBUG[",$subname,"]");
-    $self->twigcheck();
-
-    my $twig = $$self{twig};
-    my $twigroot = $$self{twigroot};
-
-    my $metadata = $twigroot->first_descendant('metadata');
-    my $dcmeta;
-    my $xmeta;
-    my $parent;
-
-    # If <metadata> doesn't exist, we're in a real mess, but go ahead
-    # and try to create it anyway
-    if(! $metadata)
-    {
-	debug(1,"DEBUG: creating <metadata>");
-	$metadata = $twigroot->insert_new_elt('first_child','metadata');
-    }
-
-    # If <dc-metadata> doesn't exist, we'll have to create it.
-    $dcmeta = $twigroot->first_descendant('dc-metadata');
-    if(! $dcmeta)
-    {
-	debug(1,"DEBUG: creating <dc-metadata>");
-	$dcmeta = $metadata->insert_new_elt('first_child','dc-metadata');
-    }
-
-    # Make sure that $dcmeta is a child of $metadata
-    $parent = $dcmeta->parent;
-    if($parent != $metadata)
-    {
-	debug(1,"DEBUG: moving <dc-metadata>");
-	$dcmeta->move('first_child',$metadata);
-    }
-
-    # Make sure that metadata is the first child of the twigroot,
-    # which should be <package>
-    $parent = $metadata->parent;
-    if($parent != $twigroot)
-    {
-	debug(1,"DEBUG: moving <metadata>");
-	$metadata->move('first_child',$twigroot);
-    }
-
-    # Make sure that x-metadata is a child of metadata, but don't
-    # create it if it is missing
-    $xmeta = $metadata->first_descendant('x-metadata');
-    if($xmeta)
-    {
-        # Make sure x-metadata belongs to metadata
-        $parent = $xmeta->parent;
-        if($parent != $metadata)
-	{
-	    debug(1,"DEBUG: moving <x-metadata>");
-	    $xmeta->move('after',$dcmeta);
 	}
     }
     return 1;
@@ -2470,7 +2482,7 @@ sub fix_opf20
 	    debug(1,"DEBUG: checking element '",$el->gi,"'");
 	    $el->set_gi($dcelements20{$dcmetatag});
             $el = twigelt_fix_opf20_atts($el);
-	    $el->move('first_child',$metadata);
+	    $el->move('last_child',$metadata);
 	}
     }
 
@@ -2485,12 +2497,13 @@ sub fix_opf20
     }
 
     # Fix the <package> attributes
-    $twigroot->set_atts('version' => '2.0',
-			'xmlns' => 'http://www.idpf.org/2007/opf');
+    $twigroot->set_att('version' => '2.0',
+                       'xmlns' => 'http://www.idpf.org/2007/opf');
+    $self->fix_packageid;
 
     # Fix the <metadata> attributes
-    $metadata->set_atts('xmlns:dc' => "http://purl.org/dc/elements/1.1/",
-			'xmlns:opf' => "http://www.idpf.org/2007/opf");
+    $metadata->set_att('xmlns:dc' => "http://purl.org/dc/elements/1.1/",
+                       'xmlns:opf' => "http://www.idpf.org/2007/opf");
 
     # Fix <manifest> and <spine>
     $self->fix_manifest;
@@ -2569,13 +2582,16 @@ sub fix_packageid
     debug(2,"DEBUG[",$subname,"]");
     $self->twigcheck();
 
+    # Start by enforcing the basic structure needed
+    $self->fix_metastructure_basic();
     my $twigroot = $$self{twigroot};
     my $packageid = $twigroot->att('unique-identifier');
+    
     my $meta = $twigroot->first_child('metadata')
         or croak($subname,"(): metadata not found");
     my $element;
 
-    if(defined $packageid)
+    if($packageid)
     {
         # Check that the ID maps to a valid identifier
 	# If not, undefine it
@@ -2787,13 +2803,10 @@ sub gen_epub    ## no critic (Always unpack @_ first)
             if(!$valid_args{$arg});
     }
 
-    my $filename;
-    my $dir;
+    my $filename = $args{filename};
+    my $dir = $args{dir};
     my $zip = Archive::Zip->new();
     my $member;
-
-    $filename = $args{filename} if($args{filename});
-    $dir = $args{dir} if($args{dir});
 
     $self->gen_epub_files();
     if(! $$self{opffile} )
@@ -3016,24 +3029,24 @@ sub gen_ncx    ## no critic (Always unpack @_ first)
     # <head>
     $parent = $ncxroot->insert_new_elt('first_child','head');
     $element = $parent->insert_new_elt('last_child','meta');
-    $element->set_atts(
+    $element->set_att(
         'name' => 'dtb:uid',
         'content' => $identifier
         );
 
     $element = $parent->insert_new_elt('last_child','meta');
-    $element->set_atts(
+    $element->set_att(
         'name'    => 'dtb:depth',
         'content' => '1'
         );
     $element = $parent->insert_new_elt('last_child','meta');
-    $element->set_atts(
+    $element->set_att(
         'name' => 'dtb:totalPageCount',
         'content' => '0'
         );
 
     $element = $parent->insert_new_elt('last_child','meta');
-    $element->set_atts(
+    $element->set_att(
         'name' => 'dtb:maxPageNumber',
         'content' => '0'
         );
@@ -3050,8 +3063,8 @@ sub gen_ncx    ## no critic (Always unpack @_ first)
     {
         # <navPoint>
         $navpoint = $navmap->insert_new_elt('last_child','navPoint');
-        $navpoint->set_atts('id' => $$spineitem{'id'},
-                            'playOrder' => $navpointindex);
+        $navpoint->set_att('id' => $$spineitem{'id'},
+                           'playOrder' => $navpointindex);
         $navpointindex++;
 
         # <navLabel>
@@ -3089,7 +3102,7 @@ sub gen_ncx    ## no critic (Always unpack @_ first)
     $ncxitem = $manifest->insert_new_elt('first_child','item')
         if(!$ncxitem);
 
-    $ncxitem->set_atts(
+    $ncxitem->set_att(
         'id' => 'ncx',
         'href' => $filename,
         'media-type' => 'application/x-dtbncx+xml'
