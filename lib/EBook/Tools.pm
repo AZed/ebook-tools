@@ -3877,63 +3877,6 @@ END
 }
 
 
-=begin comment
-
-#
-# sub tidy_xml($xmlstring, $inputenc)
-# 
-# An attempt to replace sub system_tidy_xml with a pure perl version.
-#
-# DO NOT USE
-#
-# HTML::Tidy appears to be incredibly buggy as of v1.08.  I got
-# coredumps just trying to create a new tidy object.
-#
-sub tidy_xml
-{
-    my ($xmlstring,$inputenc) = @_;
-
-    my %encodings = qw(
-	raw raw
-	ascii ascii
-	latin0 latin0
-	latin1 latin1
-	utf8 utf8
-	iso2022 iso2022
-	mac mac
-	win1252 win1252
-	ibm858 ibm858
-	utf16le utf16le
-	utf16be utf16be
-	utf16 utf16
-	big5 big5
-	shiftjis shiftjis
-        );
-
-    $inputenc = $encodings{$inputenc} if(defined $inputenc);
-    $inputenc = "win1252" if(!$inputenc);
-    print "DEBUG: tidy_xml input encoding: '",$inputenc,"'\n";
-#    my %tidyopts = (
-#	quiet => "yes",
-#	input_xml => "yes",
-#	input_encoding => $inputenc,
-#	output_encoding => 'utf8'
-#    );
-	
-    my $tidy = HTML::Tidy->new(
-	{
-#	    quiet => "yes",
-#	    input_xml => "yes",
-#	    input_encoding => $inputenc,
-#	    output_encoding => 'utf8'
-	}
-	);
-    
-    return $tidy->clean($xmlstring);
-}
-
-=end comment
-
 =head2 C<system_tidy_xhtml($infile,$outfile)>
 
 Runs tidy on a XHTML file semi-safely (using a secondary file)
