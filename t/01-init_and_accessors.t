@@ -1,11 +1,13 @@
-# Before `make install' is performed this script should be runnable with
-# `make test'. After `make install' it should work as `perl EBook-Tools.t'
+use warnings; use strict;
+use utf8;
+binmode(STDOUT,':utf8');
+binmode(STDERR,':utf8');
 
 ########## SETUP ##########
 
 # change 'tests => 1' to 'tests => last_test_to_print';
 
-use Test::More tests => 56;
+use Test::More tests => 58;
 use Cwd qw(chdir getcwd);
 use Data::Dumper;
 use File::Basename qw(basename);
@@ -29,6 +31,7 @@ my @spine_idrefs_expected = (
     'file-missing'
     );
 my %hashtest;
+my @rights;
 
 
 ########## TESTS ##########
@@ -44,17 +47,21 @@ is($ebook1->opffile,undef, 'new() has undefined opffile');
 copy('testopf-emptyuid.xml','emptyuid.opf') or die("Could not copy: $!");
 copy('testopf-missingfwid.xml','missingfwid.opf') or die("Could not copy: $!");
 
-is(system_tidy_xml('emptyuid.opf','emptyuid-tidy.opf'),0,
-   'system_tidy_xml: emptyuid.opf');
-is(system_tidy_xml('missingfwid.opf','missingfwid-tidy.opf'),0,
-   'system_tidy_xml: missingfwid.opf');
-
 # new($filename)
 $ebook2 = EBook::Tools->new('emptyuid.opf') or die;
 is($ebook2->twigroot->att('unique-identifier'),'emptyUID',
-   'new(): emptyuid.opf found');
+   'new(): emptyuid.opf parsed');
+@rights = $ebook2->rights;
+is($rights[0],"Copyright \x{00A9} 2008 by Zed Pobre",
+   'emptyuid.opf HTML entity handled properly by new()');
 
-# init($filename)
+# save() and init($filename) 
+ok($ebook2->save,'emptyuid.opf saved');
+ok($ebook1->init('emptyuid.opf'),'emptyuid.opf saved output re-parsed');
+@rights = $ebook1->rights;
+is($rights[0],"Copyright \x{00A9} 2008 by Zed Pobre",
+   'emptyuid.opf HTML entity handled properly after save()');
+
 $ebook1->init('missingfwid.opf') or die;
 is($ebook1->twigroot->tag,'package', 'init(): missingfwid.opf found');
 is($ebook1->twigroot->att('unique-identifier'),undef,
