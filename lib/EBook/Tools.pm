@@ -574,7 +574,7 @@ sub init    ## no critic (Always unpack @_ first)
 }
 
 
-=head2 C<init_blank(named => args)>
+=head2 C<init_blank(named args)>
 
 Initializes an object containing nothing more than the basic OPF
 framework, suitable for adding new documents when creating an e-book
@@ -3628,7 +3628,7 @@ If defined, will be output along with the memory usage.
 
 =back
 
-Returns nothing
+Returns 1 on success, undef otherwise.
 
 =cut
 
@@ -3645,6 +3645,7 @@ sub print_memory
     {
 	print "[",$label,"]: " if(defined $label);
 	print "Couldn't open /proc/$$/statm [$!]\n";
+        return;
     }
 
     @mem = split(/\s+/,<$fh_procstatm>);
@@ -3663,7 +3664,7 @@ sub print_memory
     print ":  size=",$mem[0]*4,"k";
     print "  resident=",$mem[1]*4,"k";
     print "  shared=",$mem[2]*4,"k\n";
-    return;
+    return 1;
 }
 
 
