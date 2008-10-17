@@ -1,10 +1,14 @@
 use strict; use warnings;
+use Cwd qw(chdir getcwd);
+use File::Basename qw(basename);
 use File::Copy;
-use Test::More tests => 4;
+use Test::More tests => 5;
 BEGIN { use_ok('EBook::Tools',
                qw(print_memory system_tidy_xhtml system_tidy_xml)) };
 
 ########## TESTS BEGIN ##########
+
+ok( (basename(getcwd()) eq 't') || chdir('t/'), "Working in 't/" ) or die;
 
 # Generate fresh input samples
 copy('testopf-emptyuid.xml','emptyuid.opf') or die("Could not copy: $!");
