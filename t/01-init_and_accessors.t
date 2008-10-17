@@ -8,6 +8,7 @@ binmode(STDERR,':utf8');
 # change 'tests => 1' to 'tests => last_test_to_print';
 
 use Test::More tests => 58;
+binmode(Test::More->builder->failure_output,':utf8');
 use Cwd qw(chdir getcwd);
 use Data::Dumper;
 use File::Basename qw(basename);

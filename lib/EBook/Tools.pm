@@ -426,8 +426,8 @@ my %methods = (
     'init' => 'PUBLIC',
     'init_blank' => 'PUBLIC',
     'add_document' => 'PUBLIC',
-    'add_errors' => 'PUBLIC',
-    'add_warnings' => 'PUBLIC',
+    'add_error' => 'PUBLIC',
+    'add_warning' => 'PUBLIC',
     );
     
 # A simple 'use fields' will not work here: use takes place inside
@@ -1034,7 +1034,7 @@ sub rights()
     
     if($id)
     {
-        add_warnings($subname 
+        add_warning($subname 
                      . "(): More than one rights entry found with id '" 
                      . $id ."'" )
             if(scalar(@rights) > 1);
@@ -1223,7 +1223,7 @@ sub spine
     my $manifest = $$self{twigroot}->first_child('manifest');
     if(!$manifest)
     {
-        $self->add_errors(
+        $self->add_error(
             $subname . "(): <spine> found without <manifest>"
             );
         debug(1,"DEBUG: <spine> found without <manifest>!");
@@ -1238,7 +1238,7 @@ sub spine
         $idref = $spineref->att('idref');
         if(!$idref)
         {
-            $self->add_warnings(
+            $self->add_warning(
                 $subname . "(): <itemref> found with no idref -- skipping"
                 );
             debug(1,"DEBUG: <itemref> found with no idref -- skipping");
@@ -1247,7 +1247,7 @@ sub spine
         $element = $manifest->first_child("item[\@id='$idref']");
         if(!$element)
         {
-            $self->add_errors(
+            $self->add_error(
                 $subname ."(): id '" . $idref . "' not found in manifest!"
                 );
             debug(1,"DEBUG: id '",$idref," not found in manifest!");
@@ -1398,7 +1398,7 @@ sub add_document   ## no critic (Always unpack @_ first)
     $element = $twig->first_elt("*[\@id='$id']");
     if($element)
     {
-        $self->add_errors(
+        $self->add_error(
             $subname . "(): ID '" . $id . "' already exists"
             . " (in a '" . $element->gi ."' tag)"
             );
@@ -1434,30 +1434,31 @@ sub add_document   ## no critic (Always unpack @_ first)
 }
 
 
-=head2 C<add_errors(@errors)>
+=head2 C<add_error(@errors)>
 
 Adds @errors to the list of object errors.  Each member of
 @errors should be a string containing the entire text of the
 error, with no ending newline.
 
-SEE ALSO: L</add_warnings()>, L</clear_errors()>, L</clear_warnerr()>
+SEE ALSO: L</add_warning()>, L</clear_errors()>, L</clear_warnerr()>
 
 =cut
 
-sub add_errors   ## no critic (Always unpack @_ first)
+sub add_error   ## no critic (Always unpack @_ first)
 {
     my $self = shift;
-    my (@newerrors) = @_;
+    my (@newerror) = @_;
     my $subname = (caller(0))[3];
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(3,"DEBUG[",$subname,"]");
 
     my $currenterrors = $$self{errors} if($$self{errors});
 
-    if(@newerrors)
+    if(@newerror)
     {
-	debug(1,sprintf("DEBUG: adding %d error(s)\n",scalar(@newerrors)));
-	push(@$currenterrors,@newerrors);
+        my $error = join('',@newerror);
+	debug(1,"DEBUG: adding error '",$error,"'");
+	push(@$currenterrors,$error);
     }
     $$self{errors} = $currenterrors;
     return 1;
@@ -1523,7 +1524,7 @@ sub add_item   ## no critic (Always unpack @_ first)
     $element = $twig->first_elt("*[\@id='$id']");
     if($element)
     {
-        $self->add_errors(
+        $self->add_error(
             $subname . "(): ID '" . $id . "' already exists"
             . " (in a '" . $element->gi ."' tag)"
             );
@@ -1556,30 +1557,30 @@ sub add_item   ## no critic (Always unpack @_ first)
 }
 
 
-=head2 C<add_warnings(@warnings)>
+=head2 C<add_warning(@newwarning)>
 
-Adds @warnings to the list of object warnings.  Each member of
-@warnings should be a string containing the entire text of the
-warning, with no ending newline.
+Joins @newwarning to a single string and adds it to the list of object
+warnings.  The warning should not end with a newline newline.
 
-SEE ALSO: L</add_errors()>, L</clear_warnings()>, L</clear_warnerr()>
+SEE ALSO: L</add_error()>, L</clear_warnings()>, L</clear_warnerr()>
 
 =cut
 
-sub add_warnings   ## no critic (Always unpack @_ first)
+sub add_warning   ## no critic (Always unpack @_ first)
 {
     my $self = shift;
-    my (@newwarnings) = @_;
+    my (@newwarning) = @_;
     my $subname = (caller(0))[3];
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(3,"DEBUG[",$subname,"]");
             
     my @currentwarnings = @{$$self{warnings}} if($$self{warnings});
     
-    if(@newwarnings)
+    if(@newwarning)
     {
-	debug(1,sprintf("DEBUG: adding %d warning(s)\n",scalar(@newwarnings)));
-	push(@currentwarnings,@newwarnings);
+        my $warning = join('',@newwarning);
+	debug(1,"DEBUG: adding warning '",$warning,"'");
+	push(@currentwarnings,$warning);
     }
     $$self{warnings} = \@currentwarnings;
 
@@ -1697,14 +1698,14 @@ sub fix_dates
     {
 	if(!$dcdate->text)
 	{
-	    $self->add_warnings("WARNING: found dc:date with no value -- skipping");
+	    $self->add_warning("WARNING: found dc:date with no value -- skipping");
 	}
 	else
 	{
 	    $newdate = fix_datestring($dcdate->text);
 	    if(!$newdate)
 	    {
-		$self->add_warnings(
+		$self->add_warning(
 		    sprintf("fixmisc(): can't deal with date '%s' -- skipping.",$dcdate->text)
 		    );
 	    }
@@ -1768,7 +1769,7 @@ sub fix_links
 
     if(!$manifest) 
     {
-        $self->add_warnings(
+        $self->add_warning(
             "fix_links(): no manifest found!"
             );
         return;
@@ -1776,7 +1777,7 @@ sub fix_links
     @unchecked = $self->manifest_hrefs;
     if(!@unchecked)
     {
-        $self->add_warnings(
+        $self->add_warning(
             "fix_links(): empty manifest found!"
             );
         return;
@@ -1800,7 +1801,7 @@ sub fix_links
 
         if(! -f $href)
         {
-            $self->add_warnings(
+            $self->add_warning(
                 "fix_links(): '" . $href . "' not found"
                 );
             $links{$href} = 0;
@@ -1898,7 +1899,7 @@ sub fix_manifest
                 # so log a warning.
                 # If it is already underneath <manifest>, move it to
                 # preserve sort order, but otherwise leave it alone
-                $self->add_warnings(
+                $self->add_warning(
                     "fix_manifest(): found item with no id or href"
                     );
                 debug(1,"fix_manifest(): found item with no id or href");
@@ -1914,7 +1915,7 @@ sub fix_manifest
                 next;
             } # if(!$href)
             # We have a href, but no ID.  Log a warning, but move it anyway.
-            $self->add_warnings(
+            $self->add_warning(
                 'fix_manifest(): handling item with no ID! '
                 . sprintf "(href='%s')",$href
                 );
@@ -1924,7 +1925,7 @@ sub fix_manifest
         if(!$href)
         {
             # We have an ID, but no href.  Log a warning, but move it anyway.
-            $self->add_warnings(
+            $self->add_warning(
                 "fix_manifest(): item with id '" . $id . "' has no href!"
                 );
             debug(1,"fix_manifest(): item with id '",$id,"' has no href!");
@@ -2178,7 +2179,7 @@ sub fix_mobi
         # but send a warning.
         if(scalar(@elements) > 1)
         {
-            $self->add_warnings(
+            $self->add_warning(
                 'fix_mobi(): Found ' . scalar(@elements) . " '" . $tag . 
                 "' elements, but only one should exist."
                 );
@@ -2741,7 +2742,7 @@ sub fix_spine
         {
             # No idref means it is broken.
             # Leave it alone, but log a warning
-            $self->add_warnings("fix_spine(): <itemref> with no idref -- skipping");
+            $self->add_warning("fix_spine(): <itemref> with no idref -- skipping");
             debug(1,"DEBUG: skipping itemref with no idref");
             next;
         }
@@ -2811,14 +2812,14 @@ sub gen_epub    ## no critic (Always unpack @_ first)
     $self->gen_epub_files();
     if(! $$self{opffile} )
     {
-	$self->add_errors(
+	$self->add_error(
 	    "Cannot create epub without an OPF (did you forget to init?)");
         debug(1,"Cannot create epub without an OPF");
 	return;
     }
     if(! -f $$self{opffile} )
     {
-	$self->add_errors(
+	$self->add_error(
 	    sprintf("OPF '%s' does not exist (did you forget to save?)",
 		    $$self{opffile})
 	    );
@@ -2869,7 +2870,7 @@ sub gen_epub    ## no critic (Always unpack @_ first)
 
     unless ( $zip->writeToFileNamed($filename) == AZ_OK )
     {
-	$self->add_errors(
+	$self->add_error(
             sprintf("Failed to create epub as '%s'",$filename));
         debug(1,"Failed to create epub as '",$filename,"'");
 	return;
@@ -2961,7 +2962,7 @@ sub gen_ncx    ## no critic (Always unpack @_ first)
 
     if($$self{spec} ne 'OPF20')
     {
-        $self->add_errors(
+        $self->add_error(
             $subname . "(): specification is currently set to '"
             . $$self{spec} . "' -- need 'OPF20'"
             );
@@ -2972,7 +2973,7 @@ sub gen_ncx    ## no critic (Always unpack @_ first)
 
     if(!$identifier)
     {
-        $self->add_errors( $subname . "(): no unique-identifier found" );
+        $self->add_error( $subname . "(): no unique-identifier found" );
         debug(1,"DEBUG: gen_ncx() FAILED: no unique-identifier!");
         return;
     }
@@ -2981,7 +2982,7 @@ sub gen_ncx    ## no critic (Always unpack @_ first)
     $title = $self->title();
     if(!$title)
     {
-        $self->add_errors( $subname . "(): no title found" );
+        $self->add_error( $subname . "(): no title found" );
         debug(1,"DEBUG: gen_ncx() FAILED: no title!");
         return;
     }
@@ -2990,7 +2991,7 @@ sub gen_ncx    ## no critic (Always unpack @_ first)
     $author = $self->primary_author();
     if(!$author)
     {
-        $self->add_errors( $subname . "(): no title found" );
+        $self->add_error( $subname . "(): no title found" );
         debug(1,"DEBUG: gen_ncx() FAILED: no title!");
         return;
     }
@@ -2999,7 +3000,7 @@ sub gen_ncx    ## no critic (Always unpack @_ first)
     @spinelist = $self->spine();
     if(!@spinelist)
     {
-        $self->add_errors( $subname . "(): no spine found" );
+        $self->add_error( $subname . "(): no spine found" );
         debug(1,"DEBUG: gen_ncx() FAILED: no spine!");
         return;
     }
@@ -3010,7 +3011,7 @@ sub gen_ncx    ## no critic (Always unpack @_ first)
     $manifest = $twigroot->first_descendant('manifest');
     if(!$manifest)
     {
-        $self->add_errors( $subname . "(): no manifest found" );
+        $self->add_error( $subname . "(): no manifest found" );
         debug(1,"DEBUG: gen_ncx() FAILED: no manifest!");
         return;
     }
@@ -3147,14 +3148,14 @@ sub save
     # binmode :utf8, it will double-convert.
     if(!open($fh_opf,">",$$self{opffile}))
     {
-	add_errors(sprintf("Could not open '%s' to save to!",$$self{opffile}));
+	add_error(sprintf("Could not open '%s' to save to!",$$self{opffile}));
 	return;
     }
     $$self{twig}->print(\*$fh_opf);
 
     if(!close($fh_opf))
     {
-	add_errors(sprintf("Failure while closing '%s'!",$$self{opffile}));
+	add_error(sprintf("Failure while closing '%s'!",$$self{opffile}));
 	return;
     }
     return 1;
@@ -4338,12 +4339,6 @@ sub ymd_validate
 
 =over
 
-=item * The inability to pass a list to add_warnings() and
-add_errors() to enter a single warning or error turned out to be more
-cumbersome than expected, and I'm never adding more than one message
-at a time anyway.  Consider changing this to just add_warning() and
-add_error() and using join to convert a list to a single message.
-
 =item * NCX generation only generates from the spine.  It should be
 possible to use a TOC html file for generation instead.
 
@@ -4358,8 +4353,9 @@ books is less than 500k, and the largest books are rarely if ever over
 =item * The only generator is currently for .epub books.  PDF,
 PalmDoc, Mobipocket, Plucker, and iSiloX are eventually planned.
 
-=item * There are no import/extraction tools yet.  Extraction from
-PalmDoc, eReader, and Mobipocket is eventually planned.
+=item * Import/extraction/unpacking is currently limited to PalmDoc
+and the interface is experimental.  Extraction from eReader, Microsoft
+Reader (.lit), and Mobipocket is eventually planned.
 
 =item * Although I like keeping warnings associated with the ebook
 object, it may be better to throw exceptions on errors and catch them
