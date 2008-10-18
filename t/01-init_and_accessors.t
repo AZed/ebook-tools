@@ -7,7 +7,7 @@ binmode(STDERR,':utf8');
 
 # change 'tests => 1' to 'tests => last_test_to_print';
 
-use Test::More tests => 58;
+use Test::More tests => 61;
 binmode(Test::More->builder->failure_output,':utf8');
 use Cwd qw(chdir getcwd);
 use Data::Dumper;
@@ -21,6 +21,7 @@ $EBook::Tools::debug = 0;
 
 my ($ebook1,$ebook2,$blank);
 my $meta;
+my @list;
 my @manifest;
 my @manifest_hrefs_expected = (
     'part1.html',
@@ -30,6 +31,10 @@ my @manifest_hrefs_expected = (
 my @spine_idrefs_expected = (
     'item-text',
     'file-missing'
+    );
+my @subject_list_expected = (
+    'Samples',
+    'EDUCATION / Testing & Measurement',
     );
 my %hashtest;
 my @rights;
@@ -165,8 +170,11 @@ is_deeply(\@manifest,\@manifest_hrefs_expected,
     'manifest_hrefs() returns expected values');
 
 # primary_author()
-is($ebook2->primary_author(),'Zed 1 Pobre',
-   'primary_author() finds correct entry');
+@list = $ebook2->primary_author();
+is($list[0],'Zed 1 Pobre',
+   'primary_author() finds correct text');
+is($list[1],'Pobre, Zed 1',
+   'primary_author() finds correct file-as');
 
 # print_*
 ok($blank->print_errors,'print_errors() returns successfully');
@@ -190,6 +198,11 @@ is_deeply(\@manifest,\@spine_idrefs_expected,
 is($ebook2->title,'A Noncompliant OPF Test Sample',
    'title() returns the correct value');
 
+# subject_list()
+is(scalar(@list = $ebook2->subject_list),2,
+   'subject_list() finds the correct number of entries');
+is_deeply(\@list,\@subject_list_expected,
+   'subject_list() found the correct entries');
 
 ########## CLEANUP ##########
 

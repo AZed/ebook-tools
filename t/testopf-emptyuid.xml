@@ -4,7 +4,7 @@
   <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">
     <dc:Identifier scheme="FWID">this-is-not-a-fwid</dc:Identifier>
     <dc:title>A Noncompliant OPF Test Sample</dc:title>
-    <dc:creator opf:role="author">Zed 1 Pobre</dc:creator>
+    <dc:creator opf:role="author" opf:file-as="Pobre, Zed 1">Zed 1 Pobre</dc:creator>
     <dc:Creator opf:role="author">Zed 2 Pobre</dc:Creator>
     <dc:creator role="coauthor">Zed 3 Pobre</dc:creator>
     <dc:publisher>CPAN</dc:publisher>
@@ -19,6 +19,8 @@
     <dc:language>en-us</dc:language>
     <dc:Language>en-us</dc:Language>
     <dc:rights>Copyright &copy; 2008 by Zed Pobre</dc:rights>
+    <dc:subject>Samples</dc:subject>
+    <dc:Subject scheme="BISAC" code="030000">EDUCATION / Testing &amp; Measurement</dc:Subject>
     <dc:identifier id="UID" scheme="GUID">{28D17050-173C-11D5-9303-0010DA63A409}</dc:identifier>
   </metadata>
   <manifest>

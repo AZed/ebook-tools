@@ -116,7 +116,7 @@ use File::MimeInfo::Magic;
 #use File::MMagic;
 use File::Path;     # Exports 'mkpath' and 'rmtree'
 use File::Temp;
-use HTML::Entities;
+use HTML::Entities qw(decode_entities _decode_entities %entity2char);
 #use HTML::Tidy;
 use Tie::IxHash;
 use Time::Local;
@@ -172,6 +172,15 @@ recognized and placed directly under the <metadata> element.
 Order is preserved and significant -- fix_opf20 will output DC
 metadata elements in the same order as in this hash, though order for
 tags of the same name is preserved from the input file.
+
+=item C<%nonxmlentity2char>
+
+This is the %entity2char conversion map from HTML::Entities with the 5
+pre-defined XML entities (amp, gt, lt, quot, apos) removed.  This is
+used during by L</init()> to sanitize the OPF file data before
+parsing.  This hash can be modified to allow and convert other
+non-standard entities to unicode characters.  See HTML::Entities for
+details.
 
 =item C<%oebspecs>
 
@@ -357,6 +366,13 @@ our %publishermap = (
     'wildside press'        => 'Wildside Press',
     );
         
+
+our %nonxmlentity2char = %entity2char;
+delete($nonxmlentity2char{'amp'});
+delete($nonxmlentity2char{'gt'});
+delete($nonxmlentity2char{'lt'});
+delete($nonxmlentity2char{'quot'});
+delete($nonxmlentity2char{'apos'});
 
 
 ####################################
@@ -564,7 +580,23 @@ sub init    ## no critic (Always unpack @_ first)
         or croak($subname,"(): failed to read from '",$self->opffile,"'!");
     close($fh_opffile)
         or croak($subname,"(): failed to close '",$self->opffile,"'!");
-    $opfstring = decode_entities($opfstring);
+
+    # We use _decode_entities and the custom hash to decode, but also
+    # see below for the regexp
+    _decode_entities($opfstring,\%nonxmlentity2char);
+
+    # This runs decode_entities on the substring containing just the
+    # entity for every entity *except* the 5 predefined internal
+    # entities.  It seems to be about the same speed as running
+    # _decode_entities on a small file, but having the hash map as a
+    # package variable has additional utility, so that technique gets
+    # used instead.
+#    $opfstring =~ 
+#        s/(&
+#            (?! (?:lt|gt|quot|apos|amp);
+#            )\w+;
+#          )
+#         / decode_entities($1) /gex;
 
     $$self{twig}->parse($opfstring);
     $$self{twigroot} = $$self{twig}->root;
@@ -871,11 +903,18 @@ sub manifest_hrefs
 
 =head2 C<primary_author()>
 
-Returns the primary author of the book, defined as the first
+Finds the primary author of the book, defined as the first
 'dc:creator' entry (case-insensitive) where either the attribute
 opf:role="aut" or role="aut", or the first 'dc:creator' entry if no
 entries with either attribute can be found.  Entries must actually
-have text to be considered.  If no entries are found, returns undef.
+have text to be considered.
+
+Returns a two-item list, the first element of which is the text of the
+entry (the author name) and the second of which is the value of the
+'opf:file-as' or 'file-as' attribute where 'opf:file-as' is given
+precedence if both are present.
+
+If no entries are found, returns undef.
 
 Uses L</twigelt_is_author()> in the first half of the search.
 
@@ -890,12 +929,15 @@ sub primary_author()
 
     my $twigroot = $$self{twigroot};
     my $element;
+    my $fileas;
 
     $element = $twigroot->first_descendant(\&twigelt_is_author);
     $element = $twigroot->first_descendant(qr/dc:creator/ix) if(!$element);
     return if(!$element);
     return if(!$element->text);
-    return $element->text;
+    $fileas = $element->att('opf:file-as');
+    $fileas = $element->att('file-as') unless($fileas);
+    return ($element->text,$fileas);
 }
 
 
@@ -1298,6 +1340,36 @@ sub spine_idrefs
 }
 
 
+=head2 C<subject_list()>
+
+Returns a list containing the text of all dc:subject elements or undef
+if none are found.
+
+=cut
+
+sub subject_list
+{
+    my $self = shift;
+    my ($filename) = @_;
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+    $self->twigcheck;
+
+    my @retval = ();
+    my $twigroot = $$self{twigroot};
+
+    my @subjects = $twigroot->descendants(qr/dc:subject/ix);
+    return unless(@subjects);
+
+    foreach my $subject (@subjects)
+    {
+        push(@retval,$subject->text) if($subject->text);
+    }
+    return unless(@retval);
+    return @retval;
+}
+
 =head2 C<title()>
 
 Returns the title of the e-book, if set, or undef otherwise.  Note
@@ -1307,7 +1379,7 @@ no text.
 
 =cut
 
-sub title()
+sub title
 {
     my $self = shift;
     my ($filename) = @_;
@@ -4264,7 +4336,8 @@ sub twigelt_fix_opf20_atts
 
 Takes as an argument a twig element.  Returns true if the element is a
 dc:creator (case-insensitive) with either a opf:role="aut" or
-role="aut" attribute defined.  Returns undef otherwise.
+role="aut" attribute defined.  Returns undef otherwise, and also if
+the element has no text.
 
 Croaks if fed no argument, or fed an argument that isn't a twig
 element.
@@ -4288,9 +4361,10 @@ sub twigelt_is_author
         unless($element->isa('XML::Twig::Elt'));
 
     return if( (lc $element->gi) ne 'dc:creator');
+    return unless($element->text);
 
     my $role = $element->att('opf:role') || $element->att('role');
-    return if(!$role);
+    return unless($role);
 
     return 1 if($role eq 'aut');
     return;

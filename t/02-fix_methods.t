@@ -62,6 +62,8 @@ my @metastruct_expected1 = (
     "dc:language",
     "dc:Language",
     "dc:rights",
+    "dc:subject",
+    "dc:Subject",
     "dc:identifier"
     );
 
@@ -84,6 +86,8 @@ my @metastruct_expected2 = (
     "dc:Language",
     "dc:Language",
     "dc:Rights",
+    "dc:Subject",
+    "dc:Subject",
     "dc:Identifier"
     );
 
