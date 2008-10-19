@@ -7,7 +7,7 @@ binmode(STDERR,':utf8');
 
 # change 'tests => 1' to 'tests => last_test_to_print';
 
-use Test::More tests => 61;
+use Test::More tests => 76;
 binmode(Test::More->builder->failure_output,':utf8');
 use Cwd qw(chdir getcwd);
 use Data::Dumper;
@@ -23,19 +23,6 @@ my ($ebook1,$ebook2,$blank);
 my $meta;
 my @list;
 my @manifest;
-my @manifest_hrefs_expected = (
-    'part1.html',
-    'missingfile.html',
-    'cover.jpg'
-    );
-my @spine_idrefs_expected = (
-    'item-text',
-    'file-missing'
-    );
-my @subject_list_expected = (
-    'Samples',
-    'EDUCATION / Testing & Measurement',
-    );
 my %hashtest;
 my @rights;
 
@@ -139,6 +126,38 @@ $ebook1->fix_packageid() or die;
 is($ebook1->identifier,'this-is-not-a-fwid',
    "identifier() finds expected value");
 
+# isbn_list()
+is(scalar(@list = $ebook2->isbn_list),3,
+   'isbn_list() finds the correct number of entries');
+is_deeply(\@list,['X-0000-9999-1','X-0000-9999-2','X-0000-9999-3'],
+          'isbn_list() returns expected values');
+is(scalar(@list = $ebook2->isbn_list('id' => 'eISBN')),1,
+   'isbn_list(id => $id) finds the correct number of entries');
+is($list[0],'X-0000-9999-2',
+   'isbn_list(id => $id) finds the correct entry');
+is(scalar(@list = $ebook2->isbn_list('scheme' => 'ISBN-10')),1,
+   'isbn_list(scheme => $scheme) finds the correct number of entries');
+is($list[0],'X-0000-9999-3',
+   'isbn_list(scheme => $scheme) finds the correct entry');
+is(scalar(@list = $ebook2->isbn_list('id' => 'eISBN', 
+                                     'scheme' => 'ISBN-10')),2,
+   'isbn_list(id and scheme) finds the correct number of entries');
+is_deeply(\@list, [ 'X-0000-9999-2', 'X-0000-9999-3' ],
+          'isbn_list(id and scheme) finds the correct entries');
+
+
+# isbns()
+is(scalar(@list = $ebook2->isbns),3,
+   'isbns() finds the correct number of entries');
+is(${$list[2]}{isbn},'X-0000-9999-3',
+   'isbns() third entry has correct ISBN');
+is(${$list[2]}{scheme},'ISBN-10',
+   'isbns() third entry has correct scheme');
+is(scalar(@list = $ebook2->isbns('scheme' => 'ISBN-10')),1,
+   'isbns(scheme) finds the correct number of entries');
+is(${$list[0]}{isbn},'X-0000-9999-3',
+   'isbns(scheme) finds the correct entry');
+
 # manifest()
 is(scalar(@manifest = $ebook1->manifest),3,
    'manifest() finds the correct number of entries');
@@ -166,8 +185,8 @@ is($hashtest{id},'item-text',
 # manifest_hrefs()
 ok(@manifest = $ebook1->manifest_hrefs,
    'manifest_hrefs() returns successfully');
-is_deeply(\@manifest,\@manifest_hrefs_expected,
-    'manifest_hrefs() returns expected values');
+is_deeply(\@manifest,['part1.html','missingfile.html','cover.jpg'],
+          'manifest_hrefs() returns expected values');
 
 # primary_author()
 @list = $ebook2->primary_author();
@@ -181,6 +200,11 @@ ok($blank->print_errors,'print_errors() returns successfully');
 ok($blank->print_warnings,'print_warnings() returns successfully');
 ok($blank->print_opf,'print_opf() returns successfully');
 
+# publishers()
+is(scalar(@list = $ebook1->publishers()),1,
+   'publishers() found a publisher');
+is($list[0],'CPAN','publishers() found the correct text');
+
 # search_*
 is($ebook2->search_knownuids(),'UID','search_knownuids() finds UID');
 is($ebook1->search_knownuidschemes(),'FWID','search_knownuidschemes() finds FWID');
@@ -193,7 +217,7 @@ is(ref($manifest[0]),'HASH','spine() returns array of hashrefs');
 is($hashtest{href},'part1.html','spine() hashref seems correct');
 is(scalar(@manifest = $ebook2->spine_idrefs),2,
    'spine_idrefs() finds the correct number of entries');
-is_deeply(\@manifest,\@spine_idrefs_expected,
+is_deeply(\@manifest,[ 'item-text', 'file-missing' ],
           'spine_idrefs() returns expected values');
 is($ebook2->title,'A Noncompliant OPF Test Sample',
    'title() returns the correct value');
@@ -201,8 +225,8 @@ is($ebook2->title,'A Noncompliant OPF Test Sample',
 # subject_list()
 is(scalar(@list = $ebook2->subject_list),2,
    'subject_list() finds the correct number of entries');
-is_deeply(\@list,\@subject_list_expected,
-   'subject_list() found the correct entries');
+is_deeply(\@list,['Samples','EDUCATION / Testing & Measurement'],
+          'subject_list() found the correct entries');
 
 ########## CLEANUP ##########
 
