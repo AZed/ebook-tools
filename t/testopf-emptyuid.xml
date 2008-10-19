@@ -14,7 +14,9 @@
     <dc:Date opf:event="YYYY-xx-DD">2009-xx-01</dc:Date>
     <dc:Type>Text</dc:Type>
     <dc:format>text/html</dc:format>
-    <dc:identifier scheme="ISBN">X-0000-9999-1</dc:identifier>
+    <dc:identifier id="ISBN-10" scheme="ISBN">X-0000-9999-1</dc:identifier>
+    <dc:identifier id="eISBN">X-0000-9999-2</dc:identifier>
+    <dc:identifier scheme="ISBN-10">X-0000-9999-3</dc:identifier>
     <dc:identifier id="emptyUID"></dc:identifier>
     <dc:language>en-us</dc:language>
     <dc:Language>en-us</dc:Language>

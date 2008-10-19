@@ -141,6 +141,16 @@ our @EXPORT_OK;
     &twigelt_fix_opf20_atts
     &twigelt_is_author
     &ymd_validate
+    %dcelements12
+    %dcelements20
+    %nonxmlentity2char
+    %oebspecs
+    %publishermap
+    %relatorcodes
+    $tidycmd
+    $tidyxhtmlerrors
+    $tidyxmlerrors
+    $tidysafety
     );
 
 
@@ -196,6 +206,12 @@ L</fix_misc()>.
 
 Keys should be entered in lowercase.  The hash can also be set empty
 to prevent fix_publisher() from taking any action at all.
+
+=item C<%relatorcodes>
+
+A hash mapping the MARC Relator Codes (see:
+http://www.loc.gov/marc/relators/relacode.html) to their descriptive
+names.
 
 =item C<$tidycmd>
 
@@ -373,6 +389,139 @@ delete($nonxmlentity2char{'gt'});
 delete($nonxmlentity2char{'lt'});
 delete($nonxmlentity2char{'quot'});
 delete($nonxmlentity2char{'apos'});
+
+our %relatorcodes = (
+    'act' => 'Actor',
+    'adp' => 'Adapter',
+    'ann' => 'Annotator',
+    'ant' => 'Bibliographic antecedent',
+    'app' => 'Applicant',
+    'arc' => 'Architect',
+    'arr' => 'Arranger',
+    'art' => 'Artist',
+    'asg' => 'Assignee',
+    'asn' => 'Associated name',
+    'att' => 'Attributed name',
+    'aui' => 'Author of introduction',
+    'aus' => 'Author of screenplay',
+    'aut' => 'Author',
+    'bdd' => 'Binding designer',
+    'bjd' => 'Bookjacket designer',
+    'bkd' => 'Book designer',
+    'bkp' => 'Book producer',
+    'bnd' => 'Binder',
+    'bpd' => 'Bookplate designer',
+    'bsl' => 'Bookseller',
+    'chr' => 'Choreographer',
+    'cli' => 'Client',
+    'cll' => 'Calligrapher',
+    'clt' => 'Collotyper',
+    'cmm' => 'Commentator',
+    'cmp' => 'Composer',
+    'cmt' => 'Compositor',
+    'cnd' => 'Conductor',
+    'cns' => 'Censor',
+    'coe' => 'Contestant-appellee',
+    'col' => 'Collector',
+    'com' => 'Compiler',
+    'cos' => 'Contestant',
+    'cot' => 'Contestant-appellant',
+    'cpe' => 'Complainant-appellee',
+    'cph' => 'Copyright holder',
+    'cpl' => 'Complainant',
+    'cpt' => 'Complainant-appellant',
+    'crp' => 'Correspondent',
+    'crr' => 'Corrector',
+    'cst' => 'Costume designer',
+    'cte' => 'Contestee-appellee',
+    'ctg' => 'Cartographer',
+    'cts' => 'Contestee',
+    'ctt' => 'Contestee-appellant',
+    'dfd' => 'Defendant',
+    'dfe' => 'Defendant-appellee',
+    'dft' => 'Defendant-appellant',
+    'dln' => 'Delineator',
+    'dnc' => 'Dancer',
+    'dnr' => 'Donor',
+    'dpt' => 'Depositor',
+    'drt' => 'Director',
+    'dsr' => 'Designer',
+    'dst' => 'Distributor',
+    'dte' => 'Dedicatee',
+    'dto' => 'Dedicator',
+    'dub' => 'Dubious author',
+    'edt' => 'Editor',
+    'egr' => 'Engraver',
+    'elt' => 'Electrotyper',
+    'eng' => 'Engineer',
+    'etr' => 'Etcher',
+    'flm' => 'Film editor',
+    'fmo' => 'Former owner',
+    'fnd' => 'Funder/Sponsor',
+    'frg' => 'Forger',
+    'grt' => 'Graphic technician (discontinued code)',
+    'hnr' => 'Honoree',
+    'ill' => 'Illustrator',
+    'ilu' => 'Illuminator',
+    'ins' => 'Inscriber',
+    'inv' => 'Inventor',
+    'itr' => 'Instrumentalist',
+    'ive' => 'Interviewee',
+    'ivr' => 'Interviewer',
+    'lbt' => 'Librettist',
+    'lee' => 'Libelee-appellee',
+    'lel' => 'Libelee',
+    'len' => 'Lender',
+    'let' => 'Libelee-appellant',
+    'lie' => 'Libelant-appellee',
+    'lil' => 'Libelant',
+    'lit' => 'Libelant-appellant',
+    'lse' => 'Licensee',
+    'lso' => 'Licensor',
+    'ltg' => 'Lithographer',
+    'lyr' => 'Lyricist',
+    'mon' => 'Monitor/Contractor',
+    'mte' => 'Metal-engraver',
+    'nrt' => 'Narrator',
+    'org' => 'Originator',
+    'oth' => 'Other',
+    'pbl' => 'Publisher',
+    'pfr' => 'Proofreader',
+    'pht' => 'Photographer',
+    'plt' => 'Platemaker',
+    'pop' => 'Printer of plates',
+    'ppm' => 'Papermaker',
+    'prd' => 'Production personnel',
+    'prf' => 'Performer',
+    'pro' => 'Producer',
+    'prt' => 'Printer',
+    'pte' => 'Plaintiff-appellee',
+    'ptf' => 'Plaintiff',
+    'pth' => 'Patent holder',
+    'ptt' => 'Plaintiff-appellant',
+    'rbr' => 'Rubricator',
+    'rce' => 'Recording engineer',
+    'rcp' => 'Recipient',
+    'rse' => 'Respondent-appellee',
+    'rsp' => 'Respondent',
+    'rst' => 'Respondent-appellant',
+    'sce' => 'Scenarist',
+    'scr' => 'Scribe',
+    'scl' => 'Sculptor',
+    'sec' => 'Secretary',
+    'sgn' => 'Signer',
+    'srv' => 'Surveyor',
+    'str' => 'Stereotyper',
+    'trc' => 'Transcriber',
+    'trl' => 'Translator',
+    'tyd' => 'Type designer',
+    'tyg' => 'Typographer',
+    'voc' => 'Vocalist',
+    'wam' => 'Writer of accompanying material',
+    'wde' => 'Wood-engraver',
+    'wit' => 'Witness',
+    );
+
 
 
 ####################################
@@ -606,7 +755,7 @@ sub init    ## no critic (Always unpack @_ first)
 }
 
 
-=head2 C<init_blank(named args)>
+=head2 C<init_blank(%args)>
 
 Initializes an object containing nothing more than the basic OPF
 framework, suitable for adding new documents when creating an e-book
@@ -738,7 +887,185 @@ sub identifier
 }
 
 
-=head2 C<manifest(named args)>
+=head2 C<isbn_list(%args)>
+
+Returns a list of all ISBNs matching the specified attributes.  See
+L</twigelt_is_isbn()> for a detailed description of how the ISBN
+elements are found.
+
+Returns undef if no matches are found.
+
+See also L</isbns(%args)>.
+
+=head3 Arguments
+
+C<isbn_list()> takes two optional named arguments:
+
+=over
+
+=item * C<id> - 'id' attribute that must be matched exactly for the
+result to be added to the list
+
+=item * C<scheme> 'opf:scheme' or 'scheme' attribute that must be
+matched exactly for the result to be added to the list
+
+=over
+
+If both arguments are specified a value is added to the list if it
+matches either one (i.e. the logic is OR).
+
+=cut
+
+sub isbn_list
+{
+    my $self = shift;
+    my (%args) = @_;
+    my %valid_args = (
+        'id' => 1,
+        'scheme' => 1,
+        );
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+    $self->twigcheck();
+    foreach my $arg (keys %args)
+    {
+        croak($subname,"(): invalid argument '",$arg,"'")
+            if(!$valid_args{$arg});
+    }
+
+    my @elements = $$self{twigroot}->descendants(\&twigelt_is_isbn);
+    my @list = ();
+    my $id;
+    my $scheme;
+    foreach my $el (@elements)
+    {
+        if($args{id})
+        {
+            $id = $el->att('id') || '';
+            if($id eq $args{id})
+            {
+                push(@list,$el->text);
+                next;
+            }
+        }
+        if($args{scheme})
+        {
+            $scheme = $el->att('opf:scheme') || $el->att('scheme') || '';
+            if($scheme eq $args{scheme})
+            {
+                push(@list,$el->text);
+                next;
+            }
+        }
+        next if($args{id} || $args{scheme});
+        push(@list,$el->text);
+    }
+    return unless(@list);
+    return @list;
+}
+
+
+=head2 C<isbns(%args)>
+
+Returns all of the ISBN identifiers matching the specificied
+attributes as a list of hashrefs, with one hash per ISBN identifier
+presented in the order that the identifiers are found.  The hash keys
+are 'id' (containing the value of the 'id' attribute), 'scheme'
+(containing the value of either the 'opf:scheme' or 'scheme'
+attribute, whichever is found first), and 'isbn' (containing the text
+of the element).
+
+If no entries are found, returns undef.
+
+See also L</isbn_list(%args)>.
+
+=head3 Arguments
+
+C<isbns()> takes two optional named arguments:
+
+=over
+
+=item * C<id> - 'id' attribute that must be matched exactly for the
+result to be added to the list
+
+=item * C<scheme> - 'opf:scheme' or 'scheme' attribute that must be
+matched exactly for the result to be added to the list
+
+=over
+
+If both arguments are specified a value is added to the list if it
+matches either one (i.e. the logic is OR).
+
+=cut
+
+sub isbns
+{
+    my $self = shift;
+    my (%args) = @_;
+    my %valid_args = (
+        'id' => 1,
+        'scheme' => 1,
+        );
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+    $self->twigcheck();
+    foreach my $arg (keys %args)
+    {
+        croak($subname,"(): invalid argument '",$arg,"'")
+            if(!$valid_args{$arg});
+    }
+
+    my @elements = $$self{twigroot}->descendants(\&twigelt_is_isbn);
+    my @list = ();
+    my $id;
+    my $scheme;
+    foreach my $el (@elements)
+    {
+        if($args{id})
+        {
+            $id = $el->att('id') || '';
+            if($id eq $args{id})
+            {
+                push(@list,
+                     {
+                         'isbn' => $el->text,
+                         'id'   => $el->att('id'),
+                         'scheme'   => $el->att('scheme'),
+                     });
+                next;
+            }
+        }
+        if($args{scheme})
+        {
+            $scheme = $el->att('opf:scheme') || $el->att('scheme') || '';
+            if($scheme eq $args{scheme})
+            {
+                push(@list,
+                     {
+                         'isbn' => $el->text,
+                         'id'   => $el->att('id'),
+                         'scheme'   => $el->att('scheme'),
+                     });
+                next;
+            }
+        }
+        next if($args{id} || $args{scheme});
+        $scheme = $el->att('opf:scheme') || $el->att('scheme');
+        push(@list,
+             {
+                 'isbn'   => $el->text,
+                 'id'     => $el->att('id'),
+                 'scheme' => $scheme,
+             });
+    }
+    return unless(@list);
+    return @list;
+}
+
+
+=head2 C<manifest(%args)>
 
 Returns all of the items in the manifest as a list of hashrefs, with
 one hash per manifest item in the order that they appear, where the
@@ -1021,11 +1348,37 @@ sub print_opf
 }
 
 
+=head2 C<publishers()>
+
+Returns a list containing the text of all dc:publisher
+(case-insensitive) entries, or undef if none are found.
+
+=cut
+
+sub publishers
+{
+    my $self = shift;
+    my (%args) = @_;
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+    $self->twigcheck;
+
+    my @pubs = ();
+    my @elements = $$self{twigroot}->descendants(qr/^dc:publisher$/i);
+    foreach my $el (@elements)
+    {
+        push(@pubs,$el->text) if($el->text);
+    }
+    return unless(@pubs);
+    return @pubs;
+}
+
 =head2 C<rights('id' => 'identifier')>
 
 Returns a list containing the text of all of dc:rights or
-dc:copyrights (case-insensitive) entries in the e-book, or an empty
-list if none are found.
+dc:copyrights (case-insensitive) entries in the e-book, or undef if
+none are found.
 
 If the optional named argument 'id' is specified, it will only return
 entries where the id attribute matches the specified identifier.
@@ -1059,7 +1412,7 @@ sub rights()
     my @rights = ();
     my $id = $args{id};
 
-    my @elements = $$self{twigroot}->descendants(qr/dc:(copy)?rights/ix);
+    my @elements = $$self{twigroot}->descendants(qr/^dc:(copy)?rights$/ix);
 
     foreach my $element (@elements)
     {
@@ -1081,6 +1434,7 @@ sub rights()
                      . $id ."'" )
             if(scalar(@rights) > 1);
     }
+    return unless(@rights);
     return @rights;
 }
 
@@ -2826,7 +3180,7 @@ sub fix_spine
 }
 
 
-=head2 C<gen_epub(named args)>
+=head2 C<gen_epub(%args)>
 
 Creates a .epub format e-book.  This will create (or overwrite) the
 files 'mimetype' and 'META-INF/container.xml' in the current
@@ -3236,7 +3590,7 @@ sub save
 
 =head2 C<twigcheck()>
 
-Croaks showing the calling location unless $self has both a twig and a
+Croaks showing the calling location unless C<$self> has both a twig and a
 twigroot, and the twigroot is <package>.  Used as a sanity check for
 methods that use twig or twigroot.
 
@@ -4344,6 +4698,10 @@ element.
 
 Intended to be used as a twig search condition.
 
+=head3 Example
+
+ my @elements = $ebook->twigroot->descendants(\&twigelt_is_author);
+
 =cut
 
 sub twigelt_is_author
@@ -4367,6 +4725,56 @@ sub twigelt_is_author
     return unless($role);
 
     return 1 if($role eq 'aut');
+    return;
+}
+
+
+=head2 C<twigelt_is_isbn($element)>
+
+Takes as an argument a twig element.  Returns true if the element is a
+dc:identifier (case-insensitive) where any of the id, opf:scheme, or
+scheme attributes start with 'isbn', '-isbn', 'eisbn', or 'e-isbn'
+(again case-insensitive).
+
+Returns undef otherwise, and also if the element has no text.
+
+Croaks if fed no argument, or fed an argument that isn't a twig
+element.
+
+Intended to be used as a twig search condition.
+
+=head3 Example
+
+ my @elements = $ebook->twigroot->descendants(\&twigelt_is_isbn);
+
+=cut
+
+sub twigelt_is_isbn
+{
+    my ($element) = @_;
+    my $subname = ( caller(0) )[3];
+    debug(3,"DEBUG[",$subname,"]");
+
+    croak($subname,"(): no element provided") unless($element);
+
+    my $ref = ref($element) || '';
+    my $id;
+    my $scheme;
+
+    croak($subname,"(): argument was of type '",$ref,
+          "', needs to be 'XML::Twig::Elt' or a subclass")
+        unless($element->isa('XML::Twig::Elt'));
+
+    return if( (lc $element->gi) ne 'dc:identifier');
+    return unless($element->text);
+
+    $id = $element->id || '';
+    return 1 if($id =~ /^e?-?isbn/ix);
+
+    $scheme = $element->att('opf:scheme') || '';
+    return 1 if($scheme =~ /^e?-?isbn/ix);
+    $scheme = $element->att('scheme') || '';
+    return 1 if($scheme =~ /^e?-?isbn/ix);
     return;
 }
 
@@ -4412,6 +4820,10 @@ sub ymd_validate
 =head1 BUGS/TODO
 
 =over
+
+=item * Need to implement fix_tours() and fix_guide() that should
+collect the related elements and delete the parent if none are found.
+Empty <tours> and <guide> elements aren't allowed.
 
 =item * NCX generation only generates from the spine.  It should be
 possible to use a TOC html file for generation instead.
