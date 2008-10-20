@@ -1,4 +1,4 @@
-package EBook::Tools;
+﻿package EBook::Tools;
 use warnings; use strict; use utf8;
 require Exporter;
 use base qw(Exporter);
@@ -56,10 +56,6 @@ both OEBPS v1.2 and OPS/OPF v2.0.
 
 =item Archive::Zip
 
-=item Class::Meta
-
-=item Class::Meta::Express
-
 =item Date::Manip
 
 Note that Date::Manip will die on MS Windows system unless the
@@ -101,9 +97,6 @@ use Data::UUID;
 
 use Archive::Zip qw( :CONSTANTS :ERROR_CODES );
 use Carp;
-use Class::Meta::Express;
-use Class::Meta::Types::Perl 'semi-affordance';
-use Class::Meta::Types::String 'semi-affordance';
 use Cwd qw(getcwd realpath);
 use Date::Manip;
 use File::Basename qw(dirname fileparse);
@@ -144,7 +137,7 @@ our @EXPORT_OK;
     %dcelements12
     %dcelements20
     %nonxmlentity2char
-    %oebspecs
+    %validspecs
     %publishermap
     %relatorcodes
     $tidycmd
@@ -191,12 +184,6 @@ used during by L</init()> to sanitize the OPF file data before
 parsing.  This hash can be modified to allow and convert other
 non-standard entities to unicode characters.  See HTML::Entities for
 details.
-
-=item C<%oebspecs>
-
-A hash mapping valid specification strings to themselves, primarily
-used to undefine unrecognized values.  Default valid values are 'OEB12'
-and 'OPF20'.
 
 =item C<%publishermap>
 
@@ -260,6 +247,12 @@ Keeps a log of both errors and warnings.
 
 Never overwrites original file.  Keeps a log of both errors and
 warnings.
+
+=item C<%validspecs>
+
+A hash mapping valid specification strings to themselves, primarily
+used to undefine unrecognized values.  Default valid values are 'OEB12'
+and 'OPF20'.
 
 =back
 
@@ -336,11 +329,6 @@ our %mobibooktypes = (
     'HTML' => 'text/html',
     'Mobipocket game' => 'application/vnd.mobipocket-game',
     'Franklin game' => 'application/vnd.mobipocket-franklin-ua-game'
-    );
-
-our %oebspecs = (
-    'OEB12' => 'OEB12',
-    'OPF20' => 'OPF20'
     );
 
 our %publishermap = (
@@ -522,56 +510,16 @@ our %relatorcodes = (
     'wit' => 'Witness',
     );
 
+our %validspecs = (
+    'OEB12' => 'OEB12',
+    'OPF20' => 'OPF20',
+    'MOBI12' => 'MOBI12',
+    );
 
 
-####################################
-########## AUTO-ACCESSORS ##########
-####################################
-
-=head1 AUTO-ACCESSORS
-
-Semi-affordance accessors are created by Class::Meta for direct access
-to the object hash data.  Read/Write (RW) accessors have the listed
-method 'accessorname' to retrieve a value, and an additional method
-'set_accessorname' to change it.  Read-Only (RO) accessors have just
-the former.
-
-For more complex access to stored data, check under METHODS.
-
-=head2 C<opffile> [RW]
-
-Reads the name of the OPF filename the
-object will use for the C<init> and C<save> methods.
-
-=head2 C<spec> [RW]
-
-The version of the OEB specification currently in use.  Valid values
-are C<OEB12> and C<OPF20>.  This value will default to undef until
-C<fix_oeb12> or C<fix_opf20> is called, as there is no way for the
-object to know what specification is being conformed to (if any) until
-it attempts to enforce it.
-
-=head2 C<twig> [RO]
-
-The main twig object used to store the OPF XML tree.  It can be
-modified via its own internal methods (see L<XML::Twig>), but not
-directly.
-
-=head2 C<twigroot> [RO]
-
-The twig root element, which should always be <package>.  This can be
-modified via its own internal methods (see L<XML::Twig>), and
-modifying this will modify the twig.
-
-=head2 C<errors> [RO]
-
-An arrayref containing any generated error messages.
-
-=head2 C<warnings> [RO]
-
-An arrayref containing any generated warning messages.
-
-=cut
+#####################################################
+########## CONSTRUCTORS AND INITIALIZATION ##########
+#####################################################
 
 my %rwfields = (
     'opffile'  => 'string',
@@ -583,18 +531,9 @@ my %rofields = (
     'errors'   => 'arrayref',
     'warnings' => 'arrayref',
     );
-my %privatefields = ();
+my %privatefields = (
+);
 
-# This doesn't seem to have any value?  Should probably either finish
-# it or remove it...
-my %methods = (
-    'init' => 'PUBLIC',
-    'init_blank' => 'PUBLIC',
-    'add_document' => 'PUBLIC',
-    'add_error' => 'PUBLIC',
-    'add_warning' => 'PUBLIC',
-    );
-    
 # A simple 'use fields' will not work here: use takes place inside
 # BEGIN {}, so the @...fields variables won't exist.
 require fields;
@@ -602,38 +541,6 @@ fields->import(
     keys(%rwfields),keys(%rofields),keys(%privatefields)
     );
 
-class 
-{
-    meta 'ebooktools' => (default_type => 'scalar');
-    ctor 'new'        => (create => 0);
-    foreach my $field (keys %rwfields)
-    {
-	has $field => (is => $rwfields{$field});
-    }
-    foreach my $field (keys %rofields)
-    {
-	has $field => (
-	    is    => $rofields{$field},
-	    authz => 'READ'
-	    );
-    }
-    foreach my $field (keys %privatefields)
-    {
-	has $field => (
-	    is    => $rofields{$field},
-	    authz => 'NONE'
-	    );
-    }
-    foreach my $method (keys %methods)
-    {
-        method $method => ( view => $methods{$method} );
-    }
-};
-
-
-#####################################################
-########## CONSTRUCTORS AND INITIALIZATION ##########
-#####################################################
 
 =head1 CONSTRUCTORS AND INITIALIZATION
 
@@ -855,6 +762,22 @@ sub init_blank    ## no critic (Always unpack @_ first)
 
 The following methods return data deeper in the structure than the
 auto-accessors, but still do not modify any object data or files.
+
+
+=head2 C<errors()>
+
+Returns an arrayref containing any generated error messages.
+
+=cut
+
+sub errors
+{
+    my $self = shift;
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+    return $$self{errors};
+}
 
 
 =head2 C<identifier()>
@@ -1228,6 +1151,24 @@ sub manifest_hrefs
 }
 
 
+=head2 C<opffile()>
+
+Returns the name of the file where the OPF metadata will be stored or
+undef if no value is found..
+
+=cut
+
+sub opffile
+{
+    my $self = shift;
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+    return unless($$self{opffile});
+    return $$self{opffile};
+}
+
+
 =head2 C<primary_author()>
 
 Finds the primary author of the book, defined as the first
@@ -1581,264 +1522,23 @@ sub search_knownuidschemes   ## no critic (Always unpack @_ first)
 }
 
 
-=head2 set_primary_author(%args)
+=head2 C<spec()>
 
-Sets the text, id, file-as, and role attributes of the primary author
-element (see L</primary_author()> for details on how this is found),
-or if no primary author exists, creates a new element containing the
-information.
-
-This method calls L</fix_metastructure_basic()> to enforce the
-presence of the <metadata> element.  When creating a new element, the
-method will use the OEB 1.2 element name and create the element
-underneath <dc-metadata> if an existing <dc-metadata> element is found
-underneath <metadata>.  If no existing <dc-metadata> element is found,
-the new element will be created with the OPF 2.0 element name directly
-underneath <metadata>.  Regardless, it is probably a good idea to call
-L</fix_oeb12()> or L</fix_opf20()> after calling this method to ensure
-a consistent scheme.
-
-=head3 Arguments
-
-Three optional named arguments can be passed:
-
-=over
-
-=item * C<author>
-
-Specifies the author text to set.  If omitted and a primary author
-element exists, the text will be left as is; if omitted and a primary
-author element cannot be found, an error message will be generated and
-the method will return undef.
-
-=item * C<fileas>
-
-Specifies the 'file-as' attribute to set.  If omitted and a primary
-author element exists, any existing attribute will be left untouched;
-if omitted and a primary author element cannot be found, the newly
-created element will not have this attribute.
-
-=item * C<id> 
-
-Specifies the 'id' attribute to set.  If this is specified, and the id
-is already in use, a warning will be added but the method will
-continue.  If this is omitted and a primary author element exists, any
-existing id will be left untouched; if omitted and a primary author
-element cannot be found, the newly created element will not have an id
-set.
-
-=back
-
-If called with no arguments, the only effect this method has is to
-enforce that either an 'opf:role' or 'role' attribute is set to 'aut'
-on the primary author element.
-
-=head3 Return values
-
-Returns 1 if successful, returns undef and sets an error message if
-the author argument is missing and no primary author element was
-found.
+Returns the version of the OEB specification currently in use.  Valid
+values are C<OEB12> and C<OPF20>.  This value will default to undef
+until C<fix_oeb12> or C<fix_opf20> is called, as there is no way for
+the object to know what specification is being conformed to (if any)
+until it attempts to enforce it.
 
 =cut
 
-sub set_primary_author
+sub spec
 {
     my $self = shift;
-    my (%args) = @_;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
-    my %valid_args = (
-        'author' => 1,
-        'fileas' => 1,
-        'id' => 1,
-        );
-    foreach my $arg (keys %args)
-    {
-        croak($subname,"(): invalid argument '",$arg,"'")
-            if(!$valid_args{$arg});
-    }
-
-    my $twigroot = $$self{twigroot};
-    $self->fix_metastructure_basic();
-    my $meta = $twigroot->first_child('metadata');
-    my $dcmeta = $meta->first_child('dc-metadata');
-    my $element;
-    my $newauthor = $args{author};
-    my $newfileas = $args{fileas};
-    my $newid = $args{id};
-    my $id = $$self{twig}->first_elt("*[\@id='$newid']");
-
-    $element = $twigroot->first_descendant(\&twigelt_is_author);
-    $element = $twigroot->first_descendant(qr/dc:creator/ix) if(!$element);
-    
-    unless($element)
-    {
-        unless($newauthor)
-        {
-            add_error(
-                $subname,
-                "(): cannot create a new author element when the author is not specified");
-            return;
-        }
-        if($dcmeta)
-        {
-            $element = $dcmeta->insert_new_elt('last_child','dc:Creator');
-        }
-        else
-        {
-            $element = $meta->insert_new_elt('last_child','dc:creator');
-        }
-        $element->set_text($newauthor);
-        $element->set_att('role' => 'aut');
-        $element->set_att('file-as' => $newfileas) if($newfileas);
-
-        if($newid)
-        {
-            $self->add_warning(
-                $subname,"(): creating a new element with id '",$newid,
-                "', but that ID is already in use by a '",$id->gi,"' element!"
-                ) if($id);
-            $element->set_att('id' => $newid);
-        }
-    } # unless($element)
-}
-
-
-=head2 C<set_publisher($publisher)>
-
-Sets the text of the first dc:publisher element found
-(case-insensitive) to C<$publisher>.  Creates the element if one did
-not exist.  If a <dc-metadata> element exists underneath <metadata>,
-the title element will be created underneath the <dc-metadata> in OEB
-1.2 format, otherwise the title element is created underneath
-<metadata> in OPF 2.0 format.
-
-Returns 1 on success, returns undef if no publisher was specified.
-
-=cut
-
-sub set_publisher
-{
-    my $self = shift;
-    my ($publisher) = @_;
-    my $subname = ( caller(0) )[3];
-    croak($subname . "() called as a procedure") unless(ref $self);
-    debug(2,"DEBUG[",$subname,"]");
-
-    return unless($publisher);
-
-    $self->fix_metastructure_basic();
-    my $element = $$self{twigroot}->first_descendant(qr/^dc:publisher$/ix);
-    my $meta = $$self{twigroot}->first_child('metadata');
-    my $dcmeta = $meta->first_child('dc-metadata');
-    if($element)
-    {
-        $element->set_text($publisher);
-        return 1;
-    }
-    if($dcmeta)
-    {
-        $element = $dcmeta->insert_new_elt('last_child','dc:Publisher');
-        $element->set_text($publisher);
-        return 1;
-    }
-    $element = $meta->insert_new_elt('last_child','dc:publisher');
-    $element->set_text($publisher);
-    return 1;
-}
-
-
-=head2 C<set_rights($rights)>
-
-Sets the text of the first dc:rights or dc:copyrights element found
-(case-insensitive) to C<$rights>.  If the element found has the gi of
-dc:copyrights, it will be changed to dc:rights.  This is to correct
-certain noncompliant Mobipocket files.
-
-Creates the element if one did not exist.  If a <dc-metadata> element
-exists underneath <metadata>, the title element will be created
-underneath the <dc-metadata> in OEB 1.2 format, otherwise the title
-element is created underneath <metadata> in OPF 2.0 format.
-
-Returns 1 on success, returns undef if no rights string was specified.
-
-=cut
-
-sub set_rights
-{
-    my $self = shift;
-    my ($rights) = @_;
-    my $subname = ( caller(0) )[3];
-    croak($subname . "() called as a procedure") unless(ref $self);
-    debug(2,"DEBUG[",$subname,"]");
-
-    return unless($rights);
-
-    $self->fix_metastructure_basic();
-    my $element = $$self{twigroot}->first_descendant(qr/^dc:(copy?)rights$/ix);
-    my $meta = $$self{twigroot}->first_child('metadata');
-    my $dcmeta = $meta->first_child('dc-metadata');
-    if($element)
-    {
-        $element->set_text($rights);
-        $element->set_gi('dc:Rights') if($element->gi eq 'dc:Copyrights');
-        $element->set_gi('dc:rights') if($element->gi eq 'dc:copyrights');
-        return 1;
-    }
-    if($dcmeta)
-    {
-        $element = $dcmeta->insert_new_elt('last_child','dc:Rights');
-        $element->set_text($rights);
-        return 1;
-    }
-    $element = $meta->insert_new_elt('last_child','dc:rights');
-    $element->set_text($rights);
-    return 1;
-}
-
-
-=head2 C<set_title($title)>
-
-Sets the text of the first dc:title element found (case-insensitive)
-to C<$title>.  Creates the element if one did not exist.  If a
-<dc-metadata> element exists underneath <metadata>, the title element
-will be created underneath the <dc-metadata> in OEB 1.2 format,
-otherwise the title element is created underneath <metadata> in OPF
-2.0 format.
-
-Returns 1 on success, returns undef if no title was specified.
-
-=cut
-
-sub set_title
-{
-    my $self = shift;
-    my ($title) = @_;
-    my $subname = ( caller(0) )[3];
-    croak($subname . "() called as a procedure") unless(ref $self);
-    debug(2,"DEBUG[",$subname,"]");
-
-    return unless($title);
-
-    $self->fix_metastructure_basic();
-    my $element = $$self{twigroot}->first_descendant(qr/^dc:title$/ix);
-    my $meta = $$self{twigroot}->first_child('metadata');
-    my $dcmeta = $meta->first_child('dc-metadata');
-    if($element)
-    {
-        $element->set_text($title);
-        return 1;
-    }
-    if($dcmeta)
-    {
-        $element = $dcmeta->insert_new_elt('last_child','dc:Title');
-        $element->set_text($title);
-        return 1;
-    }
-    $element = $meta->insert_new_elt('last_child','dc:title');
-    $element->set_text($title);
-    return 1;
+    return $$self{spec};
 }
 
 
@@ -2009,15 +1709,110 @@ sub title
 }
 
 
-#############################
-########## METHODS ##########
-#############################
+=head2 C<twig()>
 
-=head1 METHODS
+Returns the raw L<XML::Twig> object used to store the OPF metadata.
 
-Unless otherwise specified, all methods return undef if an error was
-added to the error list, and true otherwise (even if a warning was
-added to the warning list).
+Although this twig can be manipulated via the standard XML::Twig
+methods, doing so requires caution and is not recommended.  In
+particular, changing the root element from here will cause the
+EBook::Tools internal twig and twigroot attributes to become unlinked
+and the result of any subsequent action is not defined.
+
+=cut
+
+sub twig
+{
+    my $self = shift;
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+    return $$self{twig};
+}
+
+
+=head2 C<twigcheck()>
+
+Croaks showing the calling location unless C<$self> has both a twig and a
+twigroot, and the twigroot is <package>.  Used as a sanity check for
+methods that use twig or twigroot.
+
+=cut
+
+sub twigcheck
+{
+    my $self = shift;
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(3,"DEBUG[",$subname,"]");
+
+    my @calledfrom = caller(1);
+    croak("twigcheck called from unknown location") if(!@calledfrom);
+
+    croak($calledfrom[3],"(): undefined twig")
+        if(!$$self{twig});
+    croak($calledfrom[3],"(): twig isn't a XML::Twig")
+        if( (ref $$self{twig}) ne 'XML::Twig' );
+    croak($calledfrom[3],"(): twig root missing")
+        if(!$$self{twigroot});
+    croak($calledfrom[3],"(): twig root isn't a XML::Twig::Elt")
+        if( (ref $$self{twigroot}) ne 'XML::Twig::Elt' );
+    croak($calledfrom[3],"(): twig root is '" . $$self{twigroot}->gi 
+          . "' (needs to be 'package')")
+        if($$self{twigroot}->gi ne 'package');
+    debug(3,"DEBUG[/",$subname,"]");
+    return 1;
+}
+
+
+=head2 C<twigroot()>
+
+Returns the raw L<XML::Twig> root element used to store the OPF
+metadata.
+
+This twig element can be manipulated via the standard XML::Twig::Elt
+methods, but care should be taken not to attempt to cut this element
+from its twig as doing so will cause the EBook::Tools internal twig
+and twigroot attributes to become unlinked and the result of any
+subsequent action is not defined.
+
+=cut
+
+sub twigroot
+{
+    my $self = shift;
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+    return $$self{twigroot};
+}
+
+
+=head2 C<warnings()>
+
+Returns an arrayref containing any generated warning messages.
+
+=cut
+
+sub warnings
+{
+    my $self = shift;
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+    return $$self{warnings};
+}
+
+
+######################################
+########## MODIFIER METHODS ##########
+######################################
+
+=head1 MODIFIER METHODS
+
+Unless otherwise specified, all modifier methods return undef if an
+error was added to the error list, and true otherwise (even if a
+warning was added to the warning list).
 
 
 =head2 C<add_document($href,$id,$mediatype)>
@@ -3029,7 +2824,7 @@ sub fix_oeb12
     # Fix the package unique-identifier while we're here
     $self->fix_packageid;
 
-    $$self{spec} = $oebspecs{'OEB12'};
+    $$self{spec} = $validspecs{'OEB12'};
     debug(2,"DEBUG[/",$subname,"]");
     return 1;
 }
@@ -3198,7 +2993,7 @@ sub fix_opf20
     $$self{twig}->set_doctype(0,0,0,0);
 
     # Set the specification
-    $$self{spec} = $oebspecs{'OPF20'};
+    $$self{spec} = $validspecs{'OPF20'};
 
     debug(2,"DEBUG[/",$subname,"]");
     return 1;
@@ -3846,36 +3641,319 @@ sub save
 }
 
 
-=head2 C<twigcheck()>
+=head2 set_opffile($filename)
 
-Croaks showing the calling location unless C<$self> has both a twig and a
-twigroot, and the twigroot is <package>.  Used as a sanity check for
-methods that use twig or twigroot.
+Sets the filename used to store the OPF metadata. 
+
+Returns 1 on success; sets an error message and returns undef if no
+filename was specified.
 
 =cut
 
-sub twigcheck
+sub set_opffile
 {
     my $self = shift;
+    my ($filename) = @_;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
-    debug(3,"DEBUG[",$subname,"]");
+    debug(2,"DEBUG[",$subname,"]");
 
-    my @calledfrom = caller(1);
-    croak("twigcheck called from unknown location") if(!@calledfrom);
+    unless($filename)
+    {
+        debug(1,$subname,"(): no filename specified!");
+        $self->add_warning($subname,"(): no filename specified!");
+        return;
+    }
+    $$self{opffile} = $filename;
+    return 1;
+}
 
-    croak($calledfrom[3],"(): undefined twig")
-        if(!$$self{twig});
-    croak($calledfrom[3],"(): twig isn't a XML::Twig")
-        if( (ref $$self{twig}) ne 'XML::Twig' );
-    croak($calledfrom[3],"(): twig root missing")
-        if(!$$self{twigroot});
-    croak($calledfrom[3],"(): twig root isn't a XML::Twig::Elt")
-        if( (ref $$self{twigroot}) ne 'XML::Twig::Elt' );
-    croak($calledfrom[3],"(): twig root is '" . $$self{twigroot}->gi 
-          . "' (needs to be 'package')")
-        if($$self{twigroot}->gi ne 'package');
-    debug(3,"DEBUG[/",$subname,"]");
+
+=head2 set_primary_author(%args)
+
+Sets the text, id, file-as, and role attributes of the primary author
+element (see L</primary_author()> for details on how this is found),
+or if no primary author exists, creates a new element containing the
+information.
+
+This method calls L</fix_metastructure_basic()> to enforce the
+presence of the <metadata> element.  When creating a new element, the
+method will use the OEB 1.2 element name and create the element
+underneath <dc-metadata> if an existing <dc-metadata> element is found
+underneath <metadata>.  If no existing <dc-metadata> element is found,
+the new element will be created with the OPF 2.0 element name directly
+underneath <metadata>.  Regardless, it is probably a good idea to call
+L</fix_oeb12()> or L</fix_opf20()> after calling this method to ensure
+a consistent scheme.
+
+=head3 Arguments
+
+Three optional named arguments can be passed:
+
+=over
+
+=item * C<author>
+
+Specifies the author text to set.  If omitted and a primary author
+element exists, the text will be left as is; if omitted and a primary
+author element cannot be found, an error message will be generated and
+the method will return undef.
+
+=item * C<fileas>
+
+Specifies the 'file-as' attribute to set.  If omitted and a primary
+author element exists, any existing attribute will be left untouched;
+if omitted and a primary author element cannot be found, the newly
+created element will not have this attribute.
+
+=item * C<id> 
+
+Specifies the 'id' attribute to set.  If this is specified, and the id
+is already in use, a warning will be added but the method will
+continue.  If this is omitted and a primary author element exists, any
+existing id will be left untouched; if omitted and a primary author
+element cannot be found, the newly created element will not have an id
+set.
+
+=back
+
+If called with no arguments, the only effect this method has is to
+enforce that either an 'opf:role' or 'role' attribute is set to 'aut'
+on the primary author element.
+
+=head3 Return values
+
+Returns 1 if successful, returns undef and sets an error message if
+the author argument is missing and no primary author element was
+found.
+
+=cut
+
+sub set_primary_author
+{
+    my $self = shift;
+    my (%args) = @_;
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+    my %valid_args = (
+        'author' => 1,
+        'fileas' => 1,
+        'id' => 1,
+        );
+    foreach my $arg (keys %args)
+    {
+        croak($subname,"(): invalid argument '",$arg,"'")
+            if(!$valid_args{$arg});
+    }
+
+    my $twigroot = $$self{twigroot};
+    $self->fix_metastructure_basic();
+    my $meta = $twigroot->first_child('metadata');
+    my $dcmeta = $meta->first_child('dc-metadata');
+    my $element;
+    my $newauthor = $args{author};
+    my $newfileas = $args{fileas};
+    my $newid = $args{id};
+    my $id = $$self{twig}->first_elt("*[\@id='$newid']");
+
+    $element = $twigroot->first_descendant(\&twigelt_is_author);
+    $element = $twigroot->first_descendant(qr/dc:creator/ix) if(!$element);
+    
+    unless($element)
+    {
+        unless($newauthor)
+        {
+            add_error(
+                $subname,
+                "(): cannot create a new author element when the author is not specified");
+            return;
+        }
+        if($dcmeta)
+        {
+            $element = $dcmeta->insert_new_elt('last_child','dc:Creator');
+        }
+        else
+        {
+            $element = $meta->insert_new_elt('last_child','dc:creator');
+        }
+        $element->set_text($newauthor);
+        $element->set_att('role' => 'aut');
+        $element->set_att('file-as' => $newfileas) if($newfileas);
+
+        if($newid)
+        {
+            $self->add_warning(
+                $subname,"(): creating a new element with id '",$newid,
+                "', but that ID is already in use by a '",$id->gi,"' element!"
+                ) if($id);
+            $element->set_att('id' => $newid);
+        }
+    } # unless($element)
+}
+
+
+=head2 C<set_publisher($publisher)>
+
+Sets the text of the first dc:publisher element found
+(case-insensitive) to C<$publisher>.  Creates the element if one did
+not exist.  If a <dc-metadata> element exists underneath <metadata>,
+the title element will be created underneath the <dc-metadata> in OEB
+1.2 format, otherwise the title element is created underneath
+<metadata> in OPF 2.0 format.
+
+Returns 1 on success, returns undef if no publisher was specified.
+
+=cut
+
+sub set_publisher
+{
+    my $self = shift;
+    my ($publisher) = @_;
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+
+    return unless($publisher);
+
+    $self->fix_metastructure_basic();
+    my $element = $$self{twigroot}->first_descendant(qr/^dc:publisher$/ix);
+    my $meta = $$self{twigroot}->first_child('metadata');
+    my $dcmeta = $meta->first_child('dc-metadata');
+    if($element)
+    {
+        $element->set_text($publisher);
+        return 1;
+    }
+    if($dcmeta)
+    {
+        $element = $dcmeta->insert_new_elt('last_child','dc:Publisher');
+        $element->set_text($publisher);
+        return 1;
+    }
+    $element = $meta->insert_new_elt('last_child','dc:publisher');
+    $element->set_text($publisher);
+    return 1;
+}
+
+
+=head2 C<set_rights($rights)>
+
+Sets the text of the first dc:rights or dc:copyrights element found
+(case-insensitive) to C<$rights>.  If the element found has the gi of
+dc:copyrights, it will be changed to dc:rights.  This is to correct
+certain noncompliant Mobipocket files.
+
+Creates the element if one did not exist.  If a <dc-metadata> element
+exists underneath <metadata>, the title element will be created
+underneath the <dc-metadata> in OEB 1.2 format, otherwise the title
+element is created underneath <metadata> in OPF 2.0 format.
+
+Returns 1 on success, returns undef if no rights string was specified.
+
+=cut
+
+sub set_rights
+{
+    my $self = shift;
+    my ($rights) = @_;
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+
+    return unless($rights);
+
+    $self->fix_metastructure_basic();
+    my $element = $$self{twigroot}->first_descendant(qr/^dc:(copy?)rights$/ix);
+    my $meta = $$self{twigroot}->first_child('metadata');
+    my $dcmeta = $meta->first_child('dc-metadata');
+    if($element)
+    {
+        $element->set_text($rights);
+        $element->set_gi('dc:Rights') if($element->gi eq 'dc:Copyrights');
+        $element->set_gi('dc:rights') if($element->gi eq 'dc:copyrights');
+        return 1;
+    }
+    if($dcmeta)
+    {
+        $element = $dcmeta->insert_new_elt('last_child','dc:Rights');
+        $element->set_text($rights);
+        return 1;
+    }
+    $element = $meta->insert_new_elt('last_child','dc:rights');
+    $element->set_text($rights);
+    return 1;
+}
+
+
+=head2 C<set_spec($spec)>
+
+Sets the OEB specification to match when modifying OPF data.
+Allowable values are 'OEB12', 'OPF20', and 'MOBI12'.
+
+Returns 1 if successful; returns undef and sets an error message if an
+unknown specification was set.
+
+=cut
+
+sub set_spec
+{
+    my $self = shift;
+    my ($spec) = @_;
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+    
+    unless($validspecs{$spec})
+    {
+        $self->add_error($subname,"(): invalid specification '",$spec,"'");
+        return;
+    }
+    $$self{spec} = $validspecs{$spec};
+    return 1;
+}
+
+
+=head2 C<set_title($title)>
+
+Sets the text of the first dc:title element found (case-insensitive)
+to C<$title>.  Creates the element if one did not exist.  If a
+<dc-metadata> element exists underneath <metadata>, the title element
+will be created underneath the <dc-metadata> in OEB 1.2 format,
+otherwise the title element is created underneath <metadata> in OPF
+2.0 format.
+
+Returns 1 on success, returns undef if no title was specified.
+
+=cut
+
+sub set_title
+{
+    my $self = shift;
+    my ($title) = @_;
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+
+    return unless($title);
+
+    $self->fix_metastructure_basic();
+    my $element = $$self{twigroot}->first_descendant(qr/^dc:title$/ix);
+    my $meta = $$self{twigroot}->first_child('metadata');
+    my $dcmeta = $meta->first_child('dc-metadata');
+    if($element)
+    {
+        $element->set_text($title);
+        return 1;
+    }
+    if($dcmeta)
+    {
+        $element = $dcmeta->insert_new_elt('last_child','dc:Title');
+        $element->set_text($title);
+        return 1;
+    }
+    $element = $meta->insert_new_elt('last_child','dc:title');
+    $element->set_text($title);
     return 1;
 }
 
@@ -5082,10 +5160,6 @@ sub ymd_validate
 =item * Need to implement fix_tours() and fix_guide() that should
 collect the related elements and delete the parent if none are found.
 Empty <tours> and <guide> elements aren't allowed.
-
-=item * Class::Meta, which seemed like a good idea back when the
-design involved many more object attributes than now exist, may be
-doing more harm than good.  It may be removed, and all auto-accessors made explicit methods.
 
 =item * NCX generation only generates from the spine.  It should be
 possible to use a TOC html file for generation instead.
