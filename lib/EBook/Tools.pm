@@ -1247,7 +1247,7 @@ Uses L</twigelt_is_author()> in the first half of the search.
 
 =cut
 
-sub primary_author()
+sub primary_author
 {
     my $self = shift;
     my $subname = ( caller(0) )[3];
@@ -1411,7 +1411,6 @@ sub rights()
 
     my @rights = ();
     my $id = $args{id};
-
     my @elements = $$self{twigroot}->descendants(qr/^dc:(copy)?rights$/ix);
 
     foreach my $element (@elements)
@@ -1421,10 +1420,7 @@ sub rights()
             next if($element->att('id') ne $id);
             push @rights,$element->text if($element->text);
         }
-        else
-        {
-            push @rights,$element->text if($element->text);
-        }
+        else { push @rights,$element->text if($element->text); }
     }
     
     if($id)
@@ -1582,6 +1578,267 @@ sub search_knownuidschemes   ## no critic (Always unpack @_ first)
     }
     debug(2,"[/",$subname,"]");
     return $retval;
+}
+
+
+=head2 set_primary_author(%args)
+
+Sets the text, id, file-as, and role attributes of the primary author
+element (see L</primary_author()> for details on how this is found),
+or if no primary author exists, creates a new element containing the
+information.
+
+This method calls L</fix_metastructure_basic()> to enforce the
+presence of the <metadata> element.  When creating a new element, the
+method will use the OEB 1.2 element name and create the element
+underneath <dc-metadata> if an existing <dc-metadata> element is found
+underneath <metadata>.  If no existing <dc-metadata> element is found,
+the new element will be created with the OPF 2.0 element name directly
+underneath <metadata>.  Regardless, it is probably a good idea to call
+L</fix_oeb12()> or L</fix_opf20()> after calling this method to ensure
+a consistent scheme.
+
+=head3 Arguments
+
+Three optional named arguments can be passed:
+
+=over
+
+=item * C<author>
+
+Specifies the author text to set.  If omitted and a primary author
+element exists, the text will be left as is; if omitted and a primary
+author element cannot be found, an error message will be generated and
+the method will return undef.
+
+=item * C<fileas>
+
+Specifies the 'file-as' attribute to set.  If omitted and a primary
+author element exists, any existing attribute will be left untouched;
+if omitted and a primary author element cannot be found, the newly
+created element will not have this attribute.
+
+=item * C<id> 
+
+Specifies the 'id' attribute to set.  If this is specified, and the id
+is already in use, a warning will be added but the method will
+continue.  If this is omitted and a primary author element exists, any
+existing id will be left untouched; if omitted and a primary author
+element cannot be found, the newly created element will not have an id
+set.
+
+=back
+
+If called with no arguments, the only effect this method has is to
+enforce that either an 'opf:role' or 'role' attribute is set to 'aut'
+on the primary author element.
+
+=head3 Return values
+
+Returns 1 if successful, returns undef and sets an error message if
+the author argument is missing and no primary author element was
+found.
+
+=cut
+
+sub set_primary_author
+{
+    my $self = shift;
+    my (%args) = @_;
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+    my %valid_args = (
+        'author' => 1,
+        'fileas' => 1,
+        'id' => 1,
+        );
+    foreach my $arg (keys %args)
+    {
+        croak($subname,"(): invalid argument '",$arg,"'")
+            if(!$valid_args{$arg});
+    }
+
+    my $twigroot = $$self{twigroot};
+    $self->fix_metastructure_basic();
+    my $meta = $twigroot->first_child('metadata');
+    my $dcmeta = $meta->first_child('dc-metadata');
+    my $element;
+    my $newauthor = $args{author};
+    my $newfileas = $args{fileas};
+    my $newid = $args{id};
+    my $id = $$self{twig}->first_elt("*[\@id='$newid']");
+
+    $element = $twigroot->first_descendant(\&twigelt_is_author);
+    $element = $twigroot->first_descendant(qr/dc:creator/ix) if(!$element);
+    
+    unless($element)
+    {
+        unless($newauthor)
+        {
+            add_error(
+                $subname,
+                "(): cannot create a new author element when the author is not specified");
+            return;
+        }
+        if($dcmeta)
+        {
+            $element = $dcmeta->insert_new_elt('last_child','dc:Creator');
+        }
+        else
+        {
+            $element = $meta->insert_new_elt('last_child','dc:creator');
+        }
+        $element->set_text($newauthor);
+        $element->set_att('role' => 'aut');
+        $element->set_att('file-as' => $newfileas) if($newfileas);
+
+        if($newid)
+        {
+            $self->add_warning(
+                $subname,"(): creating a new element with id '",$newid,
+                "', but that ID is already in use by a '",$id->gi,"' element!"
+                ) if($id);
+            $element->set_att('id' => $newid);
+        }
+    } # unless($element)
+}
+
+
+=head2 C<set_publisher($publisher)>
+
+Sets the text of the first dc:publisher element found
+(case-insensitive) to C<$publisher>.  Creates the element if one did
+not exist.  If a <dc-metadata> element exists underneath <metadata>,
+the title element will be created underneath the <dc-metadata> in OEB
+1.2 format, otherwise the title element is created underneath
+<metadata> in OPF 2.0 format.
+
+Returns 1 on success, returns undef if no publisher was specified.
+
+=cut
+
+sub set_publisher
+{
+    my $self = shift;
+    my ($publisher) = @_;
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+
+    return unless($publisher);
+
+    $self->fix_metastructure_basic();
+    my $element = $$self{twigroot}->first_descendant(qr/^dc:publisher$/ix);
+    my $meta = $$self{twigroot}->first_child('metadata');
+    my $dcmeta = $meta->first_child('dc-metadata');
+    if($element)
+    {
+        $element->set_text($publisher);
+        return 1;
+    }
+    if($dcmeta)
+    {
+        $element = $dcmeta->insert_new_elt('last_child','dc:Publisher');
+        $element->set_text($publisher);
+        return 1;
+    }
+    $element = $meta->insert_new_elt('last_child','dc:publisher');
+    $element->set_text($publisher);
+    return 1;
+}
+
+
+=head2 C<set_rights($rights)>
+
+Sets the text of the first dc:rights or dc:copyrights element found
+(case-insensitive) to C<$rights>.  If the element found has the gi of
+dc:copyrights, it will be changed to dc:rights.  This is to correct
+certain noncompliant Mobipocket files.
+
+Creates the element if one did not exist.  If a <dc-metadata> element
+exists underneath <metadata>, the title element will be created
+underneath the <dc-metadata> in OEB 1.2 format, otherwise the title
+element is created underneath <metadata> in OPF 2.0 format.
+
+Returns 1 on success, returns undef if no rights string was specified.
+
+=cut
+
+sub set_rights
+{
+    my $self = shift;
+    my ($rights) = @_;
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+
+    return unless($rights);
+
+    $self->fix_metastructure_basic();
+    my $element = $$self{twigroot}->first_descendant(qr/^dc:(copy?)rights$/ix);
+    my $meta = $$self{twigroot}->first_child('metadata');
+    my $dcmeta = $meta->first_child('dc-metadata');
+    if($element)
+    {
+        $element->set_text($rights);
+        $element->set_gi('dc:Rights') if($element->gi eq 'dc:Copyrights');
+        $element->set_gi('dc:rights') if($element->gi eq 'dc:copyrights');
+        return 1;
+    }
+    if($dcmeta)
+    {
+        $element = $dcmeta->insert_new_elt('last_child','dc:Rights');
+        $element->set_text($rights);
+        return 1;
+    }
+    $element = $meta->insert_new_elt('last_child','dc:rights');
+    $element->set_text($rights);
+    return 1;
+}
+
+
+=head2 C<set_title($title)>
+
+Sets the text of the first dc:title element found (case-insensitive)
+to C<$title>.  Creates the element if one did not exist.  If a
+<dc-metadata> element exists underneath <metadata>, the title element
+will be created underneath the <dc-metadata> in OEB 1.2 format,
+otherwise the title element is created underneath <metadata> in OPF
+2.0 format.
+
+Returns 1 on success, returns undef if no title was specified.
+
+=cut
+
+sub set_title
+{
+    my $self = shift;
+    my ($title) = @_;
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+
+    return unless($title);
+
+    $self->fix_metastructure_basic();
+    my $element = $$self{twigroot}->first_descendant(qr/^dc:title$/ix);
+    my $meta = $$self{twigroot}->first_child('metadata');
+    my $dcmeta = $meta->first_child('dc-metadata');
+    if($element)
+    {
+        $element->set_text($title);
+        return 1;
+    }
+    if($dcmeta)
+    {
+        $element = $dcmeta->insert_new_elt('last_child','dc:Title');
+        $element->set_text($title);
+        return 1;
+    }
+    $element = $meta->insert_new_elt('last_child','dc:title');
+    $element->set_text($title);
+    return 1;
 }
 
 
@@ -2373,7 +2630,8 @@ sub fix_manifest
 Verifies that <metadata> exists (creating it if necessary), and moves
 it to be the first child of <package>.
 
-Used in L</fix_metastructure_oeb12()> and L</fix_packageid()>.
+Used in L</fix_metastructure_oeb12()>, L</fix_packageid()>, and
+L</set_primary_author(%args)>.
 
 =cut
 
@@ -3544,8 +3802,8 @@ sub gen_ncx    ## no critic (Always unpack @_ first)
 
 =head2 C<save()>
 
-Saves the OPF file to disk.  Overwrites any existing file of the same
-name.
+Saves the OPF file to disk.  Existing files are backed up to
+filename.backup.
 
 =cut
 
@@ -4825,6 +5083,10 @@ sub ymd_validate
 collect the related elements and delete the parent if none are found.
 Empty <tours> and <guide> elements aren't allowed.
 
+=item * Class::Meta, which seemed like a good idea back when the
+design involved many more object attributes than now exist, may be
+doing more harm than good.  It may be removed, and all auto-accessors made explicit methods.
+
 =item * NCX generation only generates from the spine.  It should be
 possible to use a TOC html file for generation instead.
 
@@ -4833,8 +5095,7 @@ possible to use a TOC html file for generation instead.
 memory usage on large files.
 
 This may not be worth the effort, since the average size for most
-books is less than 500k, and the largest books are rarely if ever over
-10M.
+books is less than 500k, and the largest books are rarely over 10M.
 
 =item * The only generator is currently for .epub books.  PDF,
 PalmDoc, Mobipocket, Plucker, and iSiloX are eventually planned.
