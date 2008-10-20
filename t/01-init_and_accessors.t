@@ -7,7 +7,7 @@ binmode(STDERR,':utf8');
 
 # change 'tests => 1' to 'tests => last_test_to_print';
 
-use Test::More tests => 76;
+use Test::More tests => 77;
 binmode(Test::More->builder->failure_output,':utf8');
 use Cwd qw(chdir getcwd);
 use Data::Dumper;
@@ -108,8 +108,11 @@ is($meta->first_child('dc:creator')->att('opf:role'),'aut',
 
 # spec() and set_spec()
 is($ebook1->spec,undef,'spec() undefined after init');
-ok($ebook1->set_spec('OPF99'), "set_spec('OPF99')");
-is($ebook1->spec,'OPF99','spec() correctly set to invalid OPF99');
+ok(!$ebook1->set_spec('OPF99'), "set_spec('OPF99') fails");
+is(scalar(@{$ebook1->errors}),1,"set_spec('OPF99') generates an error");
+$ebook1->clear_errors;
+is($ebook1->spec,undef,
+   'spec() returns undef after attempting to set invalid spec OPF99');
 ok($ebook1->set_spec('OEB12'), "set_spec('OEB12')");
 is($ebook1->spec,'OEB12', "spec() correctly set to OEB12");
 ok($ebook1->set_spec('OPF20'), "set_spec('OPF20')");
