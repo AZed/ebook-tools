@@ -120,10 +120,6 @@ ok( (basename(getcwd()) eq 't') || chdir('t/'), "Working in 't/" ) or die;
 
 copy('testopf-emptyuid.xml','emptyuid.opf') or die("Could not copy: $!");
 copy('testopf-missingfwid.xml','missingfwid.opf') or die("Could not copy: $!");
-is(system_tidy_xml('emptyuid.opf','emptyuid-tidy.opf'),0,
-   'system_tidy_xml: emptyuid.opf');
-is(system_tidy_xml('missingfwid.opf','missingfwid-tidy.opf'),0,
-   'system_tidy_xml: missingfwid.opf');
 
 $ebook1 = EBook::Tools->new('missingfwid.opf') or die;
 is($ebook1->twigroot->att('unique-identifier'),undef,
@@ -217,6 +213,11 @@ is($ebook1->twigroot
 
 ok($ebook1->save,'save() of missingfwid.opf returned successfully');
 ok($ebook2->save,'save() of emptyuid.opf returned successfully');
+
+is(system_tidy_xml('emptyuid.opf','emptyuid-tidy.opf'),0,
+   'system_tidy_xml: emptyuid.opf');
+is(system_tidy_xml('missingfwid.opf','missingfwid-tidy.opf'),0,
+   'system_tidy_xml: missingfwid.opf');
 
 ########## CLEANUP ##########
 

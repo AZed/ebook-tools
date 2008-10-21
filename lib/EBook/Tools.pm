@@ -1935,7 +1935,7 @@ sub add_error   ## no critic (Always unpack @_ first)
     if(@newerror)
     {
         my $error = join('',@newerror);
-	debug(1,"DEBUG: adding error '",$error,"'");
+	debug(1,"ERROR: ",$error);
 	push(@$currenterrors,$error);
     }
     $$self{errors} = $currenterrors;
@@ -2057,7 +2057,7 @@ sub add_warning   ## no critic (Always unpack @_ first)
     if(@newwarning)
     {
         my $warning = join('',@newwarning);
-	debug(1,"DEBUG: adding warning '",$warning,"'");
+	debug(1,"WARNING: ",$warning);
 	push(@currentwarnings,$warning);
     }
     $$self{warnings} = \@currentwarnings;
@@ -3692,7 +3692,7 @@ Three optional named arguments can be passed:
 
 =over
 
-=item * C<author>
+=item * C<text>
 
 Specifies the author text to set.  If omitted and a primary author
 element exists, the text will be left as is; if omitted and a primary
@@ -3737,7 +3737,7 @@ sub set_primary_author
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
     my %valid_args = (
-        'author' => 1,
+        'text' => 1,
         'fileas' => 1,
         'id' => 1,
         );
@@ -3752,10 +3752,11 @@ sub set_primary_author
     my $meta = $twigroot->first_child('metadata');
     my $dcmeta = $meta->first_child('dc-metadata');
     my $element;
-    my $newauthor = $args{author};
+    my $newauthor = $args{text};
     my $newfileas = $args{fileas};
     my $newid = $args{id};
-    my $id = $$self{twig}->first_elt("*[\@id='$newid']");
+    my $idelem;
+    $idelem = $$self{twig}->first_elt("*[\@id='$newid']") if($newid);
 
     $element = $twigroot->first_descendant(\&twigelt_is_author);
     $element = $twigroot->first_descendant(qr/dc:creator/ix) if(!$element);
@@ -3777,72 +3778,119 @@ sub set_primary_author
         {
             $element = $meta->insert_new_elt('last_child','dc:creator');
         }
-        $element->set_text($newauthor);
-        $element->set_att('role' => 'aut');
-        $element->set_att('file-as' => $newfileas) if($newfileas);
-
-        if($newid)
-        {
-            $self->add_warning(
-                $subname,"(): creating a new element with id '",$newid,
-                "', but that ID is already in use by a '",$id->gi,"' element!"
-                ) if($id);
-            $element->set_att('id' => $newid);
-        }
     } # unless($element)
+
+    $element->set_text($newauthor);
+    $element->set_att('role' => 'aut');
+    $element->set_att('file-as' => $newfileas) if($newfileas);
+
+    if($idelem && $idelem->cmp($element) )
+    {
+        $self->add_warning(
+            $subname,"(): reassigning id '",$newid,
+            "' from a '",$idelem->gi,"' element!"
+            );
+        $idelem->del_att('id');
+    }
+    $element->set_att('id' => $newid) if($newid);
+    return 1;
 }
 
 
-=head2 C<set_publisher($publisher)>
+=head2 C<set_publisher(%args)>
 
 Sets the text of the first dc:publisher element found
-(case-insensitive) to C<$publisher>.  Creates the element if one did
-not exist.  If a <dc-metadata> element exists underneath <metadata>,
-the title element will be created underneath the <dc-metadata> in OEB
-1.2 format, otherwise the title element is created underneath
-<metadata> in OPF 2.0 format.
+(case-insensitive).  Creates the element if one did not exist.  If a
+<dc-metadata> element exists underneath <metadata>, the title element
+will be created underneath the <dc-metadata> in OEB 1.2 format,
+otherwise the title element is created underneath <metadata> in OPF
+2.0 format.
 
 Returns 1 on success, returns undef if no publisher was specified.
+
+=head3 Arguments
+
+C<set_publisher()> takes one required and one optional named argument
+
+=over
+
+=item C<text>
+
+This specifies the publisher name to set as the text of the element.
+If not specified, the method returns undef.
+
+=item C<id> (optional)
+
+This specifies the ID to set on the element.  If set and the ID is
+already in use, a warning is logged and the ID is removed from the
+other location and assigned to the element.
+
+=back
+
+=head3 Example
+
+ $retval = $ebook->set_publisher('text' => 'My Publishing House',
+                                 'id' => 'mypubid');
 
 =cut
 
 sub set_publisher
 {
     my $self = shift;
-    my ($publisher) = @_;
+    my (%args) = @_;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
+    my %valid_args = (
+        'text' => 1,
+        'id' => 1,
+        );
+    foreach my $arg (keys %args)
+    {
+        croak($subname,"(): invalid argument '",$arg,"'")
+            if(!$valid_args{$arg});
+    }
 
+    my $publisher = $args{text};
     return unless($publisher);
+
+    my $newid = $args{id};
+    my $idelem;
+    $idelem = $$self{twig}->first_elt("*[\@id='$newid']") if($newid);
 
     $self->fix_metastructure_basic();
     my $element = $$self{twigroot}->first_descendant(qr/^dc:publisher$/ix);
     my $meta = $$self{twigroot}->first_child('metadata');
     my $dcmeta = $meta->first_child('dc-metadata');
-    if($element)
-    {
-        $element->set_text($publisher);
-        return 1;
-    }
-    if($dcmeta)
+
+    if(!$element && $dcmeta)
     {
         $element = $dcmeta->insert_new_elt('last_child','dc:Publisher');
-        $element->set_text($publisher);
-        return 1;
     }
-    $element = $meta->insert_new_elt('last_child','dc:publisher');
+    elsif(!$element)
+    {
+        $element = $meta->insert_new_elt('last_child','dc:publisher');
+    }
     $element->set_text($publisher);
+    if($idelem && $idelem->cmp($element) )
+    {
+        $self->add_warning(
+            $subname,"(): reassigning id '",$newid,
+            "' from a '",$idelem->gi,"' element!"
+            );
+        $idelem->del_att('id');
+    }
+    $element->set_att('id' => $newid) if($newid);
     return 1;
 }
 
 
-=head2 C<set_rights($rights)>
+=head2 C<set_rights(%args)>
 
 Sets the text of the first dc:rights or dc:copyrights element found
-(case-insensitive) to C<$rights>.  If the element found has the gi of
-dc:copyrights, it will be changed to dc:rights.  This is to correct
-certain noncompliant Mobipocket files.
+(case-insensitive).  If the element found has the gi of dc:copyrights,
+it will be changed to dc:rights.  This is to correct certain
+noncompliant Mobipocket files.
 
 Creates the element if one did not exist.  If a <dc-metadata> element
 exists underneath <metadata>, the title element will be created
@@ -3851,37 +3899,65 @@ element is created underneath <metadata> in OPF 2.0 format.
 
 Returns 1 on success, returns undef if no rights string was specified.
 
+=head3 Arguments
+
+=over
+
+=item * C<text>
+
+This specifies the text of the element.  If not specified, the method
+returns undef.
+
+=item * C<id> (optional)
+
+This specifies the ID to set on the element.  If set and the ID is
+already in use, a warning is logged but the method continues anyway.
+
+=back
+
 =cut
 
 sub set_rights
 {
     my $self = shift;
-    my ($rights) = @_;
+    my (%args) = @_;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
-
+    my %valid_args = (
+        'text' => 1,
+        'id' => 1,
+        );
+    foreach my $arg (keys %args)
+    {
+        croak($subname,"(): invalid argument '",$arg,"'")
+            if(!$valid_args{$arg});
+    }
+    my $rights = $args{text};
     return unless($rights);
+    my $newid = $args{id};
+    my $idelem;
+    $idelem = $$self{twig}->first_elt("*[\@id='$newid']") if($newid);
 
     $self->fix_metastructure_basic();
-    my $element = $$self{twigroot}->first_descendant(qr/^dc:(copy?)rights$/ix);
+    my $element = $$self{twigroot}->first_descendant(qr/^dc:(copy)?rights$/ix);
     my $meta = $$self{twigroot}->first_child('metadata');
     my $dcmeta = $meta->first_child('dc-metadata');
-    if($element)
-    {
-        $element->set_text($rights);
-        $element->set_gi('dc:Rights') if($element->gi eq 'dc:Copyrights');
-        $element->set_gi('dc:rights') if($element->gi eq 'dc:copyrights');
-        return 1;
-    }
-    if($dcmeta)
-    {
-        $element = $dcmeta->insert_new_elt('last_child','dc:Rights');
-        $element->set_text($rights);
-        return 1;
-    }
-    $element = $meta->insert_new_elt('last_child','dc:rights');
+    my $parent = $dcmeta || $meta;
+
+    $element ||= $parent->insert_new_elt('last_child','dc:rights');
     $element->set_text($rights);
+    $element->set_gi('dc:Rights') if($element->gi eq 'dc:Copyrights');
+    $element->set_gi('dc:rights') if($element->gi eq 'dc:copyrights');
+    if($idelem && $idelem->cmp($element) )
+    {
+        $self->add_warning(
+            $subname,"(): reassigning id '",$newid,
+            "' from a '",$idelem->gi,"' element!"
+            );
+        $idelem->del_att('id');
+    }
+    $element->set_att('id' => $newid) if($newid);
     return 1;
 }
 
@@ -3914,46 +3990,85 @@ sub set_spec
 }
 
 
-=head2 C<set_title($title)>
+=head2 C<set_title(%args)>
 
-Sets the text of the first dc:title element found (case-insensitive)
-to C<$title>.  Creates the element if one did not exist.  If a
+Sets the text or id of the first dc:title element found
+(case-insensitive).  Creates the element if one did not exist.  If a
 <dc-metadata> element exists underneath <metadata>, the title element
 will be created underneath the <dc-metadata> in OEB 1.2 format,
 otherwise the title element is created underneath <metadata> in OPF
 2.0 format.
 
-Returns 1 on success, returns undef if no title was specified.
+=head3 Arguments
+
+set_title() takes two optional named arguments.  If neither is
+specified, the method will do nothing.
+
+=over
+
+=item * C<text>
+
+This specifies the text of the element.  If not specified, and no
+title element is found, an error will be set and the method will
+return undef -- set_title() will refuse to create a dc:title element
+with no text.
+
+=item * C<id>
+
+This specifies the ID to set on the element.  If set and the ID is
+already in use, a warning is logged but the method continues anyway.
+
+=back
 
 =cut
 
 sub set_title
 {
     my $self = shift;
-    my ($title) = @_;
+    my (%args) = @_;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
 
-    return unless($title);
+    my %valid_args = (
+        'text' => 1,
+        'id' => 1,
+        );
+    foreach my $arg (keys %args)
+    {
+        croak($subname,"(): invalid argument '",$arg,"'")
+            if(!$valid_args{$arg});
+    }
+    my $title = $args{text};
+    my $newid = $args{id};
+    my $idelem;
+    $idelem = $$self{twig}->first_elt("*[\@id='$newid']") if($newid);
 
     $self->fix_metastructure_basic();
     my $element = $$self{twigroot}->first_descendant(qr/^dc:title$/ix);
     my $meta = $$self{twigroot}->first_child('metadata');
     my $dcmeta = $meta->first_child('dc-metadata');
-    if($element)
+    my $parent = $dcmeta || $meta;
+    unless($element)
     {
-        $element->set_text($title);
-        return 1;
+        unless($title)
+        {
+            add_error($subname,"(): no title specified, but no existing title found");
+            return;
+        }
+        $element = $parent->insert_new_elt('last_child','dc:title');
     }
-    if($dcmeta)
+    $element->set_text($title) if($title);
+
+    if($idelem && $idelem->cmp($element) )
     {
-        $element = $dcmeta->insert_new_elt('last_child','dc:Title');
-        $element->set_text($title);
-        return 1;
+        $self->add_warning(
+            $subname,"(): reassigning id '",$newid,
+            "' from a '",$idelem->gi,"' element!"
+            );
+        $idelem->del_att('id');
     }
-    $element = $meta->insert_new_elt('last_child','dc:title');
-    $element->set_text($title);
+    $element->set_att('id' => $newid) if($newid);
     return 1;
 }
 

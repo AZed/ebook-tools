@@ -1,6 +1,7 @@
 #!/usr/bin/perl
 use warnings; use strict;
 
+
 =head1 NAME
 
 ebook - create and manipulate e-books from the command line
@@ -29,6 +30,7 @@ use Getopt::Long qw(:config bundling);
 my %opt = (
     'author'     => '',
     'dir'        => '',
+    'fileas'     => '',
     'filename'   => '',
     'help'       => 0,
     'id'         => '',
@@ -47,6 +49,7 @@ GetOptions(
     \%opt,
     'author=s',
     'dir|d=s',
+    'fileas=s',
     'filename|file|f=s',
     'help|h|?',
     'id=s',
@@ -455,16 +458,99 @@ sub genepub
 
 =head2 C<setmeta>
 
-Set metadata values on existing OPF data.
+Set specific metadata values on existing OPF data, creating a new
+element only if none exists.
 
-Not yet implemented.
+Both the element to set and the value are specified as additional
+arguments, not as options.
+
+The elements that can be set are currently 'author', 'title',
+'publisher', and 'rights'.
+
+=head3 Options
+
+=over
+
+=item * C<--opffile>
+=item * C<--opf>
+
+Specifies the OPF file to modify.  If not specified, the script will
+attempt to find one in the current directory.
+
+=item * C<--fileas>
+
+Specifies the 'file-as' attribute when setting an author.  Has no
+effect on other elements.
+
+=item * C<--id>
+
+Specifies the ID to assign to the element
+
+
+
+=back
+
+=head3 Examples
+
+ ebook setmeta title 'My Great Title'
+ ebook --opf newfile.opf setmeta author 'John Smith' --fileas 'Smith, John' --id mainauthor 
 
 =cut
 
 sub setmeta
 {
-    print "STUB!\n";
-    exit(255);
+    my ($element,$value) = @_;
+    my %valid_elements = (
+        'title' => 1,
+        'author' => 1,
+        'publisher' => 1,
+        'rights' => 1,
+        );
+
+    unless($element)
+    {
+        print "You must specify which element to set.\n";
+        print "Example: ebook setmeta title 'My Great Title'\n";
+        exit(21);
+    }
+    unless($value)
+    {
+        print "You muts specify the value to set.\n";
+        print "Example: ebook setmeta title 'My Great Title'\n";
+    }
+
+    my $opffile = $opt{opffile};
+    my $fileas = $opt{fileas};
+    my $id = $opt{id};
+
+    my $ebook = EBook::Tools->new();
+    $ebook->init($opffile);
+
+    if($element eq 'author')
+    {
+        $ebook->set_primary_author('text' => $value,
+                                   'fileas' => $fileas,
+                                   'id' => $id );
+    }
+    elsif($element eq 'publisher')
+    {
+        $ebook->set_publisher('text' => $value,
+                              'id' => $id ); 
+    }
+    elsif($element eq 'rights')
+    {
+        $ebook->set_rights('text' => $value,
+                           'id' => $id ); 
+    }
+    elsif($element eq 'title')
+    {
+        $ebook->set_title('text' => $value,
+                          'id' => $id);
+    }
+    $ebook->save;
+    $ebook->print_errors;
+    $ebook->print_warnings;
+    exit(0);
 }
 
 
