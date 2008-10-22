@@ -2991,12 +2991,12 @@ sub fix_opf20
     debug(2,"DEBUG[",$subname,"]");
     $self->twigcheck();
 
+    # Ensure a sane structure
+    $self->fix_metastructure_basic();
+
     my $twigroot = $$self{twigroot};
     my $metadata = $twigroot->first_descendant('metadata');
     my @elements;
-
-    # Ensure a sane structure
-    $self->fix_metastructure_basic();
 
     # If <dc-metadata> exists, make sure that it is directly
     # underneath <metadata> so that its children will collapse to the
