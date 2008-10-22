@@ -39,6 +39,8 @@ my %opt = (
     'oeb12'      => 0,
     'opf20'      => 0,
     'opffile'    => '',
+    'raw'        => 0,
+    'tidy'       => 0,
     'tidycmd'    => '',
     'tidysafety' => 1,
     'title'      => '',
@@ -55,9 +57,11 @@ GetOptions(
     'id=s',
     'mimetype|mtype=s',
     'mobi|m',
+    'raw',
     'oeb12',
     'opf20',
     'opffile|opf=s',
+    'tidy',
     'tidycmd',
     'tidysafety|ts=i',
     'title=s',
@@ -74,6 +78,7 @@ if($opt{oeb12} && $opt{opf20})
 if(!$opt{oeb12} && !$opt{opf20}) { $opt{oeb12} = 1; }
 
 $EBook::Tools::debug = $opt{verbose};
+$EBook::Tools::tidycmd = $opt{tidycmd} if($opt{tidycmd});
 $EBook::Tools::tidysafety = $opt{tidysafety};
 
 my %dispatch = (
@@ -693,6 +698,12 @@ The unpacking routines should autodetect the type of book under normal
 conditions.  If autodetection fails, a format can be forced here.  See
 L<EBook::Tools::Unpack> for a list of available formats.
 
+=item C<--raw>
+
+This causes a lot of raw, unparsed, unmodified data to be dumped into
+the directory along with everything else.  It's useful for debugging
+exactly what was in the file being unpacked, but not for much else.
+
 =item C<--author>
 
 Set the primary author of the unpacked e-book, overriding what is
@@ -713,6 +724,53 @@ exact text can be overridden here.
 The filename of the OPF metadata file that will be generated.  If not
 specified, defaults to the title with a .opf extension.
 
+=item C<--tidy>
+
+Run tidy on any HTML output files to convert them to valid XHTML.  Be
+warned that this can occasionally change the formatting, as Tidy isn't
+very forgiving on certain common tricks (such as empty <pre> elements
+with style elements) that abuse the standard.
+
+=back
+
+=item C<--tidycmd>
+
+The tidy executable name.  This has to be a fully qualified pathname
+if tidy isn't on the path.  Defaults to 'tidy'.
+
+=item C<--tidysafety>
+
+The safety level to use when running tidy (default is 1).  Potential
+values are:
+
+=over
+
+=item C<$tidysafety < 1>:
+
+No checks performed, no error files kept, works like a clean tidy -m
+
+This setting is DANGEROUS!
+
+=item C<$tidysafety == 1>:
+
+Overwrites original file if there were no errors, but even if there
+were warnings.  Keeps a log of errors, but not warnings.
+
+=item C<$tidysafety == 2>:
+
+Overwrites original file if there were no errors, but even if there
+were warnings.  Keeps a log of both errors and warnings.
+
+=item C<$tidysafety == 3>:
+
+Overwrites original file only if there were no errors or warnings.
+Keeps a log of both errors and warnings.
+
+=item C<$tidysafety >= 4>:
+
+Never overwrites original file.  Keeps a log of both errors and
+warnings.
+
 =back
 
 =head3 Examples
@@ -729,17 +787,21 @@ sub unpack
     my ($filename,$dir) = @_;
     $filename = $filename || $opt{filename};
     $dir = $dir || $opt{dir};
-
-    unpack_ebook(
+    
+    my $unpacker = EBook::Tools::Unpack->new(
         'file' => $filename,
         'dir' => $dir,
         'format' => $opt{format},
+        'raw' => $opt{raw},
         'author' => $opt{author},
         'title' => $opt{title},
         'opffile' => $opt{opffile},
+        'tidy' => $opt{tidy},
         );
 
-     exit(0);
+    $unpacker->unpack;
+
+    exit(0);
 }
 
 ########## PRIVATE PROCEDURES ##########
@@ -783,8 +845,6 @@ sub useoptdir ()
 =head1 BUGS/TODO
 
 =over
-
-=item * setmeta command not yet implemented
 
 =item * documentation is incomplete
 
