@@ -1,4 +1,4 @@
-﻿package EBook::Tools;
+package EBook::Tools;
 use warnings; use strict; use utf8;
 require Exporter;
 use base qw(Exporter);
@@ -31,7 +31,7 @@ both OEBPS v1.2 and OPS/OPF v2.0.
 
 =head1 SYNOPSIS
 
- package EBook::Tools qw(split_metadata system_tidy_xml);
+ use EBook::Tools qw(split_metadata system_tidy_xml);
  $EBook::Tools::tidysafety = 2;
 
  my $opffile = split_metadata('ebook.html');
@@ -248,13 +248,13 @@ Keeps a log of both errors and warnings.
 Never overwrites original file.  Keeps a log of both errors and
 warnings.
 
+=back
+
 =item C<%validspecs>
 
 A hash mapping valid specification strings to themselves, primarily
 used to undefine unrecognized values.  Default valid values are 'OEB12'
 and 'OPF20'.
-
-=back
 
 =back
 
@@ -791,7 +791,6 @@ if it could not be located.
 sub identifier
 {
     my $self = shift;
-    my ($filename) = @_;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
@@ -1132,8 +1131,6 @@ sub manifest_hrefs
     my $href;
     my $manifest;
     my @retval = ();
-
-    my $type;
 
     $manifest = $$self{twigroot}->first_child('manifest');
     if(! $manifest) { return @retval; }
@@ -1479,7 +1476,7 @@ sub search_knownuidschemes   ## no critic (Always unpack @_ first)
 
     foreach my $scheme (@knownuidschemes)
     {
-	debug(1,"DEBUG: searching for scheme='",$scheme,"'");
+	debug(2,"DEBUG: searching for scheme='",$scheme,"'");
 	@elems = $topelement->descendants(
             "dc:identifier[\@opf:scheme=~/$scheme/ix or \@scheme=~/$scheme/ix]"
             );
@@ -1488,7 +1485,7 @@ sub search_knownuidschemes   ## no critic (Always unpack @_ first)
             );
 	foreach my $elem (@elems)
 	{
-	    debug(1,"DEBUG: working on scheme '",$scheme,"'");
+	    debug(2,"DEBUG: working on scheme '",$scheme,"'");
 	    if(defined $elem)
 	    {
 		if($scheme eq 'FWID')
@@ -1661,7 +1658,6 @@ if none are found.
 sub subject_list
 {
     my $self = shift;
-    my ($filename) = @_;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
@@ -1693,7 +1689,6 @@ no text.
 sub title
 {
     my $self = shift;
-    my ($filename) = @_;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
@@ -1888,7 +1883,7 @@ sub add_document   ## no critic (Always unpack @_ first)
 	my $mimetype = mimetype($href);
 	if($mimetype) { $mediatype = $mimetype; }
 	else { $mediatype = "application/xhtml+xml"; }
-	debug(1,"DEBUG: '",$href,"' has mimetype '",$mimetype,"'");
+	debug(2,"DEBUG: '",$href,"' has mimetype '",$mimetype,"'");
     }
 
     my $manifest = $topelement->first_child('manifest');
@@ -2015,7 +2010,7 @@ sub add_item   ## no critic (Always unpack @_ first)
 	my $mimetype = mimetype($href);
 	if($mimetype) { $mediatype = $mimetype; }
 	else { $mediatype = "application/xhtml+xml"; }
-	debug(1,"DEBUG: '",$href,"' has mimetype '",$mediatype,"'");
+	debug(2,"DEBUG: '",$href,"' has mimetype '",$mediatype,"'");
     }
 
     my $manifest = $$self{twigroot}->first_child('manifest');
@@ -2189,11 +2184,112 @@ sub fix_dates
 	    }
 	    else
 	    {
-		debug(1,"DEBUG: setting date from '",$dcdate->text,
+		debug(2,"DEBUG: setting date from '",$dcdate->text,
                       "' to '",$newdate,"'");
 		$dcdate->set_text($newdate);
 	    }
 	}
+    }
+    return 1;
+}
+
+
+=head2 C<fix_guide()>
+
+Fixes problems related to the OPF guide elements, specifically:
+
+=over
+
+=item * Deletes empty guide elements
+
+=item * Moves all reference elements directly underneath the guide element
+
+=item * Finds reference elements with a href with only an anchor
+portion and assigns them to the first spine href.  This only works if
+the spine is in working condition, so it may be wise to run
+L</fix_spine()> before C<fix_guide()> if the input is expected to be
+very badly broken.
+
+=back
+
+Logs a warning if a reference href is found that does not appear in
+the manifest.
+
+=cut
+
+sub fix_guide
+{
+    my $self = shift;
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+    $self->twigcheck();
+
+    my $twigroot = $$self{twigroot};
+    my $guide = $twigroot->first_descendant('guide');
+    my $parent;
+    my $href;
+    my @spine;
+    my @elements = $twigroot->descendants(qr/^reference$/ix);
+    if(@elements)
+    {
+        # If <guide> doesn't exist, create it
+        unless($guide)
+        {
+            debug(1,"DEBUG: creating <guide>");
+            $guide = $twigroot->insert_new_elt('last_child','guide');
+        }
+
+        # Make sure that the guide is a child of the twigroot,
+        $parent = $guide->parent;
+        if( $parent->cmp($twigroot) )
+        {
+            debug(1,"DEBUG: moving <guide>");
+            $guide->move('last_child',$twigroot);
+        }
+
+        foreach my $el (@elements)
+        {
+            $href = $el->att('href');
+            if(!$href)
+            {
+                # No href means it is broken.
+                # Leave it alone, but log a warning
+                $self->add_warning(
+                    "fix_guide(): <reference> with no href -- skipping");
+                next;
+            }
+            if($href =~ /^#/)
+            {
+                # Anchor-only href.  Attempt to fix from the first
+                # spine entry
+                @spine = $self->spine;
+                if(!@spine)
+                {
+                    $self->add_warning(
+                        "fix_guide(): Cannot correct reference href '",$href,
+                        "', spine is empty");
+                }
+                elsif(!$spine[0]->{href})
+                {
+                    $self->add_warning(
+                        "fix_guide(): Cannot correct reference href '",$href,
+                        "', cannot find href for first spine entry");
+                }
+                else
+                {
+                    debug(1,"DEBUG: correcting reference href from '",$href,
+                          "' to '",$spine[0]->{href} . $href,"'");
+                    $el->set_att('href',$spine[0]->{href} . $href);
+                }
+            }
+            debug(3,"DEBUG: processing reference '",$href,"')");
+            $el->move('last_child',$guide);
+        } # foreach my $el (@elements)
+    } # if(@elements)
+    else # No elements, delete guide if it exists
+    {
+        $guide->delete if($guide);
     }
     return 1;
 }
@@ -2217,10 +2313,9 @@ sub fix_links
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
-    debug(1,"DEBUG[",$subname,"]");
+    debug(2,"DEBUG[",$subname,"]");
     $self->twigcheck();
 
-    my $twig = $$self{twig};
     my $twigroot = $$self{twigroot};
 
     my $manifest = $twigroot->first_child('manifest');
@@ -2270,11 +2365,11 @@ sub fix_links
 
     while(@unchecked)
     {
-        debug(1,"DEBUG: ",scalar(@unchecked),
+        debug(2,"DEBUG: ",scalar(@unchecked),
               " items left to check at start of loop");
         $href = shift(@unchecked);
         $href = trim($href);
-        debug(1,"DEBUG: checking '",$href,"'");
+        debug(2,"DEBUG: checking '",$href,"'");
         next if(defined $links{$href});
 
         if(! -f $href)
@@ -2290,7 +2385,7 @@ sub fix_links
 
         if(!$linking_mimetypes{$mimetype})
         {
-            debug(1,"DEBUG: '",$href,"' has mimetype '",$mimetype,
+            debug(2,"DEBUG: '",$href,"' has mimetype '",$mimetype,
                 "' -- not checking");
             $links{$href} = 1;
             next;
@@ -2304,15 +2399,15 @@ sub fix_links
         {
             if(!exists $links{$newlink})
             {
-                debug(1,"DEBUG: adding '",$newlink,"' to the list");
+                debug(2,"DEBUG: adding '",$newlink,"' to the list");
                 push(@unchecked,$newlink);
                 $self->add_item($newlink);
             }
         }
-        debug(1,"DEBUG: ",scalar(@unchecked),
+        debug(2,"DEBUG: ",scalar(@unchecked),
             " items left to check at end of loop");
     } # while(@unchecked)    
-    debug(1,"DEBUG[/",$subname,"]");
+    debug(2,"DEBUG[/",$subname,"]");
     return 1;
 }
 
@@ -2338,7 +2433,6 @@ sub fix_manifest
     debug(2,"DEBUG[",$subname,"]");
     $self->twigcheck();
 
-    my $twig = $$self{twig};
     my $twigroot = $$self{twigroot};
 
     my $manifest = $twigroot->first_descendant('manifest');
@@ -2446,7 +2540,7 @@ sub fix_metastructure_basic
 	debug(1,"DEBUG: creating <metadata>");
 	$metadata = $twigroot->insert_new_elt('first_child','metadata');
     }
-    debug(1,"DEBUG: moving <metadata> to be the first child of <package>");
+    debug(2,"DEBUG: moving <metadata> to be the first child of <package>");
     $metadata->move('first_child',$twigroot);
     return 1;
 }
@@ -2471,7 +2565,6 @@ sub fix_metastructure_oeb12
     debug(2,"DEBUG[",$subname,"]");
     $self->twigcheck();
 
-    my $twig = $$self{twig};
     my $twigroot = $$self{twigroot};
 
     my $metadata;
@@ -2487,7 +2580,7 @@ sub fix_metastructure_oeb12
     $dcmeta = $twigroot->first_descendant('dc-metadata');
     if(! $dcmeta)
     {
-	debug(1,"DEBUG: creating <dc-metadata>");
+	debug(2,"DEBUG: creating <dc-metadata>");
 	$dcmeta = $metadata->insert_new_elt('first_child','dc-metadata');
     }
 
@@ -2495,7 +2588,7 @@ sub fix_metastructure_oeb12
     $parent = $dcmeta->parent;
     if($parent != $metadata)
     {
-	debug(1,"DEBUG: moving <dc-metadata>");
+	debug(2,"DEBUG: moving <dc-metadata>");
 	$dcmeta->move('first_child',$metadata);
     }
 
@@ -2508,7 +2601,7 @@ sub fix_metastructure_oeb12
         $parent = $xmeta->parent;
         if($parent != $metadata)
 	{
-	    debug(1,"DEBUG: moving <x-metadata>");
+	    debug(2,"DEBUG: moving <x-metadata>");
 	    $xmeta->move('after',$dcmeta);
 	}
     }
@@ -2520,7 +2613,8 @@ sub fix_metastructure_oeb12
 
 Fixes miscellaneous potential problems in OPF data.  Specifically,
 this is a shortcut to calling L</delete_meta_filepos()>,
-L</fix_packageid()>, L</fix_dates()>, L</fix_publisher()>, and
+L</fix_packageid()>, L</fix_dates()>, L</fix_publisher()>,
+L</fix_manifest()>, L</fix_spine()>, L</fix_guide()>, and
 L</fix_links()>.
 
 The objective here is that you can run either C<fix_misc()> and either
@@ -2537,13 +2631,13 @@ sub fix_misc
     debug(2,"DEBUG[",$subname,"]");
     $self->twigcheck();
 
-    my @dates;
-    my $newdate;
-
     $self->delete_meta_filepos();
     $self->fix_packageid();
     $self->fix_dates();
     $self->fix_publisher();
+    $self->fix_manifest();
+    $self->fix_spine();
+    $self->fix_guide();
     $self->fix_links();
 
     debug(2,"DEBUG[/",$subname,"]");
@@ -2581,8 +2675,6 @@ sub fix_mobi
     $self->twigcheck();
 
     my $twigroot = $$self{twigroot};
-    my $metadata = $twigroot->first_descendant('metadata')
-	or croak($subname . "(): twig has no metadata!");
 
     my %mobicontenttypes = (
 	'text/x-oeb1-document' => 'text/x-oeb1-document',
@@ -2627,7 +2719,6 @@ sub fix_mobi
     my $xmeta;
     my @elements;
     my $output;
-    my $parent;
 
 
     # Mobipocket currently requires that its custom elements be found
@@ -2644,7 +2735,7 @@ sub fix_mobi
     # (<output>) which will need it.
     if(!$xmeta)
     {
-        debug(1,"DEBUG: creating <x-metadata>\n");
+        debug(2,"DEBUG: creating <x-metadata>");
         $xmeta = $dcmeta->insert_new_elt('after','x-metadata')
     }
 
@@ -2734,7 +2825,6 @@ sub fix_oeb12
     debug(2,"DEBUG[",$subname,"]");
     $self->twigcheck();
     
-    my $twig = $$self{twig};
     my $twigroot = $$self{twigroot};
 
     # Make the twig conform to the OEB 1.2 standard
@@ -2854,8 +2944,6 @@ sub fix_oeb12_dcmetatags
 
     my $topelement = $$self{twigroot};
 
-    my $meta;
-    my $dcmeta;
     my @elements;
 
     foreach my $dcmetatag (keys %dcelements12)
@@ -2905,24 +2993,10 @@ sub fix_opf20
 
     my $twigroot = $$self{twigroot};
     my $metadata = $twigroot->first_descendant('metadata');
-    my $parent;
     my @elements;
 
-    # If <metadata> doesn't exist, we're in a real mess, but go ahead
-    # and try to create it anyway
-    if(! $metadata)
-    {
-	debug(1,"DEBUG: creating <metadata>");
-	$metadata = $twigroot->insert_new_elt('first_child','metadata');
-    }
-
-    # Make sure that metadata is the first child of the twigroot
-    $parent = $metadata->parent;
-    if($parent != $twigroot)
-    {
-	debug(1,"DEBUG: moving <metadata>");
-	$metadata->move('first_child',$twigroot);
-    }
+    # Ensure a sane structure
+    $self->fix_metastructure_basic();
 
     # If <dc-metadata> exists, make sure that it is directly
     # underneath <metadata> so that its children will collapse to the
@@ -3023,9 +3097,6 @@ sub fix_opf20_dcmetatags
     $self->twigcheck();
 
     my $topelement = $$self{twigroot};
-
-    my $meta;
-    my $dcmeta;
     my @elements;
 
     foreach my $dcmetatag (keys %dcelements20)
@@ -3075,7 +3146,7 @@ sub fix_packageid
     {
         # Check that the ID maps to a valid identifier
 	# If not, undefine it
-	debug(1,"DEBUG: checking existing packageid '",$packageid,"'");
+	debug(2,"DEBUG: checking existing packageid '",$packageid,"'");
 
 	# The twig ID handling system is unreliable, especially when
 	# multiple twigs may be existing simultaneously.  Use
@@ -3162,7 +3233,7 @@ sub fix_publisher
         }
         elsif($publishermap{lc $pub->text})
         {
-            debug(1,"Changing publisher from '",$pub->text,"' to '",
+            debug(1,"DEBUG: Changing publisher from '",$pub->text,"' to '",
                   $publishermap{lc $pub->text},"'");
             $pub->set_text($publishermap{lc $pub->text});
         }
@@ -3192,41 +3263,46 @@ sub fix_spine
     debug(2,"DEBUG[",$subname,"]");
     $self->twigcheck();
 
-    my $twig = $$self{twig};
     my $twigroot = $$self{twigroot};
     my $spine = $twigroot->first_descendant('spine');
     my @elements;
     my $parent;
 
-    # If <spine> doesn't exist, create it
-    if(! $spine)
-    {
-	debug(1,"DEBUG: creating <spine>");
-	$spine = $twigroot->insert_new_elt('last_child','spine');
-    }
-
-    # Make sure that the manifest is the first child of the twigroot,
-    # which should be <package>
-    $parent = $spine->parent;
-    if($parent != $twigroot)
-    {
-	debug(1,"DEBUG: moving <spine>");
-	$spine->move('last_child',$twigroot);
-    }
-
     @elements = $twigroot->descendants(qr/^itemref$/ix);
-    foreach my $el (@elements)
+    if(@elements)
     {
-        if(!$el->att('idref'))
+        # If <spine> doesn't exist, create it
+        if(! $spine)
         {
-            # No idref means it is broken.
-            # Leave it alone, but log a warning
-            $self->add_warning("fix_spine(): <itemref> with no idref -- skipping");
-            debug(1,"DEBUG: skipping itemref with no idref");
-            next;
+            debug(1,"DEBUG: creating <spine>");
+            $spine = $twigroot->insert_new_elt('last_child','spine');
         }
-        debug(3,"DEBUG: processing itemref '",$el->att('idref'),"')");
-        $el->move('last_child',$spine);
+
+        # Make sure that the spine is a child of the twigroot,
+        $parent = $spine->parent;
+        if($parent != $twigroot)
+        {
+            debug(1,"DEBUG: moving <spine>");
+            $spine->move('last_child',$twigroot);
+        }
+
+        foreach my $el (@elements)
+        {
+            if(!$el->att('idref'))
+            {
+                # No idref means it is broken.
+                # Leave it alone, but log a warning
+                $self->add_warning(
+                    "fix_spine(): <itemref> with no idref -- skipping");
+                next;
+            }
+            debug(3,"DEBUG: processing itemref '",$el->att('idref'),"')");
+            $el->move('last_child',$spine);
+        }
+    }
+    else # No elements, delete spine if it exists
+    {
+        $spine->delete if($spine);
     }
 
     return 1;
@@ -3424,7 +3500,6 @@ sub gen_ncx    ## no critic (Always unpack @_ first)
 
     my $twigroot = $$self{twigroot};
     my $identifier = $self->identifier;
-    my @elements;
     my $element;            # Generic element container
     my $parent;             # Generic parent element container
     my $ncx;                # NCX twig   
@@ -4253,7 +4328,6 @@ sub find_links
     my $fh;
     my %linkhash;
     my @links;
-    my $test;
 
     open($fh,'<:utf8',$filename);
     
@@ -4586,7 +4660,11 @@ sub split_metadata
     croak($subname,"(): no input file specified")
         if(!$metahtmlfile);
 
-    my $metastring;
+    croak($subname,"(): input file has zero size")
+        if(-z $metahtmlfile);
+
+    my @metablocks;
+    my @guideblocks;
     my $htmlfile;
 
     my ($filebase,$filedir,$fileext);
@@ -4610,6 +4688,7 @@ sub split_metadata
             if(! rename($htmlfile,"$metafile.backup") );
     }
 
+    debug(2,"  splitting '",$metahtmlfile,"'");
     open($fh_metahtml,"<:utf8",$metahtmlfile)
 	or croak($subname,"(): Failed to open '",$metahtmlfile,"' for reading!");
     open($fh_meta,">:utf8",$metafile)
@@ -4631,11 +4710,14 @@ sub split_metadata
     local $/;
     while(<$fh_metahtml>)
     {
-	($metastring) = /(<metadata>.*<\/metadata>)/x;
-	last unless($metastring);
-        $metastring = decode_entities($metastring);
-	print {*$fh_meta} $metastring,"\n";
-	s/(<metadata>.*<\/metadata>)//x;
+        s/\sfilepos=\d+//gix;
+	(@metablocks) = /(<metadata>.*<\/metadata>)/gisx;
+	last unless(@metablocks);
+	print {*$fh_meta} @metablocks,"\n";
+	(@guideblocks) = /(<guide>.*<\/guide>)/gisx;
+	print {*$fh_meta} @guideblocks,"\n" if(@guideblocks);
+	s/<metadata>.*<\/metadata>//gisx;
+	s/<guide>.*<\/guide>//gisx;
 	print {*$fh_html} $_,"\n";
     }
     print $fh_meta "</package>\n";
@@ -4647,15 +4729,23 @@ sub split_metadata
     close($fh_metahtml)
         or croak($subname,"(): Failed to close '",$metahtmlfile,"'!");
 
+    if( (-z $htmlfile) && (-z $metafile) )
+    {
+        croak($subname,"(): ended up with no text in any output file",
+              " -- bailing out!");
+    }
+
     # It is very unlikely that split_metadata will be called twice
-    # from the same program, so undef $metastring and $_ to reclaim
+    # from the same program, so undef all capture variables reclaim
     # the memory.  Just going out of scope will not necessarily do
     # this.
-    undef($metastring);
+    undef(@metablocks);
+    undef(@guideblocks);
     undef($_);
 
     rename($htmlfile,$metahtmlfile)
-	or croak("split_metadata(): Failed to rename ",$htmlfile," to ",$metahtmlfile,"!\n");
+	or croak("split_metadata(): Failed to rename ",$htmlfile,
+                 " to ",$metahtmlfile,"!\n");
 
     if(-z $metafile)
     {
@@ -4854,7 +4944,7 @@ sub system_tidy_xhtml
     }
     elsif($retval == 2)
     {
-	print STDERR "WARNING: Tidy errors encountered.  Check ",$tidyxhtmlerrors,"\n"
+	print {*STDERR} "WARNING: Tidy errors encountered.  Check ",$tidyxhtmlerrors,"\n"
 	    if($tidysafety > 0);
 	unlink($tidyxhtmlerrors) if($tidysafety < 1);
     }
@@ -5272,9 +5362,12 @@ sub ymd_validate
 
 =over
 
-=item * Need to implement fix_tours() and fix_guide() that should
-collect the related elements and delete the parent if none are found.
-Empty <tours> and <guide> elements aren't allowed.
+=item * Need to implement fix_tours() that should collect the related
+elements and delete the parent if none are found.  Empty <tours>
+elements aren't allowed.
+
+=item * Need to implement fix_duplicate_language() to get rid of
+multiple identical dc:language elements.
 
 =item * NCX generation only generates from the spine.  It should be
 possible to use a TOC html file for generation instead.
@@ -5288,10 +5381,6 @@ books is less than 500k, and the largest books are rarely over 10M.
 
 =item * The only generator is currently for .epub books.  PDF,
 PalmDoc, Mobipocket, Plucker, and iSiloX are eventually planned.
-
-=item * Import/extraction/unpacking is currently limited to PalmDoc
-and the interface is experimental.  Extraction from eReader, Microsoft
-Reader (.lit), and Mobipocket is eventually planned.
 
 =item * Although I like keeping warnings associated with the ebook
 object, it may be better to throw exceptions on errors and catch them
