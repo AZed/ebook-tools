@@ -1,5 +1,6 @@
-package EBook::Tools;
+﻿package EBook::Tools;
 use warnings; use strict; use utf8;
+use 5.010; # Needed for smart-match operator
 require Exporter;
 use base qw(Exporter);
 use version; our $VERSION = qv("0.1.0");
@@ -99,7 +100,7 @@ use Archive::Zip qw( :CONSTANTS :ERROR_CODES );
 use Carp;
 use Cwd qw(getcwd realpath);
 use Date::Manip;
-use File::Basename qw(dirname fileparse);
+use File::Basename qw(basename dirname fileparse);
 # File::MimeInfo::Magic gets *.css right, but detects all html as
 # text/html, even if it has an XML header.
 use File::MimeInfo::Magic;
@@ -348,6 +349,9 @@ our %publishermap = (
     'ereads'                => 'E-Reads',
     'ereads.com'            => 'E-Reads',
     'www.ereads.com'        => 'E-Reads',
+    'feedbooks'             => 'Feedbooks',
+    'feedbooks (www.feedbooks.com)' => 'Feedbooks',
+    'www.feedbooks.com'     => 'Feedbooks',
     'fictionwise'           => 'Fictionwise',
     'fictionwise.com'       => 'Fictionwise',
     'www.fictionwise.com'   => 'Fictionwise',
@@ -598,7 +602,11 @@ sub init    ## no critic (Always unpack @_ first)
 
     if($filename) { $$self{opffile} = $filename; }
 
-    if(!$self->opffile) { $self->set_opffile( get_container_rootfile() ); }
+    if(!$$self{opffile})
+    { 
+        $opfstring = get_container_rootfile();
+        $self->set_opffile($opfstring) if($opfstring);
+    }
     
     if(!$$self{opffile})
     {
@@ -670,15 +678,14 @@ from scratch.
 
 =head3 Arguments
 
-C<init_blank> takes up to three named arguments, only one of which is
-mandatory:
+C<init_blank> takes up to three optional named arguments:
 
 =over
 
-=item C<opffile> (mandatory)
+=item C<opffile>
 
-This specifies the OPF filename to use.  If not specified,
-C<init_blank> croaks.
+This specifies the OPF filename to use.  If not specified, defaults to
+the name of the current working directory with ".opf" appended
 
 =item C<author>
 
@@ -718,7 +725,8 @@ sub init_blank    ## no critic (Always unpack @_ first)
         croak($subname,"(): invalid argument '",$arg,"'")
             if(!$valid_args{$arg});
     }
-    croak($subname,"(): opffile not specified!") if(!$args{opffile});
+
+    $args{opffile} ||= basename(getcwd) . ".opf";
 
     my $author = $args{author} || 'Unknown Author';
     my $title = $args{title} || 'Unknown Title';
@@ -1253,7 +1261,7 @@ sub print_warnings
 
     if(!$self->warnings)
     {
-	debug(1,"DEBUG: no warnings found!");
+	debug(2,"DEBUG: no warnings found!");
 	return 1;
     }
     
@@ -2017,7 +2025,7 @@ sub add_item   ## no critic (Always unpack @_ first)
     $manifest = $topelement->insert_new_elt('last_child','manifest')
         if(!$manifest);
 
-    debug(1,"DEBUG: adding item '",$id,"': '",$href,"'");
+    debug(2,"DEBUG: adding item '",$id,"': '",$href,"'");
     my $item = $manifest->insert_new_elt('last_child','item');
     $item->set_id($id);
     $item->set_att(
@@ -2182,7 +2190,7 @@ sub fix_dates
 		    sprintf("fixmisc(): can't deal with date '%s' -- skipping.",$dcdate->text)
 		    );
 	    }
-	    else
+	    elsif($dcdate->text ne $newdate)
 	    {
 		debug(2,"DEBUG: setting date from '",$dcdate->text,
                       "' to '",$newdate,"'");
@@ -2371,7 +2379,14 @@ sub fix_links
         $href = trim($href);
         debug(2,"DEBUG: checking '",$href,"'");
         next if(defined $links{$href});
-
+        
+        # Skip URIs for now
+        if($href =~ m#^ \w+://#ix)
+        {
+            debug(1,"DEBUG: URI '",$href,"' skipped");
+            $links{href} = 0;
+            next;
+        }
         if(! -f $href)
         {
             $self->add_warning(
@@ -2397,7 +2412,13 @@ sub fix_links
         $links{$href} = 1;
         foreach my $newlink (@newlinks)
         {
-            if(!exists $links{$newlink})
+            # Skip URIs for now
+            if($newlink =~ m#^ \w+://#ix)
+            {
+                debug(1,"DEBUG: URI '",$newlink,"' skipped");
+                next;
+            }
+            elsif(!exists $links{$newlink})
             {
                 debug(2,"DEBUG: adding '",$newlink,"' to the list");
                 push(@unchecked,$newlink);
@@ -4340,7 +4361,7 @@ sub find_links
             # Strip off any named anchors
             $link =~ s/#.*$//;
             next unless($link);
-            debug(1, "DEBUG: found link '",$link,"'");
+            debug(2, "DEBUG: found link '",$link,"'");
             $linkhash{$link}++;
         }
     }
@@ -4711,13 +4732,13 @@ sub split_metadata
     while(<$fh_metahtml>)
     {
         s/\sfilepos=\d+//gix;
-	(@metablocks) = /(<metadata>.*<\/metadata>)/gisx;
-	last unless(@metablocks);
-	print {*$fh_meta} @metablocks,"\n";
-	(@guideblocks) = /(<guide>.*<\/guide>)/gisx;
+	(@metablocks) = m#(<metadata>.*</metadata>)#gisx;
+	(@guideblocks) = m#(<guide>.*</guide>)#gisx;
+	last unless(@metablocks || @guideblocks);
+	print {*$fh_meta} @metablocks,"\n" if(@metablocks);
 	print {*$fh_meta} @guideblocks,"\n" if(@guideblocks);
-	s/<metadata>.*<\/metadata>//gisx;
-	s/<guide>.*<\/guide>//gisx;
+	s#<metadata>.*</metadata>##gisx;
+	s#<guide>.*</guide>##gisx;
 	print {*$fh_html} $_,"\n";
     }
     print $fh_meta "</package>\n";
@@ -4743,9 +4764,18 @@ sub split_metadata
     undef(@guideblocks);
     undef($_);
 
-    rename($htmlfile,$metahtmlfile)
-	or croak("split_metadata(): Failed to rename ",$htmlfile,
-                 " to ",$metahtmlfile,"!\n");
+    if(-z $htmlfile)
+    {
+        carp("split_metadata(): HTML has zero size.",
+             "  Not replacing original.\n");
+        unlink($htmlfile);
+    }
+    else
+    {
+        rename($htmlfile,$metahtmlfile)
+            or croak("split_metadata(): Failed to rename ",$htmlfile,
+                     " to ",$metahtmlfile,"!\n");
+    }
 
     if(-z $metafile)
     {
@@ -5130,6 +5160,70 @@ sub twigelt_create_uuid
 }
 
 
+=head2 C<twigelt_detect_duplicate($element1, $element2)>
+
+Takes two twig elements and returns 1 if they have the same gi,
+text, and attributes, but are not actually the same element.
+
+Returns 0 otherwise.
+
+Croaks if passed anything but twig elements.
+
+=cut
+
+sub twigelt_detect_duplicate
+{
+    my ($element1,$element2) = @_;
+    my $subname = ( caller(0) )[3];
+    debug(3,"DEBUG[",$subname,"]");
+
+    croak($subname,"(): arguments must be XML::Twig::Elt objects")
+        unless( $element1->isa('XML::Twig::Elt')
+                && $element2->isa('XML::Twig::elt') );
+
+    my (%atts1, %atts2);
+
+    unless($element1->cmp($element2))
+    {
+        debug(3,"  both elements have the same position");
+        return 0;
+    }
+
+    unless($element1->gi eq $element2->gi)
+    {
+        debug(3,"  elements have different GIs");
+        return 0;
+    }
+    
+    unless($element1->text eq $element2->text)
+    {
+        debug(3,"  elements have different text");
+        return 0;
+    }
+
+    %atts1 = $element1->atts();
+    %atts2 = $element2->atts();
+
+    # Note that the ~~ operator only checks keys of hashes, not values
+    unless(%atts1 ~~ %atts2)
+    {
+        debug(3,"  elements have different attributes");
+        return 0;
+    }
+
+    foreach my $att (keys %atts1)
+    {
+        unless($element1->att($att) eq $element2->att($att))
+        {
+            debug(3,"  elements have different values for attribute '",
+                  $att,"'");
+            return 0;
+        }
+    }
+    debug(3,"  elements are duplicates of each other!");
+    return 1;
+}
+
 =head2 C<twigelt_fix_oeb12_atts($element)>
 
 Checks the attributes in a twig element to see if they match OPF names
@@ -5149,7 +5243,7 @@ sub twigelt_fix_oeb12_atts
     my ($element) = @_;
     return unless($element);
     my $subname = ( caller(0) )[3];
-    debug(2,"DEBUG[",$subname,"]");
+    debug(3,"DEBUG[",$subname,"]");
 
     my %opfatts_no_ns = (
         "opf:role" => "role",
@@ -5362,6 +5456,9 @@ sub ymd_validate
 
 =over
 
+=item * fix_links() could be improved to download remote URIs instead
+of ignoring them.
+
 =item * Need to implement fix_tours() that should collect the related
 elements and delete the parent if none are found.  Empty <tours>
 elements aren't allowed.
@@ -5370,7 +5467,9 @@ elements aren't allowed.
 multiple identical dc:language elements.
 
 =item * NCX generation only generates from the spine.  It should be
-possible to use a TOC html file for generation instead.
+possible to use a TOC html file for generation instead.  In the long
+term, it should be possible to generate one from the headers and
+anchors in arbitrary HTML files.
 
 =item * It might be better to use sysread / index / substr / syswrite in
 &split_metadata to handle the split in 10k chunks, to avoid massive

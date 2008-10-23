@@ -7,7 +7,7 @@ binmode(STDERR,':utf8');
 
 # change 'tests => 1' to 'tests => last_test_to_print';
 
-use Test::More tests => 77;
+use Test::More tests => 78;
 binmode(Test::More->builder->failure_output,':utf8');
 use Cwd qw(chdir getcwd);
 use Data::Dumper;
@@ -64,7 +64,8 @@ is($ebook1->opffile,'missingfwid.opf',
 
 # init_blank()
 $blank = EBook::Tools->new() or die;
-ok(!eval { $blank->init_blank() },'init_blank() fails with no argument');
+ok($blank->init_blank(),'init_blank() returned successfully');
+is($blank->opffile,'t.opf','init_blank() created opf from directory name');
 
 # init_blank(opffile => $filename)
 ok($blank->init_blank(opffile => 'test-blank.opf'),
