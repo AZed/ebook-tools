@@ -2303,6 +2303,37 @@ sub fix_guide
 }
 
 
+=head2 C<fix_languages()>
+
+Checks through the <dc:language> elements (case-insensitive) and
+removes any duplicates.
+
+TODO: Also convert language names to IANA language and region codes.
+
+=cut
+
+sub fix_languages
+{
+    my $self = shift;
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+    $self->twigcheck();
+
+    my $twigroot = $$self{twigroot};
+    my $langel;
+    my @elements = $twigroot->descendants(qr/dc:language/ix);
+    while($langel = shift(@elements) )
+    {
+        foreach my $el (@elements)
+        {
+            $el->delete if(twigelt_detect_duplicate($el,$langel) );
+        }
+    }
+    return 1;
+}
+
+
 =head2 C<fix_links()>
 
 Checks through the links in the manifest and checks them for anything
@@ -2634,9 +2665,9 @@ sub fix_metastructure_oeb12
 
 Fixes miscellaneous potential problems in OPF data.  Specifically,
 this is a shortcut to calling L</delete_meta_filepos()>,
-L</fix_packageid()>, L</fix_dates()>, L</fix_publisher()>,
-L</fix_manifest()>, L</fix_spine()>, L</fix_guide()>, and
-L</fix_links()>.
+L</fix_packageid()>, L</fix_dates()>, L</fix_languages()>,
+L</fix_publisher()>, L</fix_manifest()>, L</fix_spine()>,
+L</fix_guide()>, and L</fix_links()>.
 
 The objective here is that you can run either C<fix_misc()> and either
 L</fix_oeb12()> or L</fix_opf20()> and a perfectly valid OPF file will
@@ -2655,6 +2686,7 @@ sub fix_misc
     $self->delete_meta_filepos();
     $self->fix_packageid();
     $self->fix_dates();
+    $self->fix_languages();
     $self->fix_publisher();
     $self->fix_manifest();
     $self->fix_spine();
@@ -5162,8 +5194,9 @@ sub twigelt_create_uuid
 
 =head2 C<twigelt_detect_duplicate($element1, $element2)>
 
-Takes two twig elements and returns 1 if they have the same gi,
-text, and attributes, but are not actually the same element.
+Takes two twig elements and returns 1 if they have the same GI (tag),
+text, and attributes, but are not actually the same element.  The GI
+comparison is case-insensitive.  The others are case-sensitive.
 
 Returns 0 otherwise.
 
@@ -5179,7 +5212,7 @@ sub twigelt_detect_duplicate
 
     croak($subname,"(): arguments must be XML::Twig::Elt objects")
         unless( $element1->isa('XML::Twig::Elt')
-                && $element2->isa('XML::Twig::elt') );
+                && $element2->isa('XML::Twig::Elt') );
 
     my (%atts1, %atts2);
 
@@ -5189,7 +5222,7 @@ sub twigelt_detect_duplicate
         return 0;
     }
 
-    unless($element1->gi eq $element2->gi)
+    unless( lc($element1->gi) eq lc($element2->gi) )
     {
         debug(3,"  elements have different GIs");
         return 0;
@@ -5200,9 +5233,9 @@ sub twigelt_detect_duplicate
         debug(3,"  elements have different text");
         return 0;
     }
-
-    %atts1 = $element1->atts();
-    %atts2 = $element2->atts();
+    
+    %atts1 = %{$element1->atts};
+    %atts2 = %{$element2->atts};
 
     # Note that the ~~ operator only checks keys of hashes, not values
     unless(%atts1 ~~ %atts2)
@@ -5463,8 +5496,8 @@ of ignoring them.
 elements and delete the parent if none are found.  Empty <tours>
 elements aren't allowed.
 
-=item * Need to implement fix_duplicate_language() to get rid of
-multiple identical dc:language elements.
+=item * fix_languages() needs to convert language names into IANA
+language codes.
 
 =item * NCX generation only generates from the spine.  It should be
 possible to use a TOC html file for generation instead.  In the long
