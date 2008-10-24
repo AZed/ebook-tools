@@ -17,7 +17,7 @@ See also L</EXAMPLES>.
 
 use EBook::Tools qw(split_metadata split_pre 
                     system_tidy_xhtml system_tidy_xml);
-use EBook::Tools::Unpack qw(unpack_ebook);
+use EBook::Tools::Unpack;
 use File::Basename 'fileparse';
 use File::Path;    # Exports 'mkpath' and 'rmtree'
 use Getopt::Long qw(:config bundling);
@@ -36,6 +36,7 @@ my %opt = (
     'id'         => '',
     'mimetype'   => '',
     'mobi'       => 0,
+    'nosave'     => 0,
     'oeb12'      => 0,
     'opf20'      => 0,
     'opffile'    => '',
@@ -57,6 +58,7 @@ GetOptions(
     'id=s',
     'mimetype|mtype=s',
     'mobi|m',
+    'nosave',
     'raw',
     'oeb12',
     'opf20',
@@ -161,12 +163,6 @@ sub adddoc
     my $opffile = $opt{opffile};
     my $id = $opt{id};
     my $mtype = $opt{mimetype};
-
-    if(!$id)
-    {
-        print {*STDERR} "You must specify an ID when adding a document!\n";
-        exit(21);
-    }
 
     my $ebook = EBook::Tools->new();
     $ebook->init($opffile);
@@ -300,20 +296,17 @@ sub blank
 
     $opffile = $opt{opffile} if(!$opffile);
     
-    if(!$opffile)
-    {
-        print "You must specify an OPF filename to start with.\n";
-        exit(10);
-    }
-
     $args{opffile} = $opffile;
     $args{author} = $opt{author} if($opt{author});
     $args{title} = $opt{title} if($opt{title});
 
     $ebook = EBook::Tools->new();
     $ebook->init_blank(%args);
-    useoptdir();
-    $ebook->save;
+    unless($opt{nosave})
+    {
+        useoptdir();
+        $ebook->save;
+    }
     exit(0);
 }
 
@@ -378,9 +371,11 @@ sub fix
     $ebook->fix_opf20 if($opt{opf20});
     $ebook->fix_misc;
     $ebook->fix_mobi if($opt{mobi});
-    useoptdir();
-    $ebook->save;
-    
+    unless($opt{nosave})
+    {
+        useoptdir();
+        $ebook->save;
+    }
     if($ebook->errors)
     {
         $ebook->print_errors;
@@ -788,6 +783,18 @@ sub unpack
     $filename = $filename || $opt{filename};
     $dir = $dir || $opt{dir};
     
+    unless($filename)
+    {
+        print {*STDERR} "You must specify a file to unpack!\n";
+        exit(20);
+    }
+
+    unless(-f $filename)
+    {
+        print {*STDERR} "Could not find '",$filename,"' to unpack!\n";
+        exit(21);
+    }
+
     my $unpacker = EBook::Tools::Unpack->new(
         'file' => $filename,
         'dir' => $dir,
@@ -797,6 +804,7 @@ sub unpack
         'title' => $opt{title},
         'opffile' => $opt{opffile},
         'tidy' => $opt{tidy},
+        'nosave' => $opt{nosave},
         );
 
     $unpacker->unpack;
