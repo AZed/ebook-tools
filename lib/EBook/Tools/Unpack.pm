@@ -1,4 +1,4 @@
-﻿package EBook::Tools::Unpack;
+package EBook::Tools::Unpack;
 use warnings; use strict; use utf8;
 use 5.010; # Needed for smart-match operator
 require Exporter;
@@ -59,10 +59,9 @@ or, more simply:
 =cut
 
 
-
-
 use Carp;
 use EBook::Tools qw(debug split_metadata system_tidy_xhtml);
+use Encode;
 use Fcntl qw(SEEK_CUR SEEK_SET);
 use File::Basename qw(dirname fileparse);
 use File::Path;     # Exports 'mkpath' and 'rmtree'
@@ -75,120 +74,173 @@ use Palm::Doc;
 
 our @EXPORT_OK;
 @EXPORT_OK = qw (
+    &hexstring
     );
 
+our %exthtypes = (
+    1 => 'drm_server_id',
+    2 => 'drm_commerce_id',
+    3 => 'drm_ebookbase_book_id',
+    100 => 'author',
+    101 => 'publisher',
+    102 => 'imprint',
+    103 => 'description',
+    104 => 'isbn',
+    105 => 'subject',
+    106 => 'publicationdate',
+    107 => 'review',
+    108 => 'contributor',
+    109 => 'rights',
+    110 => 'subjectcode',
+    111 => 'type',
+    112 => 'source',
+    113 => 'asin',
+    114 => 'versionnumber',
+    115 => 'sample',
+    116 => 'startreading',
+    117 => 'adult',
+    118 => 'retailprice',
+    119 => 'currency',
+    120 => '120',
+    201 => 'coveroffset',
+    202 => 'thumboffset',
+    203 => 'hasfakecover',
+    204 => '204',
+    205 => '205',
+    206 => '206',
+    207 => '207',
+    300 => '300',
+    401 => 'clippinglimit',
+    402 => 'publisherlimit',
+    403 => '403',
+    501 => 'cdetype',
+    502 => 'lastupdatetime',
+    503 => 'updatedtitle',
+    );
+
+
 our %mobilangcode;
-$mobilangcode{0}{0}  = undef;
-$mobilangcode{54}{0} = 'af'; # Afrikaans
-$mobilangcode{28}{0} = 'sq'; # Albanian
-$mobilangcode{1}{0}  = 'ar'; # Arabic
-$mobilangcode{1}{20} = 'ar-dz'; # Arabic (Algeria)
-$mobilangcode{1}{60} = 'ar-bh'; # Arabic (Bahrain)
-$mobilangcode{1}{12} = 'ar-eg'; # Arabic (Egypt)
+$mobilangcode{0}{0}   = undef;
+$mobilangcode{54}{0}  = 'af'; # Afrikaans
+$mobilangcode{28}{0}  = 'sq'; # Albanian
+$mobilangcode{1}{0}   = 'ar'; # Arabic
+$mobilangcode{1}{20}  = 'ar-dz'; # Arabic (Algeria)
+$mobilangcode{1}{60}  = 'ar-bh'; # Arabic (Bahrain)
+$mobilangcode{1}{12}  = 'ar-eg'; # Arabic (Egypt)
 #$mobilangcode{1}{??} = 'ar-iq'; # Arabic (Iraq) -- Mobipocket support is broken
-$mobilangcode{1}{44} = 'ar-jo'; # Arabic (Jordan)
-$mobilangcode{1}{52} = 'ar-kw'; # Arabic (Kuwait)
-$mobilangcode{1}{48} = 'ar-lb'; # Arabic (Lebanon)
+$mobilangcode{1}{44}  = 'ar-jo'; # Arabic (Jordan)
+$mobilangcode{1}{52}  = 'ar-kw'; # Arabic (Kuwait)
+$mobilangcode{1}{48}  = 'ar-lb'; # Arabic (Lebanon)
 #$mobilangcode{1}{??} = 'ar-ly'; # Arabic (Libya) -- Mobipocket support is broken
-$mobilangcode{1}{24} = 'ar-ma'; # Arabic (Morocco)
-$mobilangcode{1}{32} = 'ar-om'; # Arabic (Oman)
-$mobilangcode{1}{64} = 'ar-qa'; # Arabic (Qatar)
-$mobilangcode{1}{4}  = 'ar-sa'; # Arabic (Saudi Arabia)
-$mobilangcode{1}{40} = 'ar-sy'; # Arabic (Syria)
-$mobilangcode{1}{28} = 'ar-tn'; # Arabic (Tunisia)
-$mobilangcode{1}{56} = 'ar-ae'; # Arabic (United Arab Emirates)
-$mobilangcode{1}{36} = 'ar-ye'; # Arabic (Yemen)
-$mobilangcode{43}{0} = 'hy'; # Armenian
-$mobilangcode{77}{0} = 'as'; # Assamese
-$mobilangcode{44}{0} = 'az'; # "Azeri (Cyrillic)" (IANA: Azerbaijani)
+$mobilangcode{1}{24}  = 'ar-ma'; # Arabic (Morocco)
+$mobilangcode{1}{32}  = 'ar-om'; # Arabic (Oman)
+$mobilangcode{1}{64}  = 'ar-qa'; # Arabic (Qatar)
+$mobilangcode{1}{4}   = 'ar-sa'; # Arabic (Saudi Arabia)
+$mobilangcode{1}{40}  = 'ar-sy'; # Arabic (Syria)
+$mobilangcode{1}{28}  = 'ar-tn'; # Arabic (Tunisia)
+$mobilangcode{1}{56}  = 'ar-ae'; # Arabic (United Arab Emirates)
+$mobilangcode{1}{36}  = 'ar-ye'; # Arabic (Yemen)
+$mobilangcode{43}{0}  = 'hy'; # Armenian
+$mobilangcode{77}{0}  = 'as'; # Assamese
+$mobilangcode{44}{0}  = 'az'; # "Azeri (Cyrillic)" (IANA: Azerbaijani)
 #$mobilangcode{44}{??} = 'az-??'; # "Azeri (Latin)" -- Mobipocket support is broken
-$mobilangcode{45}{0} = 'eu'; # Basque
-$mobilangcode{35}{0} = 'be'; # Belarusian
-$mobilangcode{69}{0} = 'bn'; # Bengali
-$mobilangcode{2}{0}  = 'bg'; # Bulgarian
-$mobilangcode{3}{0}  = 'ca'; # Catalan
-$mobilangcode{4}{0}  = 'zh'; # Chinese
-$mobilangcode{4}{12} = 'zh-hk'; # Chinese (Hong Kong)
-$mobilangcode{4}{8}  = 'zh-cn'; # Chinese (PRC)
-$mobilangcode{4}{16} = 'zh-sg'; # Chinese (Singapore)
-$mobilangcode{4}{4}  = 'zh-tw'; # Chinese (Taiwan)
-$mobilangcode{26}{0} = 'hr'; # Croatian
-$mobilangcode{5}{0}  = 'cs'; # Czech
-$mobilangcode{6}{0}  = 'da'; # Danish
-$mobilangcode{19}{0} = 'nl'; # Dutch / Flemish
-$mobilangcode{19}{8} = 'nl-be'; # Dutch (Belgium)
-$mobilangcode{9}{0}  = 'en'; # English
-$mobilangcode{9}{12} = 'en-au'; # English (Australia)
-$mobilangcode{9}{40} = 'en-bz'; # English (Belize)
-$mobilangcode{9}{16} = 'en-ca'; # English (Canada)
-$mobilangcode{9}{24} = 'en-ie'; # English (Ireland)
-$mobilangcode{9}{32} = 'en-jm'; # English (Jamaica)
-$mobilangcode{9}{20} = 'en-nz'; # English (New Zealand)
-$mobilangcode{9}{52} = 'en-ph'; # English (Philippines)
-$mobilangcode{9}{28} = 'en-za'; # English (South Africa)
-$mobilangcode{9}{44} = 'en-tt'; # English (Trinidad)
-$mobilangcode{9}{8}  = 'en-gb'; # English (United Kingdom)
-$mobilangcode{9}{4}  = 'en-us'; # English (United States)
-$mobilangcode{9}{48} = 'en-zw'; # English (Zimbabwe)
-$mobilangcode{37}{0} = 'et'; # Estonian
-$mobilangcode{56}{0} = 'fo'; # Faroese
-$mobilangcode{41}{0} = 'fa'; # Persian / Farsi
-$mobilangcode{11}{0} = 'fi'; # Finnish
-$mobilangcode{12}{0} = 'fr'; # French
-$mobilangcode{55}{0} = 'ka'; # Georgian
-$mobilangcode{7}{0}  = 'de'; # German
-$mobilangcode{8}{0}  = 'el'; # Greek, Modern (1453-)
-$mobilangcode{71}{0} = 'gu'; # Gujarati
-$mobilangcode{13}{0} = 'he'; # Hebrew (also code 'iw'?)
-$mobilangcode{57}{0} = 'hi'; # Hindi
-$mobilangcode{14}{0} = 'hu'; # Hungarian
-$mobilangcode{15}{0} = 'is'; # Icelandic
-$mobilangcode{33}{0} = 'id'; # Indonesian
-$mobilangcode{16}{0} = 'it'; # Italian
-$mobilangcode{17}{0} = 'ja'; # Japanese
-$mobilangcode{75}{0} = 'kn'; # Kannada
-$mobilangcode{63}{0} = 'kk'; # Kazakh
-$mobilangcode{87}{0} = 'x-kok'; # Konkani (real language code is 'kok'?)
-$mobilangcode{18}{0} = 'ko'; # Korean
-$mobilangcode{38}{0} = 'lv'; # Latvian
-$mobilangcode{39}{0} = 'lt'; # Lithuanian
-$mobilangcode{47}{0} = 'mk'; # Macedonian
-$mobilangcode{62}{0} = 'ms'; # Malay
-$mobilangcode{76}{0} = 'ml'; # Malayalam
-$mobilangcode{58}{0} = 'mt'; # Maltese
-$mobilangcode{78}{0} = 'mr'; # Marathi
-$mobilangcode{97}{0} = 'ne'; # Nepali
-$mobilangcode{20}{0} = 'no'; # Norwegian
-$mobilangcode{72}{0} = 'or'; # Oriya
-$mobilangcode{21}{0} = 'pl'; # Polish
-$mobilangcode{22}{0} = 'pt'; # Portuguese
-$mobilangcode{70}{0} = 'pa'; # Punjabi
-$mobilangcode{23}{0} = 'rm'; # "Rhaeto-Romanic" (not an official language code?)
-$mobilangcode{24}{0} = 'ro'; # Romanian
-$mobilangcode{25}{0} = 'ru'; # Russian
-$mobilangcode{59}{0} = 'sz'; # "Sami (Lappish)" (not an official language code?)
-$mobilangcode{79}{0} = 'sa'; # Sanskrit
+$mobilangcode{45}{0}  = 'eu'; # Basque
+$mobilangcode{35}{0}  = 'be'; # Belarusian
+$mobilangcode{69}{0}  = 'bn'; # Bengali
+$mobilangcode{2}{0}   = 'bg'; # Bulgarian
+$mobilangcode{3}{0}   = 'ca'; # Catalan
+$mobilangcode{4}{0}   = 'zh'; # Chinese
+$mobilangcode{4}{12}  = 'zh-hk'; # Chinese (Hong Kong)
+$mobilangcode{4}{8}   = 'zh-cn'; # Chinese (PRC)
+$mobilangcode{4}{16}  = 'zh-sg'; # Chinese (Singapore)
+$mobilangcode{4}{4}   = 'zh-tw'; # Chinese (Taiwan)
+$mobilangcode{26}{0}  = 'hr'; # Croatian
+$mobilangcode{5}{0}   = 'cs'; # Czech
+$mobilangcode{6}{0}   = 'da'; # Danish
+$mobilangcode{19}{0}  = 'nl'; # Dutch / Flemish
+$mobilangcode{19}{8}  = 'nl-be'; # Dutch (Belgium)
+$mobilangcode{9}{0}   = 'en'; # English
+$mobilangcode{9}{12}  = 'en-au'; # English (Australia)
+$mobilangcode{9}{40}  = 'en-bz'; # English (Belize)
+$mobilangcode{9}{16}  = 'en-ca'; # English (Canada)
+$mobilangcode{9}{24}  = 'en-ie'; # English (Ireland)
+$mobilangcode{9}{32}  = 'en-jm'; # English (Jamaica)
+$mobilangcode{9}{20}  = 'en-nz'; # English (New Zealand)
+$mobilangcode{9}{52}  = 'en-ph'; # English (Philippines)
+$mobilangcode{9}{28}  = 'en-za'; # English (South Africa)
+$mobilangcode{9}{44}  = 'en-tt'; # English (Trinidad)
+$mobilangcode{9}{8}   = 'en-gb'; # English (United Kingdom)
+$mobilangcode{9}{4}   = 'en-us'; # English (United States)
+$mobilangcode{9}{48}  = 'en-zw'; # English (Zimbabwe)
+$mobilangcode{37}{0}  = 'et'; # Estonian
+$mobilangcode{56}{0}  = 'fo'; # Faroese
+$mobilangcode{41}{0}  = 'fa'; # Farsi / Persian
+$mobilangcode{11}{0}  = 'fi'; # Finnish
+$mobilangcode{12}{0}  = 'fr'; # French
+$mobilangcode{12}{4}  = 'fr'; # French (Mobipocket bug?)
+$mobilangcode{12}{8}  = 'fr-be'; # French (Belgium)
+$mobilangcode{12}{12} = 'fr-ca'; # French (Canada)
+$mobilangcode{12}{20} = 'fr-lu'; # French (Luxembourg)
+$mobilangcode{12}{24} = 'fr-mc'; # French (Monaco)
+$mobilangcode{12}{16} = 'fr-ch'; # French (Switzerland)
+$mobilangcode{55}{0}  = 'ka'; # Georgian
+$mobilangcode{7}{0}   = 'de'; # German
+$mobilangcode{7}{12}  = 'de-at'; # German (Austria)
+$mobilangcode{7}{20}  = 'de-li'; # German (Liechtenstein)
+$mobilangcode{7}{16}  = 'de-lu'; # German (Luxembourg)
+$mobilangcode{7}{8}   = 'de-ch'; # German (Switzerland)
+$mobilangcode{8}{0}   = 'el'; # Greek, Modern (1453-)
+$mobilangcode{71}{0}  = 'gu'; # Gujarati
+$mobilangcode{13}{0}  = 'he'; # Hebrew (also code 'iw'?)
+$mobilangcode{57}{0}  = 'hi'; # Hindi
+$mobilangcode{14}{0}  = 'hu'; # Hungarian
+$mobilangcode{15}{0}  = 'is'; # Icelandic
+$mobilangcode{33}{0}  = 'id'; # Indonesian
+$mobilangcode{16}{0}  = 'it'; # Italian
+$mobilangcode{17}{0}  = 'ja'; # Japanese
+$mobilangcode{75}{0}  = 'kn'; # Kannada
+$mobilangcode{63}{0}  = 'kk'; # Kazakh
+$mobilangcode{87}{0}  = 'x-kok'; # Konkani (real language code is 'kok'?)
+$mobilangcode{18}{0}  = 'ko'; # Korean
+$mobilangcode{38}{0}  = 'lv'; # Latvian
+$mobilangcode{39}{0}  = 'lt'; # Lithuanian
+$mobilangcode{47}{0}  = 'mk'; # Macedonian
+$mobilangcode{62}{0}  = 'ms'; # Malay
+$mobilangcode{76}{0}  = 'ml'; # Malayalam
+$mobilangcode{58}{0}  = 'mt'; # Maltese
+$mobilangcode{78}{0}  = 'mr'; # Marathi
+$mobilangcode{97}{0}  = 'ne'; # Nepali
+$mobilangcode{20}{0}  = 'no'; # Norwegian
+$mobilangcode{72}{0}  = 'or'; # Oriya
+$mobilangcode{21}{0}  = 'pl'; # Polish
+$mobilangcode{22}{0}  = 'pt'; # Portuguese
+$mobilangcode{70}{0}  = 'pa'; # Punjabi
+$mobilangcode{23}{0}  = 'rm'; # "Rhaeto-Romanic" (not an official language code?)
+$mobilangcode{24}{0}  = 'ro'; # Romanian
+$mobilangcode{25}{0}  = 'ru'; # Russian
+$mobilangcode{59}{0}  = 'sz'; # "Sami (Lappish)" (not an official language code?)
+$mobilangcode{79}{0}  = 'sa'; # Sanskrit
 $mobilangcode{26}{12} = 'sr'; # Serbian -- Mobipocket Cyrillic/Latin distinction broken
-$mobilangcode{27}{0} = 'sk'; # Slovak
-$mobilangcode{36}{0} = 'sl'; # Slovenian
-$mobilangcode{46}{0} = 'sb'; # "Sorbian" (not an official language code?)
-$mobilangcode{10}{0} = 'es'; # Spanish
-$mobilangcode{48}{0} = 'sx'; # "Sutu" (not an official language code?)
-$mobilangcode{65}{0} = 'sw'; # Swahili
-$mobilangcode{29}{0} = 'sv'; # Swedish
-$mobilangcode{73}{0} = 'ta'; # Tamil
-$mobilangcode{68}{0} = 'tt'; # Tatar
-$mobilangcode{74}{0} = 'te'; # Telugu
-$mobilangcode{30}{0} = 'th'; # Thai
-$mobilangcode{49}{0} = 'ts'; # Tsonga
-$mobilangcode{50}{0} = 'tn'; # Tswana
-$mobilangcode{31}{0} = 'tr'; # Turkish
-$mobilangcode{34}{0} = 'uk'; # Ukrainian
-$mobilangcode{32}{0} = 'ur'; # Urdu
-$mobilangcode{67}{0} = 'uz'; # Uzbek
-$mobilangcode{42}{0} = 'vi'; # Vietnamese
-$mobilangcode{52}{0} = 'xh'; # Xhosa
-$mobilangcode{53}{0} = 'zu'; # Zulu
+$mobilangcode{27}{0}  = 'sk'; # Slovak
+$mobilangcode{36}{0}  = 'sl'; # Slovenian
+$mobilangcode{46}{0}  = 'sb'; # "Sorbian" (not an official language code?)
+$mobilangcode{10}{0}  = 'es'; # Spanish
+$mobilangcode{48}{0}  = 'sx'; # "Sutu" (not an official language code?)
+$mobilangcode{65}{0}  = 'sw'; # Swahili
+$mobilangcode{29}{0}  = 'sv'; # Swedish
+$mobilangcode{73}{0}  = 'ta'; # Tamil
+$mobilangcode{68}{0}  = 'tt'; # Tatar
+$mobilangcode{74}{0}  = 'te'; # Telugu
+$mobilangcode{30}{0}  = 'th'; # Thai
+$mobilangcode{49}{0}  = 'ts'; # Tsonga
+$mobilangcode{50}{0}  = 'tn'; # Tswana
+$mobilangcode{31}{0}  = 'tr'; # Turkish
+$mobilangcode{34}{0}  = 'uk'; # Ukrainian
+$mobilangcode{32}{0}  = 'ur'; # Urdu
+$mobilangcode{67}{0}  = 'uz'; # Uzbek
+$mobilangcode{42}{0}  = 'vi'; # Vietnamese
+$mobilangcode{52}{0}  = 'xh'; # Xhosa
+$mobilangcode{53}{0}  = 'zu'; # Zulu
 
 
 our %palmdbcodes = (
@@ -339,9 +391,9 @@ my @fields = (
     'opffile',
     'author',
     'language',
-    'languageauto',
     'title',
-    'titleauto',
+    'datahashes',
+    'detected',
     'tidy',
     'nosave',
     );
@@ -386,12 +438,14 @@ sub new   ## no critic (Always unpack @_ first)
     $self->{file} = $args{file};
     $self->{dir} = $args{dir} || $self->filebase;
     $self->{encoding} = $args{encoding};
+    $self->{format} = $args{format} if($args{format});
     $self->{key} = $args{key} if($args{key});
     $self->{keyfile} = $args{keyfile} if($args{keyfile});
-    $self->{format} = $args{format} if($args{format});
+    $self->{opffile} = $args{opffile} || ($self->{dir} . ".opf");
     $self->{author} = $args{author} if($args{author});
     $self->{title} = $args{title} if($args{title});
-    $self->{opffile} = $args{opffile} || ($self->{dir} . ".opf");
+    $self->{datahashes} = {};
+    $self->{detected} = {};
     $self->{raw} = $args{raw};
     $self->{tidy} = $args{tidy};
     $self->{nosave} = $args{nosave};
@@ -431,11 +485,6 @@ This returns the language specified by the user, if any.  It remains
 undefined if the user has not requested that a language code be set
 even if a language was autodetected.
 
-=head2 C<languageauto>
-
-This returns the autodetected language, if any, whether or not the
-user specified a different language be set during unpacking.
-
 =head2 C<opffile>
 
 =head2 C<raw>
@@ -446,10 +495,9 @@ This returns the title specified by the user, if any.  It remains
 undefined if the user has not requested a title be set even if a title
 was autodetected.
 
-=head2 C<titleauto>
+=head2 C<detected>
 
-This returns the autodetected title, if any, whether or not the user
-specified a different title.
+This returns a hash containing the autodetected metadata, if any.
 
 =cut
 
@@ -501,12 +549,6 @@ sub language
     return $$self{language};
 }
 
-sub languageauto
-{
-    my $self = shift;
-    return $$self{languageauto};
-}
-
 sub opffile
 {
     my $self = shift;
@@ -525,10 +567,10 @@ sub title
     return $$self{opffile};
 }
 
-sub titleauto
+sub detected
 {
     my $self = shift;
-    return $$self{titleauto};
+    return $$self{detected};
 }
 
 
@@ -585,10 +627,104 @@ sub detect_format :method
         $$self{formatinfo} = $info;
         # The info here is always the title, but there may be better
         # ways of extracting it later.
-        $$self{titleauto} = $info;
+        $$self{detected}{title} = $info;
         return ($ident,$info)
     }
     croak($subname,"(): unable to determine book format");
+}
+
+
+=head2 C<detect_from_mobi_headers()>
+
+Detects metadata values from the MOBI headers retrieved via
+L</unpack_mobi_header()> and L</unpack_mobi_exth()> and places them
+into the C<detected> attribute.
+
+=cut
+
+sub detect_from_mobi_headers :method
+{
+    my $self = shift;
+    my $subname = ( caller(0) )[3];
+    debug(2,"DEBUG[",$subname,"]");
+
+    my $mobilang = $$self{datahashes}{mobi}{language};
+    my $mobiregion = $$self{datahashes}{mobi}{region};
+    my @mobiexth = @{$$self{datahashes}{mobiexth}};
+    my $language;
+    my $data;
+
+    my %exth_is_int = (
+        114 => 1,
+        115 => 1,
+        201 => 1,
+        202 => 1,
+        203 => 1,
+        204 => 1,
+        205 => 1,
+        206 => 1,
+        207 => 1,
+        300 => 1,
+        401 => 1,
+        403 => 1,
+        );
+
+    $$self{encoding} = $$self{datahashes}{mobi}{encoding} unless($$self{encoding});
+    if($mobilang)
+    {
+        $language = $mobilangcode{$mobilang}{$mobiregion};
+        if($language)
+        {
+            debug(2,"DEBUG: found language '",$language,"'",
+                  " (language code ",$mobilang,",",
+                  " region code ",$mobiregion,")");
+            $$self{detected}{language} = $language;
+        }
+        else
+        {
+            debug(1,"DEBUG: language code ",$mobilang,
+                  ", region code ",$mobiregion," not known",
+                  " -- ignoring region code");
+            $language = $mobilangcode{$mobilang}{0};
+            if(!$language)
+            {
+                carp("WARNING: Language code ",$mobilang,
+                     " not recognized!\n");
+            }
+            else
+            {
+                debug(1,"DEBUG: found language '",$language,"'",
+                      " (language code ",$mobilang,",",
+                      " region code 0)");
+                $$self{detected}{language} = $language;
+            }                        
+        } # if($language) / else
+    } # if($mobilang)
+
+    # This conversion assumes that each type of record only shows up
+    # once.  This may be a bad assumption.
+    foreach my $exth (@mobiexth)
+    {
+        my $type = $exthtypes{$$exth{type}};
+        unless($type)
+        {
+            carp($subname,"(): unknown EXTH record type ",$$exth{type});
+            next;
+        }
+        if($exth_is_int{$$exth{type}})
+        {
+            $data = '0x' . hexstring($$exth{data});
+        }
+        else
+        {
+            $data = $$exth{data};
+        }
+        
+        debug(2,"DEBUG: EXTH ",$type," = '",$data,"'");
+        $$self{detected}{$type} = $data;
+    }
+
+    return 1;
 }
 
 
@@ -622,7 +758,7 @@ sub unpack :method
 
 =head2 C<unpack_mobi()>
 
-Unpacks Mobipocket files
+Unpacks Mobipocket (.prc / .mobi) files.
 
 =cut
 
@@ -637,14 +773,12 @@ sub unpack_mobi :method
     my @records;
     my $data;
     my $opffile;
-    my $language;
     my $text;
     my @list;    # Generic temporary list storage
 
     # Used for extracting images
-    my $idstring;
-    my $imageid = 0;
     my ($imagex,$imagey,$imagetype);
+    my $imageid = 0;
     my $imagename;
     my $firstimagerec = 0;
 
@@ -654,21 +788,6 @@ sub unpack_mobi :method
     my $rawname;
     my $text_record_count;
 
-    # Palmdoc/Mobipocket record 0 header data
-    my $headerdata;  # used for holding temporary data segments
-    my $headersize;  # size of variable-length header data
-
-    my %headerpalm;
-    my %headermobi;  # 0: 'MOBI' (can be used to sanity-check)
-                     # 1: Total length of Mobipocket header in bytes
-                     # 2: Mobipocket book type code
-                     # 3: Text encoding
-                     #    1252 = Windows-1252
-                     #    65001 = UTF-8
-                     # 4: Unique ID (?)
-                     # 5: Mobipocket format version
-                     # 
-    my @headerexth;
     my $reccount = 0; # The Record ID cannot be reliably used to identify 
                       # the first record.  This increments as each
                       # record is examined
@@ -686,77 +805,16 @@ sub unpack_mobi :method
     # Factor out this entire block?
     foreach my $rec (@records)
     {
-        debug(3,"DEBUG: parsing record ",$rec->{id});
+        my $idstring = sprintf("%04d",$rec->{id});
+        debug(3,"DEBUG: parsing record ",$idstring);
         $data = $rec->{data};
-        $idstring = sprintf("%04d",$rec->{id});
         if($reccount == 0)
         {
-            # First 16 bytes are a slightly modified palmdoc header
-            # See http://wiki.mobileread.com/wiki/MOBI
-            $headerdata = substr($data,0,16);
-            %headerpalm = unpack_palmdoc_header($headerdata);
-
-            # Find out how long the Mobipocket header actually is
-            $headerdata = substr($data,16,8);
-            @list = unpack("a4N",$headerdata);
-            croak($subname,
-                  "(): Unrecognized Mobipocket header ID '",$list[0],
-                  "' (expected 'MOBI')")
-                unless($list[0] eq 'MOBI');
-            $headersize = $list[1];
-            croak($subname,"(): unable to determine Mobipocket header size")
-                unless($list[1]);
-
-            # Unpack the full Mobipocket header
-            $headerdata = substr($data,16,$headersize);
-            %headermobi = unpack_mobi_header($headerdata);
-
-            croak($subname,"(): DRM code ",
-                  sprintf("0x%08x",$headermobi{drmcode}),
-                  " found, but DRM is not supported.\n")
-                if($headermobi{drmcode}
-                   && ($headermobi{drmcode} != hex("0xffffffff")) );
-
-            if($headermobi{titleoffset} && $headermobi{titlelength})
+            $self->unpack_mobi_record0($data);
+            if($$self{datahashes}{mobi}{imagerecord})
             {
-                # This is a better guess at the title than the one
-                # derived from $pdb->name
-                $$self{titleauto} = 
-                    substr($data,$headermobi{titleoffset},$headermobi{titlelength});
-                debug(1,"DEBUG: Extracted title '",$$self{titleauto},"'");
+                $firstimagerec = $$self{datahashes}{mobi}{imagerecord};
             }
-            if($headermobi{language})
-            {
-                $language = $mobilangcode{$headermobi{language}}{$headermobi{region}};
-                if($language)
-                {
-                    debug(1,"DEBUG: found language '",$language,"'",
-                          " (language code ",$headermobi{language},",",
-                          " region code ",$headermobi{region},")");
-                    $$self{languageauto} = $language;
-                }
-                else
-                {
-                    debug(1,"DEBUG: language code ",$headermobi{language},
-                          ", region code ",$headermobi{region}," not known",
-                          " -- ignoring region code");
-                    $language = $mobilangcode{$headermobi{language}}{0};
-                    if(!$language)
-                    {
-                        carp("WARNING: Language code ",$headermobi{language},
-                             " not recognized!\n");
-                    }
-                    else
-                    {
-                        debug(1,"DEBUG: found language '",$language,"'",
-                              " (language code ",$headermobi{language},",",
-                              " region code 0)");
-                        $$self{languageauto} = $language;
-                    }                        
-                } # if($language) / else
-            } # if($headermobi{language})
-            $$self{encoding} = $headermobi{encoding} unless($$self{encoding});
-            $firstimagerec = $headermobi{imagerecord} if($headermobi{imagerecord});
         }
         elsif($reccount >= $firstimagerec)
         { 
@@ -795,10 +853,6 @@ sub unpack_mobi :method
                     or croak("Unable to close raw record file '",$rawname,"'");
             }
         }
-        else # Skipping non-image records for this first pass
-        {
-            debug(3,"  First pass skipping record #",$idstring);
-        }
         $reccount++;
     } # foreach my $rec (@records)
 
@@ -810,6 +864,9 @@ sub unpack_mobi :method
                   'filename' => $htmlname,
                   'encoding' => $$self{encoding} )
         unless($$self{raw});
+
+
+    $self->detect_from_mobi_headers();
 
     # Factor out this entire block?
     unless($$self{nosave})
@@ -834,10 +891,33 @@ sub unpack_mobi :method
         $ebook->set_title(text => $$self{title}) if($$self{title});
         $ebook->set_opffile($$self{opffile}) if($$self{opffile});
         
-        # If we still don't have a title, set it from the best extraction we have
-        $ebook->set_title(text => $$self{titleauto})
-            if(!$ebook->title && $$self{titleauto});
-        
+        # If we still don't have author or title, set it from the best
+        # extraction we have
+        $ebook->set_primary_author(text => $$self{detected}{author})
+            if(!$$self{author} && $$self{detected}{author});
+        $ebook->set_title(text => $$self{detected}{title})
+            if(!$$self{title} && $$self{detected}{title});
+
+        # Set the remaining autodetected metadata
+        $ebook->set_publisher(text => $$self{detected}{publisher})
+            if($$self{detected}{publisher});
+        $ebook->set_description(text => $$self{detected}{description})
+            if($$self{detected}{description});
+        $ebook->add_identifier(text => $$self{detected}{isbn},
+                               scheme => 'ISBN')
+            if($$self{detected}{isbn});
+        $ebook->add_subject(text => $$self{detected}{subject},
+                            basiccode => $$self{detected}{subjectcode})
+            if($$self{detected}{subject});
+        $ebook->set_date(text => $$self{detected}{publicationdate},
+                         event => 'publication')
+            if($$self{detected}{publicationdate});
+        $ebook->set_rights(text => $$self{detected}{rights})
+            if($$self{detected}{rights});
+        $ebook->set_type(text => $$self{detected}{type})
+            if($$self{detected}{type});
+
+
         # Automatically clean up any mess
         $ebook->fix_misc;
         $ebook->fix_oeb12;
@@ -854,6 +934,104 @@ sub unpack_mobi :method
     return $ebook->opffile;
 }
 
+
+=head2 unpack_mobi_record0($data)
+
+Converts the information in the header data of PDB record 0 to entries
+inside the C<datahashes> attribute.
+
+=head3 Keys
+
+The following keys are added to C<datahashes>:
+
+=over
+
+=item * C<palm>
+
+Information from L</unpack_palmdoc_header()>
+
+=item * C<mobi>
+
+Information from L</unpack_mobi_header()>
+
+=item * C<mobiexth>
+
+Information from L</unpack_mobi_exth()>
+
+=back
+
+=cut
+
+sub unpack_mobi_record0 :method
+{
+    my $self = shift;
+    my $data = shift;
+    my $subname = ( caller(0) )[3];
+    debug(2,"DEBUG[",$subname,"]");
+
+    my $headerdata;  # used for holding temporary data segments
+    my $headersize;  # size of variable-length header data
+    my %headerpalm;
+    my %headermobi;
+    my @headerexth;
+
+    my @list;
+
+    # First 16 bytes are a slightly modified palmdoc header
+    # See http://wiki.mobileread.com/wiki/MOBI
+    $headerdata = substr($data,0,16);
+    %headerpalm = unpack_palmdoc_header($headerdata);
+    
+    # Find out how long the Mobipocket header actually is
+    $headerdata = substr($data,16,8);
+    @list = unpack("a4N",$headerdata);
+    croak($subname,
+          "(): Unrecognized Mobipocket header ID '",$list[0],
+          "' (expected 'MOBI')")
+        unless($list[0] eq 'MOBI');
+    $headersize = $list[1];
+    croak($subname,"(): unable to determine Mobipocket header size")
+        unless($list[1]);
+    
+    # Unpack the full Mobipocket header
+    $headerdata = substr($data,16,$headersize);
+    %headermobi = unpack_mobi_header($headerdata);
+    
+    if($headermobi{exthflags} & 0x040) # If bit 6 is set, EXTH exists
+    {
+        debug(2,"DEBUG: Unpacking EXTH data");
+        $headerdata = substr($data,$headersize+16);
+        @headerexth = unpack_mobi_exth($headerdata);
+    }
+    
+    if($headermobi{titleoffset} && $headermobi{titlelength})
+    {
+        # This is a better guess at the title than the one
+        # derived from $pdb->name
+        $$self{detected}{title} = 
+            substr($data,$headermobi{titleoffset},$headermobi{titlelength});
+        debug(1,"DEBUG: Extracted title '",$$self{detected}{title},"'");
+    }
+    
+    $$self{datahashes}{palm} = \%headerpalm;
+    $$self{datahashes}{mobi} = \%headermobi;
+    $$self{datahashes}{mobiexth} = \@headerexth;
+
+    croak($subname,"(): DRM code ",
+          sprintf("0x%08x",$headermobi{drmcode}),
+          " found, but DRM is not supported.\n")
+        if($headermobi{drmcode}
+           && ($headermobi{drmcode} != hex("0xffffffff")) );
+
+    return 1;
+}
+
+
+=head2 unpack_palmdoc()
+
+Unpacks PalmDoc / AportisDoc (.pdb) files
+
+=cut
 
 sub unpack_palmdoc :method
 {
@@ -897,6 +1075,13 @@ sub unpack_palmdoc :method
 }
 
 
+=head2 usedir()
+
+Changes the current working directory to the directory specified by
+the object, creating it if necessary.
+
+=cut
+
 sub usedir :method
 {
     my $self = shift;
@@ -917,6 +1102,12 @@ sub usedir :method
 ########## PROCEDURES ##########
 
 =head1 PROCEDURES
+
+No procedures are exported by default, and in fact since the final
+module location for some of these procedures has not yet been
+finalized, none are even exportable.
+
+Consider these to be private subroutines and use at your own risk.
 
 =head2 fix_mobi_html(%args)
 
@@ -1007,7 +1198,7 @@ sub fix_mobi_html
 
         # Second, figure out what we're dealing with at the filepos
         # offset indicated
-        $atpos = substr($$html,$pos,4);
+        $atpos = substr($$html,$pos,5);
         
         if($atpos =~ /^<mbp/)
         {
@@ -1029,6 +1220,12 @@ sub fix_mobi_html
             debug(2,"DEBUG: filepos ",$pos," points to '",$1,"', updating id");
             substr($$html,$pos,3,"<$1 id=\"fp" . $pos . '"');
         }
+        elsif($atpos =~ /^<(div)[ >]/)
+        {
+            # 3-character block-level elements
+            debug(2,"DEBUG: filepos ",$pos," points to '",$1,"', updating id");
+            substr($$html,$pos,4,"<$1 id=\"fp" . $pos . '"');
+        }
         elsif($atpos =~ /^</)
         {
             # All other elements
@@ -1045,7 +1242,7 @@ sub fix_mobi_html
     }
 
 
-    # Fix the Mobipocket-specific tags
+    # Convert or remove the Mobipocket-specific tags
     $$html =~ s#<mbp:pagebreak [\s\n]*
                #<br style="page-break-after: always" #gix;
     $$html =~ s#</mbp:pagebreak>##gix;
@@ -1058,15 +1255,14 @@ sub fix_mobi_html
     # More complex alterations will require a HTML tree
     $tree = HTML::TreeBuilder->new();
     $tree->ignore_unknown(0);
+
     # If the encoding is UTF-8, we have to decode it before the parse
     # or the parser will break
-
-    
     if($encoding == 65001)
     {
         debug(1,"DEBUG: decoding utf8 text");
         croak($subname,"(): failed to decode UTF-8 text")
-            unless(utf8::decode($$html));
+            unless(decode_utf8($$html));
         $tree->parse($$html);
     }
     else { $tree->parse($$html); }
@@ -1136,11 +1332,160 @@ sub fix_mobi_html
 }
 
 
-=head2 unpack_mobi_header
+=head2 hexstring($intdata)
+
+Takes as an argument a scalar containing a sequence of unsigned long
+int data.  Returns a string converting octet of the data to its
+two-digit hexadecimal equivalent.  There is no leading "0x" on the
+string.
+
+=cut
+
+sub hexstring
+{
+    my $data = shift;
+    my $subname = ( caller(0) )[3];
+    debug(3,"DEBUG[",$subname,"]");
+
+    croak($subname,"(): no data provided")
+        unless($data);
+    croak($subname,"(): data must be a sequence of unsigned integers")
+        if(length($data) % 4);
+
+    my $int;
+    my $retval = '';
+    my $pos = 0;
+    while($pos < length($data))
+    {
+        $int = unpack("N",substr($data,$pos,4));
+        $retval .= sprintf("%04x",$int);
+        $pos += 4;
+    }
+    return $retval;
+}
+
+=head2 unpack_mobi_exth($headerdata)
+
+Takes as an argument a scalar containing the variable-length
+Mobipocket EXTH data from the first record.  Returns an array of
+hashes, each hash containing the data from one EXTH record with values
+from that data keyed to recognizable names.
+
+If C<$headerdata> doesn't appear to be an EXTH header, carps a warning
+and returns an empty list.
+
+See:
+
+http://wiki.mobileread.com/wiki/MOBI
+
+=head3 Hash keys
+
+=over
+
+=item * C<type>
+
+A numeric value indicating the type of EXTH data in the record.  See
+package variable C<%exthtypes>.
+
+=item * C<length>
+
+The length of the C<data> value in bytes
+
+=item * C<data>
+
+The data of the record.
+
+=back
+
+=cut
+
+sub unpack_mobi_exth
+{
+    my ($headerdata) = @_;
+    my $subname = ( caller(0) )[3];
+    debug(2,"DEBUG[",$subname,"]");
+
+    croak($subname,"(): no header data provided")
+        unless($headerdata);
+
+    my $length = length($headerdata);
+    my @list;
+    my $chunk;
+    my @exthrecords = ();
+
+    my $offset;
+    my $recordcnt;
+
+
+    $chunk = substr($headerdata,0,12);
+    @list = unpack("a4NN",$chunk);
+    unless($list[0] eq 'EXTH')
+    {
+        debug(1,"(): Unrecognized Mobipocket EXTH ID '",$list[0],
+             "' (expected 'EXTH')");
+        return @exthrecords;
+    }
+    # The EXTH data never seems to be as long as remaining data after
+    # the Mobipocket main header, so only check to see if it is
+    # shorter, not equal
+    unless($list[1] < $length)
+    {
+        debug(1,"EXTH header specified length ",$list[1]," but found ",
+             $length," bytes.\n");
+    }
+
+    $recordcnt= $list[2];
+    unless($recordcnt > 0)
+    {
+        debug(1,"EXTH flag set, but no EXTH records present");
+        return @exthrecords;
+    }
+
+    $offset = 12;
+    debug(2,"DEBUG: Examining ",$recordcnt," EXTH records");
+    foreach my $recordpos (1 .. $recordcnt)
+    {
+        my %exthrecord;
+
+        $chunk = substr($headerdata,$offset,8);
+        $offset += 8;
+        @list = unpack("NN",$chunk);
+        $exthrecord{type} = $list[0];
+        $exthrecord{length} = $list[1] - 8;
+
+        unless($exthtypes{$exthrecord{type}})
+        {
+            carp($subname,"(): EXTH record ",$recordpos," has unknown type ",
+                 $exthrecord{type},"\n");
+            $offset += $exthrecord{length};
+            next;
+        }
+        unless($exthrecord{length})
+        {
+            carp($subname,"(): EXTH record ",$recordpos," has zero length\n");
+            next;
+        }
+        if( ($exthrecord{length} + $offset) > $length )
+        {
+            carp($subname,"(): EXTH record ",$recordpos, " longer than available data");
+            last;
+        }
+        $exthrecord{data} = substr($headerdata,$offset,$exthrecord{length});
+        debug(3,"DEBUG: EXTH record ",$recordpos," [",$exthtypes{$exthrecord{type}},
+              "] has ",$exthrecord{length}, " bytes");
+        push(@exthrecords,\%exthrecord);
+        $offset += $exthrecord{length};
+    }
+    debug(1,"DEBUG: Found ",$#exthrecords+1," EXTH records");
+    return @exthrecords;
+}
+
+
+=head2 unpack_mobi_header($headerdata)
 
 Takes as an argument a scalar containing the variable-length
 Mobipocket-specific header data from the first record.  Returns a hash
-containing those values keyed to recognizable names.
+containing values from that data keyed to recognizable names.
 
 See:
 
@@ -1359,6 +1704,7 @@ sub unpack_mobi_header
 
     # Second chunk is 40 bytes of reserved data
     $retval{reserved} = substr($headerdata,24,40);
+    debug(2,"DEBUG: reserved data: 0x",hexstring($retval{reserved}));
 
     # Third chunk is 16 bytes up to the next unknown block
     $chunk = substr($headerdata,64,16);
@@ -1414,7 +1760,7 @@ sub unpack_mobi_header
     {
         $chunk = substr($headerdata,152,4);
         $retval{drmcode} = unpack("N",$chunk);
-        debug(1,"DEBUG: found DRM code ",sprintf("0x%08x",$retval{drmcode}));
+        debug(1,"DEBUG: Found DRM code ",sprintf("0x%08x",$retval{drmcode}));
     }
 
     # Tenth and last possible chunk is unknown data lasting to the end
@@ -1422,8 +1768,9 @@ sub unpack_mobi_header
     if($length >= 157)
     {
         $retval{unknown156} = substr($headerdata,156,$length-156);
-        debug(2,"DEBUG: found ",$length-156,
+        debug(2,"DEBUG: Found ",$length-156,
               " bytes of unknown final data in Mobipocket header");
+        debug(3,"       '",$retval{unknown156},"'");
     }
 
     return %retval;
@@ -1530,7 +1877,18 @@ sub unpack_palmdoc_header
 =item * The determination of the Mobipocket language codes is a little
 haphazard.  Primary languages should be detected, as well as all
 supported English region codes, but non-English region codes are
-almost entirely missing for languages not starting with A-E.
+almost entirely missing for languages not starting with A-G.
+
+=item * Mobipocket HuffDic encoding (used mostly on dictionaries)
+isn't supported yet.
+
+=item * Not all Mobipocket EXTH records make the transition to OPF
+elements.  Most notably, Mobipocket-specific elements are likely to
+end up missing in the end result.
+
+=item * Although unpack_mobi_exth() is prepared to deal with multiple
+EXTH records of the same type, unpack_mobi() isn't, and only the last
+record of a given type will be used.
 
 =item * Bookmarks aren't supported. This is a weakness inherited from
 Palm::Doc, and will take a while to fix.
