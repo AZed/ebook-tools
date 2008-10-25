@@ -1336,7 +1336,7 @@ included only because some broken Mobipocket books use it.
 
 =cut
 
-sub rights()
+sub rights
 {
     my $self = shift;
     my (%args) = @_;
@@ -1466,11 +1466,6 @@ sub search_knownuidschemes   ## no critic (Always unpack @_ first)
         'GUID',
 	'UUID',
 	'FWID',
-	'ISBN',
-        'ISBN10',
-        'ISBN-10',
-        'ISBN13',
-        'ISBN-13'
 	);
 
     # Creating a regexp to search on works, but doesn't let you
@@ -1505,17 +1500,13 @@ sub search_knownuidschemes   ## no critic (Always unpack @_ first)
 		}
 
 		$id = $elem->id;
-		if(defined $id)
-		{
-		    $retval = $id;
-		}
-		else
-		{
+                unless(defined $id)
+                {
 		    debug(1,"DEBUG: assigning ID from scheme '",$scheme,"'");
 		    $id = uc($scheme);
 		    $elem->set_id($id);
-		    $retval = $id;
-		}
+                }
+                $retval = $id;
 		debug(1,"DEBUG: found Package ID: ",$id);
 		last;
 	    } # if(defined $elem)
@@ -1946,6 +1937,94 @@ sub add_error   ## no critic (Always unpack @_ first)
 }
 
 
+=head2 C<add_identifier(%args)>
+
+Creates a new dc:identifier element containing the specified text, id,
+and scheme.
+
+If a <dc-metadata> element exists underneath <metadata>, the
+identifier element will be created underneath the <dc-metadata> in OEB
+1.2 format, otherwise the title element is created underneath
+<metadata> in OPF 2.0 format.
+
+Returns the twig element containing the new identifier.
+
+=head3 Arguments
+
+C<add_identifier()> takes three named arguments, one mandatory, two
+optional.
+
+=over
+
+=item * C<text> - the text of the identifier.  This is mandatory, and
+the method croaks if it is not present.
+
+=item * C<scheme> - 'opf:scheme' or 'scheme' attribute to be added (optional)
+
+=item * C<id> - 'id' attribute to be added.  If this is specified, and
+the id is already in use, a warning will be added but the method will
+continue, removing the id attribute from the element that previously
+contained it.
+
+=over
+
+=cut
+
+sub add_identifier
+{
+    my $self = shift;
+    my (%args) = @_;
+    my %valid_args = (
+        'text' => 1,
+        'id' => 1,
+        'scheme' => 1,
+        );
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+    $self->twigcheck();
+    foreach my $arg (keys %args)
+    {
+        croak($subname,"(): invalid argument '",$arg,"'")
+            if(!$valid_args{$arg});
+    }
+    croak($subname,"(): identifier text not specified")
+        unless($args{text});
+
+    $self->fix_metastructure_basic();
+    my $meta = $$self{twigroot}->first_child('metadata');
+    my $dcmeta = $meta->first_child('dc-metadata');
+    my $element;
+    my $idelem;
+    my $newid = $args{id};
+    $idelem = $$self{twig}->first_elt("*[\@id='$newid']") if($newid);
+
+    if($dcmeta)
+    {
+        $element = $dcmeta->insert_new_elt('last_child','dc:Identifier');
+        $element->set_att('scheme' => $args{scheme}) if($args{scheme});
+    }
+    else
+    {
+        $element = $meta->insert_new_elt('last_child','dc:identifier');
+        $element->set_att('opf:scheme' => $args{scheme}) if($args{scheme});
+    }
+    $element->set_text($args{text});
+
+    if($idelem && $idelem->cmp($element) )
+    {
+        $self->add_warning(
+            $subname,"(): reassigning id '",$newid,
+            "' from a '",$idelem->gi,"' element!"
+            );
+        $idelem->del_att('id');
+    }
+    $element->set_att('id' => $newid) if($newid);
+
+    return $element;
+}
+
+
 =head2 C<add_item($href,$id,$mediatype)>
 
 Adds a document to the OPF manifest (but not spine), creating
@@ -2035,6 +2114,106 @@ sub add_item   ## no critic (Always unpack @_ first)
 
     debug(2,"DEBUG[/",$subname,"]");
     return 1;
+}
+
+
+=head2 C<add_subject(%args)>
+
+Creates a new dc:subject element containing the specified text, code,
+and id.
+
+If a <dc-metadata> element exists underneath <metadata>, the
+subject element will be created underneath the <dc-metadata> in OEB
+1.2 format, otherwise the title element is created underneath
+<metadata> in OPF 2.0 format.
+
+Returns the twig element containing the new subject.
+
+=head3 Arguments
+
+C<add_subject()> takes four named arguments, one mandatory, three
+optional.
+
+=over
+
+=item * C<text> - the text of the subject.  This is mandatory, and
+the method croaks if it is not present.
+
+=item * C<scheme> (optional) - 'opf:scheme' or 'scheme' attribute to
+be added.  Be warned that neither the OEB 1.2 nor the OPF 2.0
+specifications allow a scheme to be added to this element, so if this
+is specified, the resulting OPF file will fail to validate against
+either standard.
+
+=item * C<basiccode> (optional) - 'BASICCode' attribute to be added.
+Be warned that this is a Mobipocket-specific attribute that does not
+exist in either the OEB 1.2 nor the OPF 2.0 specifications, so if this
+is specified, the resulting OPF file will fail to validate against
+either standard.
+
+=item * C<id> (optional) - 'id' attribute to be added.  If this is
+specified, and the id is already in use, a warning will be added but
+the method will continue, removing the id attribute from the element
+that previously contained it.
+
+=over
+
+=cut
+
+sub add_subject
+{
+    my $self = shift;
+    my (%args) = @_;
+    my %valid_args = (
+        'text' => 1,
+        'id' => 1,
+        'scheme' => 1,
+        'basiccode' => 1,
+        );
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+    $self->twigcheck();
+    foreach my $arg (keys %args)
+    {
+        croak($subname,"(): invalid argument '",$arg,"'")
+            if(!$valid_args{$arg});
+    }
+    croak($subname,"(): subject text not specified")
+        unless($args{text});
+
+    $self->fix_metastructure_basic();
+    my $meta = $$self{twigroot}->first_child('metadata');
+    my $dcmeta = $meta->first_child('dc-metadata');
+    my $element;
+    my $idelem;
+    my $newid = $args{id};
+    $idelem = $$self{twig}->first_elt("*[\@id='$newid']") if($newid);
+
+    if($dcmeta)
+    {
+        $element = $dcmeta->insert_new_elt('last_child','dc:Subject');
+        $element->set_att('scheme' => $args{scheme}) if($args{scheme});
+    }
+    else
+    {
+        $element = $meta->insert_new_elt('last_child','dc:subject');
+        $element->set_att('opf:scheme' => $args{scheme}) if($args{scheme});
+    }
+    $element->set_text($args{text});
+    $element->set_att('BASICCode' => $args{basiccode}) if($args{basiccode});
+
+    if($idelem && $idelem->cmp($element) )
+    {
+        $self->add_warning(
+            $subname,"(): reassigning id '",$newid,
+            "' from a '",$idelem->gi,"' element!"
+            );
+        $idelem->del_att('id');
+    }
+    $element->set_att('id' => $newid) if($newid);
+
+    return $element;
 }
 
 
@@ -2404,11 +2583,11 @@ sub fix_links
 
     while(@unchecked)
     {
-        debug(2,"DEBUG: ",scalar(@unchecked),
+        debug(3,"DEBUG: ",scalar(@unchecked),
               " items left to check at start of loop");
         $href = shift(@unchecked);
         $href = trim($href);
-        debug(2,"DEBUG: checking '",$href,"'");
+        debug(3,"DEBUG: checking '",$href,"'");
         next if(defined $links{$href});
         
         # Skip URIs for now
@@ -3769,6 +3948,212 @@ sub save
 }
 
 
+=head2 set_date(%args)
+
+Sets the date metadata for a given event.  If more than one dc:date or
+dc:Date element is present with the specified event attribute, sets
+the first.  If no dc:date element is present with the specified event
+attribute, a new element is created.
+
+If a <dc-metadata> element exists underneath <metadata>, the date
+element will be created underneath the <dc-metadata> in OEB 1.2
+format, otherwise the title element is created underneath <metadata>
+in OPF 2.0 format.
+
+Returns 1 on success, logs an error and returns undef if no text or
+event was specified.
+
+=head3 Arguments
+
+=over
+
+=item C<text>
+
+This specifies the description to use as the text of the element.  If
+not specified, the method sets an error and returns undef.
+
+=item C<event>
+
+This specifies the event attribute for the date.  If not specified,
+the method sets an error and returns undef.
+
+=item C<id> (optional)
+
+This specifies the ID to set on the element.  If set and the ID is
+already in use, a warning is logged and the ID is removed from the
+other location and assigned to the element.
+
+=back
+
+=cut
+
+sub set_date
+{
+    my $self = shift;
+    my (%args) = @_;
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+    my %valid_args = (
+        'text' => 1,
+        'event' => 1,
+        'id' => 1,
+        );
+    foreach my $arg (keys %args)
+    {
+        croak($subname,"(): invalid argument '",$arg,"'")
+            if(!$valid_args{$arg});
+    }
+
+    my $text = $args{text};
+    my $event = $args{event};
+    my $newid = $args{id};
+    unless($text)
+    {
+        $self->add_error($subname,"(): no text specified");
+        return;
+    }
+    unless($event)
+    {
+        $self->add_error($subname,"(): no event specified");
+        return;
+    }
+
+    my $meta = $$self{twigroot}->first_child('metadata');
+    my $dcmeta = $meta->first_child('dc-metadata');
+    my $idelem;
+    $idelem = $$self{twig}->first_elt("*[\@id='$newid']") if($newid);
+
+    $self->fix_metastructure_basic();
+
+    my $element = $$self{twigroot}->first_descendant(
+        "dc:date[\@opf:event=~/$event/ix or \@event=~/$event/ix]");
+    $element = $$self{twigroot}->first_descendant(
+        "dc:Date[\@opf:event=~/$event/ix or \@event=~/$event/ix]")
+        unless($element);
+
+    if($element)
+    {
+        $element->set_text($text);
+    }
+    elsif($dcmeta)
+    {
+        $element = $dcmeta->insert_new_elt('last_child','dc:Date');
+        $element->set_att('event',$event);
+        $element->set_text($text);
+    }
+    else
+    {
+        $element = $meta->insert_new_elt('last_child','dc:date');
+        $element->set_att('opf:event',$event);
+        $element->set_text($text);
+    }
+
+    if($idelem && $idelem->cmp($element) )
+    {
+        $self->add_warning(
+            $subname,"(): reassigning id '",$newid,
+            "' from a '",$idelem->gi,"' element!"
+            );
+        $idelem->del_att('id');
+    }
+    $element->set_att('id' => $newid) if($newid);
+    return 1;
+}
+
+
+=head2 set_description(%args)
+
+Sets the text and optionally ID of the first dc:description element
+found (case-insensitive).  Creates the element if one did not exist.
+If a <dc-metadata> element exists underneath <metadata>, the
+description element will be created underneath the <dc-metadata> in
+OEB 1.2 format, otherwise the title element is created underneath
+<metadata> in OPF 2.0 format.
+
+Returns 1 on success, returns undef if no publisher was specified.
+
+=head3 Arguments
+
+C<set_description()> takes one required and one optional named argument
+
+=over
+
+=item C<text>
+
+This specifies the description to use as the text of the element.  If
+not specified, the method returns undef.
+
+=item C<id> (optional)
+
+This specifies the ID to set on the element.  If set and the ID is
+already in use, a warning is logged and the ID is removed from the
+other location and assigned to the element.
+
+=back
+
+=head3 Example
+
+ $retval = $ebook->set_description('text' => 'A really good book',
+                                   'id' => 'mydescid');
+
+=cut
+
+sub set_description
+{
+    my $self = shift;
+    my (%args) = @_;
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+    my %valid_args = (
+        'text' => 1,
+        'id' => 1,
+        );
+    foreach my $arg (keys %args)
+    {
+        croak($subname,"(): invalid argument '",$arg,"'")
+            if(!$valid_args{$arg});
+    }
+
+    my $text = $args{text};
+    unless($text)
+    {
+        $self->add_error($subname,"(): no text specified");
+        return;
+    }
+
+    my $newid = $args{id};
+    my $idelem;
+    $idelem = $$self{twig}->first_elt("*[\@id='$newid']") if($newid);
+
+    $self->fix_metastructure_basic();
+    my $element = $$self{twigroot}->first_descendant(qr/^dc:description$/ix);
+    my $meta = $$self{twigroot}->first_child('metadata');
+    my $dcmeta = $meta->first_child('dc-metadata');
+
+    if(!$element && $dcmeta)
+    {
+        $element = $dcmeta->insert_new_elt('last_child','dc:Description');
+    }
+    elsif(!$element)
+    {
+        $element = $meta->insert_new_elt('last_child','dc:description');
+    }
+    $element->set_text($text);
+    if($idelem && $idelem->cmp($element) )
+    {
+        $self->add_warning(
+            $subname,"(): reassigning id '",$newid,
+            "' from a '",$idelem->gi,"' element!"
+            );
+        $idelem->del_att('id');
+    }
+    $element->set_att('id' => $newid) if($newid);
+    return 1;
+}
+
+
 =head2 set_opffile($filename)
 
 Sets the filename used to store the OPF metadata. 
@@ -3838,10 +4223,12 @@ created element will not have this attribute.
 
 Specifies the 'id' attribute to set.  If this is specified, and the id
 is already in use, a warning will be added but the method will
-continue.  If this is omitted and a primary author element exists, any
-existing id will be left untouched; if omitted and a primary author
-element cannot be found, the newly created element will not have an id
-set.
+continue, removing the id attribute from the element that previously
+contained it.
+
+If this is omitted and a primary author element exists, any existing
+id will be left untouched; if omitted and a primary author element
+cannot be found, the newly created element will not have an id set.
 
 =back
 
@@ -3901,16 +4288,17 @@ sub set_primary_author
         if($dcmeta)
         {
             $element = $dcmeta->insert_new_elt('last_child','dc:Creator');
+            $element->set_att('role' => 'aut');
+            $element->set_att('file-as' => $newfileas) if($newfileas);
         }
         else
         {
             $element = $meta->insert_new_elt('last_child','dc:creator');
+            $element->set_att('opf:role' => 'aut');
+            $element->set_att('opf:file-as' => $newfileas) if($newfileas);
         }
     } # unless($element)
-
     $element->set_text($newauthor);
-    $element->set_att('role' => 'aut');
-    $element->set_att('file-as' => $newfileas) if($newfileas);
 
     if($idelem && $idelem->cmp($element) )
     {
@@ -3927,12 +4315,12 @@ sub set_primary_author
 
 =head2 C<set_publisher(%args)>
 
-Sets the text of the first dc:publisher element found
-(case-insensitive).  Creates the element if one did not exist.  If a
-<dc-metadata> element exists underneath <metadata>, the title element
-will be created underneath the <dc-metadata> in OEB 1.2 format,
-otherwise the title element is created underneath <metadata> in OPF
-2.0 format.
+Sets the text and optionally the ID of the first dc:publisher element
+found (case-insensitive).  Creates the element if one did not exist.
+If a <dc-metadata> element exists underneath <metadata>, the publisher
+element will be created underneath the <dc-metadata> in OEB 1.2
+format, otherwise the title element is created underneath <metadata>
+in OPF 2.0 format.
 
 Returns 1 on success, returns undef if no publisher was specified.
 
@@ -4188,6 +4576,94 @@ sub set_title
     }
     $element->set_text($title) if($title);
 
+    if($idelem && $idelem->cmp($element) )
+    {
+        $self->add_warning(
+            $subname,"(): reassigning id '",$newid,
+            "' from a '",$idelem->gi,"' element!"
+            );
+        $idelem->del_att('id');
+    }
+    $element->set_att('id' => $newid) if($newid);
+    return 1;
+}
+
+
+=head2 C<set_type(%args)>
+
+Sets the text and optionally the ID of the first dc:type element
+found (case-insensitive).  Creates the element if one did not exist.
+If a <dc-metadata> element exists underneath <metadata>, the publisher
+element will be created underneath the <dc-metadata> in OEB 1.2
+format, otherwise the title element is created underneath <metadata>
+in OPF 2.0 format.
+
+Returns 1 on success, returns undef if no publisher was specified.
+
+=head3 Arguments
+
+C<set_type()> takes one required and one optional named argument
+
+=over
+
+=item C<text>
+
+This specifies the publisher name to set as the text of the element.
+If not specified, the method returns undef.
+
+=item C<id> (optional)
+
+This specifies the ID to set on the element.  If set and the ID is
+already in use, a warning is logged and the ID is removed from the
+other location and assigned to the element.
+
+=back
+
+=head3 Example
+
+ $retval = $ebook->set_type('text' => 'Short Story',
+                            'id' => 'mytypeid');
+
+=cut
+
+sub set_type
+{
+    my $self = shift;
+    my (%args) = @_;
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+    my %valid_args = (
+        'text' => 1,
+        'id' => 1,
+        );
+    foreach my $arg (keys %args)
+    {
+        croak($subname,"(): invalid argument '",$arg,"'")
+            if(!$valid_args{$arg});
+    }
+
+    my $text = $args{text};
+    return unless($text);
+
+    my $newid = $args{id};
+    my $idelem;
+    $idelem = $$self{twig}->first_elt("*[\@id='$newid']") if($newid);
+
+    $self->fix_metastructure_basic();
+    my $element = $$self{twigroot}->first_descendant(qr/^dc:type$/ix);
+    my $meta = $$self{twigroot}->first_child('metadata');
+    my $dcmeta = $meta->first_child('dc-metadata');
+
+    if(!$element && $dcmeta)
+    {
+        $element = $dcmeta->insert_new_elt('last_child','dc:Type');
+    }
+    elsif(!$element)
+    {
+        $element = $meta->insert_new_elt('last_child','dc:type');
+    }
+    $element->set_text($text);
     if($idelem && $idelem->cmp($element) )
     {
         $self->add_warning(
@@ -5491,6 +5967,8 @@ sub ymd_validate
 
 =item * fix_links() could be improved to download remote URIs instead
 of ignoring them.
+
+=item * fix_links() needs to check the <reference> links under <guide>
 
 =item * Need to implement fix_tours() that should collect the related
 elements and delete the parent if none are found.  Empty <tours>
