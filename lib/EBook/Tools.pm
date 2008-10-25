@@ -3463,7 +3463,8 @@ sub fix_publisher
             $pub->delete;
             next;
         }
-        elsif($publishermap{lc $pub->text})
+        elsif( $publishermap{lc $pub->text} &&
+               ($publishermap{lc $pub->text} ne $pub->text) )
         {
             debug(1,"DEBUG: Changing publisher from '",$pub->text,"' to '",
                   $publishermap{lc $pub->text},"'");
