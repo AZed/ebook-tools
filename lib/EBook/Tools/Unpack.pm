@@ -42,8 +42,6 @@ or, more simply:
 
 =over
 
-=item * C<File::Path>
-
 =item * C<HTML::Tree>
 
 =item * C<Image::Size>
@@ -197,6 +195,8 @@ $mobilangcode{14}{0}  = 'hu'; # Hungarian
 $mobilangcode{15}{0}  = 'is'; # Icelandic
 $mobilangcode{33}{0}  = 'id'; # Indonesian
 $mobilangcode{16}{0}  = 'it'; # Italian
+$mobilangcode{16}{4}  = 'it'; # Italian (Mobipocket bug?)
+$mobilangcode{16}{8}  = 'it-ch'; # Italian (Switzerland)
 $mobilangcode{17}{0}  = 'ja'; # Japanese
 $mobilangcode{75}{0}  = 'kn'; # Kannada
 $mobilangcode{63}{0}  = 'kk'; # Kazakh
@@ -205,7 +205,8 @@ $mobilangcode{18}{0}  = 'ko'; # Korean
 $mobilangcode{38}{0}  = 'lv'; # Latvian
 $mobilangcode{39}{0}  = 'lt'; # Lithuanian
 $mobilangcode{47}{0}  = 'mk'; # Macedonian
-$mobilangcode{62}{0}  = 'ms'; # Malay
+$mobilangcode{62}{0}  = 'ms'; # Malay (Malaysia)
+#$mobilangcode{62}{??}  = 'ms-bn'; # Malay (Brunei Darussalam) -- not supported
 $mobilangcode{76}{0}  = 'ml'; # Malayalam
 $mobilangcode{58}{0}  = 'mt'; # Maltese
 $mobilangcode{78}{0}  = 'mr'; # Marathi
@@ -1877,7 +1878,7 @@ sub unpack_palmdoc_header
 =item * The determination of the Mobipocket language codes is a little
 haphazard.  Primary languages should be detected, as well as all
 supported English region codes, but non-English region codes are
-almost entirely missing for languages not starting with A-G.
+almost entirely missing for languages not starting with A-M.
 
 =item * Mobipocket HuffDic encoding (used mostly on dictionaries)
 isn't supported yet.
