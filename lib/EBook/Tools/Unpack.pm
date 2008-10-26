@@ -125,11 +125,11 @@ $mobilangcode{1}{0}   = 'ar'; # Arabic
 $mobilangcode{1}{20}  = 'ar-dz'; # Arabic (Algeria)
 $mobilangcode{1}{60}  = 'ar-bh'; # Arabic (Bahrain)
 $mobilangcode{1}{12}  = 'ar-eg'; # Arabic (Egypt)
-#$mobilangcode{1}{??} = 'ar-iq'; # Arabic (Iraq) -- Mobipocket support is broken
+#$mobilangcode{1}{??} = 'ar-iq'; # Arabic (Iraq) -- Mobipocket broken
 $mobilangcode{1}{44}  = 'ar-jo'; # Arabic (Jordan)
 $mobilangcode{1}{52}  = 'ar-kw'; # Arabic (Kuwait)
 $mobilangcode{1}{48}  = 'ar-lb'; # Arabic (Lebanon)
-#$mobilangcode{1}{??} = 'ar-ly'; # Arabic (Libya) -- Mobipocket support is broken
+#$mobilangcode{1}{??} = 'ar-ly'; # Arabic (Libya) -- Mobipocket broken
 $mobilangcode{1}{24}  = 'ar-ma'; # Arabic (Morocco)
 $mobilangcode{1}{32}  = 'ar-om'; # Arabic (Oman)
 $mobilangcode{1}{64}  = 'ar-qa'; # Arabic (Qatar)
@@ -140,8 +140,9 @@ $mobilangcode{1}{56}  = 'ar-ae'; # Arabic (United Arab Emirates)
 $mobilangcode{1}{36}  = 'ar-ye'; # Arabic (Yemen)
 $mobilangcode{43}{0}  = 'hy'; # Armenian
 $mobilangcode{77}{0}  = 'as'; # Assamese
-$mobilangcode{44}{0}  = 'az'; # "Azeri (Cyrillic)" (IANA: Azerbaijani)
-#$mobilangcode{44}{??} = 'az-??'; # "Azeri (Latin)" -- Mobipocket support is broken
+$mobilangcode{44}{0}  = 'az'; # "Azeri (IANA: Azerbaijani)
+#$mobilangcode{44}{??} = 'az-cyrl'; # "Azeri (Cyrillic)" -- Mobipocket broken
+#$mobilangcode{44}{??} = 'az-latn'; # "Azeri (Latin)" -- Mobipocket broken
 $mobilangcode{45}{0}  = 'eu'; # Basque
 $mobilangcode{35}{0}  = 'be'; # Belarusian
 $mobilangcode{69}{0}  = 'bn'; # Bengali
@@ -205,30 +206,67 @@ $mobilangcode{18}{0}  = 'ko'; # Korean
 $mobilangcode{38}{0}  = 'lv'; # Latvian
 $mobilangcode{39}{0}  = 'lt'; # Lithuanian
 $mobilangcode{47}{0}  = 'mk'; # Macedonian
-$mobilangcode{62}{0}  = 'ms'; # Malay (Malaysia)
+$mobilangcode{62}{0}  = 'ms'; # Malay
 #$mobilangcode{62}{??}  = 'ms-bn'; # Malay (Brunei Darussalam) -- not supported
+#$mobilangcode{62}{??}  = 'ms-my'; # Malay (Malaysia) -- Mobipocket bug
 $mobilangcode{76}{0}  = 'ml'; # Malayalam
 $mobilangcode{58}{0}  = 'mt'; # Maltese
 $mobilangcode{78}{0}  = 'mr'; # Marathi
 $mobilangcode{97}{0}  = 'ne'; # Nepali
 $mobilangcode{20}{0}  = 'no'; # Norwegian
+#$mobilangcode{??}{??} = 'nb'; # Norwegian Bokmål (Mobipocket not supported)
+#$mobilangcode{??}{??} = 'nn'; # Norwegian Nynorsk (Mobipocket not supported)
 $mobilangcode{72}{0}  = 'or'; # Oriya
 $mobilangcode{21}{0}  = 'pl'; # Polish
 $mobilangcode{22}{0}  = 'pt'; # Portuguese
+$mobilangcode{22}{8}  = 'pt'; # Portuguese (Mobipocket bug?)
+$mobilangcode{22}{4}  = 'pt-br'; # Portuguese (Brazil)
 $mobilangcode{70}{0}  = 'pa'; # Punjabi
-$mobilangcode{23}{0}  = 'rm'; # "Rhaeto-Romanic" (not an official language code?)
+$mobilangcode{23}{0}  = 'rm'; # "Rhaeto-Romanic" (IANA: Romansh)
 $mobilangcode{24}{0}  = 'ro'; # Romanian
+#$mobilangcode{24}{??}  = 'ro-mo'; # Romanian (Moldova) (Mobipocket output is 0)
 $mobilangcode{25}{0}  = 'ru'; # Russian
-$mobilangcode{59}{0}  = 'sz'; # "Sami (Lappish)" (not an official language code?)
+#$mobilangcode{25}{??}  = 'ru-mo'; # Russian (Moldova) (Mobipocket output is 0)
+$mobilangcode{59}{0}  = 'sz'; # "Sami (Lappish)" (not an IANA language code)
+                              # IANA code for "Northern Sami" is 'se'
+                              # 'SZ' is the IANA region code for Swaziland
 $mobilangcode{79}{0}  = 'sa'; # Sanskrit
 $mobilangcode{26}{12} = 'sr'; # Serbian -- Mobipocket Cyrillic/Latin distinction broken
+#$mobilangcode{26}{12} = 'sr-cyrl'; # Serbian (Cyrillic) (Mobipocket bug)
+#$mobilangcode{26}{12} = 'sr-latn'; # Serbian (Latin) (Mobipocket bug)
 $mobilangcode{27}{0}  = 'sk'; # Slovak
 $mobilangcode{36}{0}  = 'sl'; # Slovenian
-$mobilangcode{46}{0}  = 'sb'; # "Sorbian" (not an official language code?)
+$mobilangcode{46}{0}  = 'sb'; # "Sorbian" (not an IANA language code)
+                              # 'SB' is IANA region code for 'Solomon Islands'
+                              # Lower Sorbian = 'dsb'
+                              # Upper Sorbian = 'hsb'
+                              # Sorbian Languages = 'wen'
 $mobilangcode{10}{0}  = 'es'; # Spanish
-$mobilangcode{48}{0}  = 'sx'; # "Sutu" (not an official language code?)
+$mobilangcode{10}{4}  = 'es'; # Spanish (Mobipocket bug?)
+$mobilangcode{10}{44} = 'es-ar'; # Spanish (Argentina)
+$mobilangcode{10}{64} = 'es-bo'; # Spanish (Bolivia)
+$mobilangcode{10}{52} = 'es-cl'; # Spanish (Chile)
+$mobilangcode{10}{36} = 'es-co'; # Spanish (Colombia)
+$mobilangcode{10}{20} = 'es-cr'; # Spanish (Costa Rica)
+$mobilangcode{10}{28} = 'es-do'; # Spanish (Dominican Republic)
+$mobilangcode{10}{48} = 'es-ec'; # Spanish (Ecuador)
+$mobilangcode{10}{68} = 'es-sv'; # Spanish (El Salvador)
+$mobilangcode{10}{16} = 'es-gt'; # Spanish (Guatemala)
+$mobilangcode{10}{72} = 'es-hn'; # Spanish (Honduras)
+$mobilangcode{10}{8}  = 'es-mx'; # Spanish (Mexico)
+$mobilangcode{10}{76} = 'es-ni'; # Spanish (Nicaragua)
+$mobilangcode{10}{24} = 'es-pa'; # Spanish (Panama)
+$mobilangcode{10}{60} = 'es-py'; # Spanish (Paraguay)
+$mobilangcode{10}{40} = 'es-pe'; # Spanish (Peru)
+$mobilangcode{10}{80} = 'es-pr'; # Spanish (Puerto Rico)
+$mobilangcode{10}{56} = 'es-uy'; # Spanish (Uruguay)
+$mobilangcode{10}{32} = 'es-ve'; # Spanish (Venezuela)
+$mobilangcode{48}{0}  = 'sx'; # "Sutu" (not an IANA language code)
+                              # "Sutu" is another name for "Southern Sotho"?
+                              # IANA code for "Southern Sotho" is 'st'
 $mobilangcode{65}{0}  = 'sw'; # Swahili
 $mobilangcode{29}{0}  = 'sv'; # Swedish
+$mobilangcode{29}{8}  = 'sv-fi'; # Swedish (Finland)
 $mobilangcode{73}{0}  = 'ta'; # Tamil
 $mobilangcode{68}{0}  = 'tt'; # Tatar
 $mobilangcode{74}{0}  = 'te'; # Telugu
@@ -239,6 +277,9 @@ $mobilangcode{31}{0}  = 'tr'; # Turkish
 $mobilangcode{34}{0}  = 'uk'; # Ukrainian
 $mobilangcode{32}{0}  = 'ur'; # Urdu
 $mobilangcode{67}{0}  = 'uz'; # Uzbek
+$mobilangcode{67}{8}  = 'uz'; # Uzbek (Mobipocket bug?)
+#$mobilangcode{67}{??} = 'uz-cyrl'; # Uzbek (Cyrillic)
+#$mobilangcode{67}{??} = 'uz-latn'; # Uzbek (Latin)
 $mobilangcode{42}{0}  = 'vi'; # Vietnamese
 $mobilangcode{52}{0}  = 'xh'; # Xhosa
 $mobilangcode{53}{0}  = 'zu'; # Zulu
@@ -729,6 +770,117 @@ sub detect_from_mobi_headers :method
 }
 
 
+=head2 C<gen_opf(%args)>
+
+This generates an OPF file from detected and specified metadata.  It
+does not honor the C<nosave> flag, and will always write its output.
+
+Normally this is called automatically from inside the C<unpack>
+methods, but can be called manually after an unpack if the C<nosave>
+flag was set to write an OPF anyway.
+
+Returns the filename of the OPF file.
+
+=head3 Arguments
+
+=over
+
+=item * C<opffile> (optional)
+
+If specified, this overrides the object attribute C<opffile>, and
+determines the filename to use for the generated OPF file.  If not
+specified, and the object attribute C<opffile> has somehow been
+cleared (the attribute is set during L</new()>), it will be generated
+by looking at the C<htmlfile> argument.  If no value can be found, the
+method croaks.  If a value was found somewhere other than the object
+attribute C<opffile>, then the object attribute is updated to match.
+
+=item * C<textfile> (optional)
+
+The file containing the main text of the document.  If specified, the
+method will attempt to split metadata out of the file and add whatever
+remains to the manifest of the OPF.
+
+=back
+
+=cut
+
+sub gen_opf :method
+{
+    my $self = shift;
+    my (%args) = @_;
+    my $subname = ( caller(0) )[3];
+    debug(2,"DEBUG[",$subname,"]");
+    my %valid_args = (
+        'opffile' => 1,
+        'textfile' => 1,
+        );
+    foreach my $arg (keys %args)
+    {
+        croak($subname,"(): invalid argument '",$arg,"'")
+            if(!$valid_args{$arg});
+    }
+    my $ebook = EBook::Tools->new();
+    my $textfile = $args{textfile};
+    my $opffile = $args{htmlfile} || $$self{opffile};
+    $opffile = split_metadata($textfile,$opffile) if($textfile);
+
+    croak($subname,"(): could not determine OPF filename\n")
+        unless($opffile);
+    $$self{opffile} ||= $opffile;
+
+    if(-f $opffile)
+    {
+        $ebook->init($opffile);
+    }
+    else
+    {
+        $ebook->init_blank($opffile);
+    }
+    $ebook->add_document($textfile,'text-main') if($textfile);
+    
+    # Set author, title, and opffile from manual overrides
+    $ebook->set_primary_author(text => $$self{author}) if($$self{author});
+    $ebook->set_title(text => $$self{title}) if($$self{title});
+    $ebook->set_opffile($$self{opffile}) if($$self{opffile});
+    
+    # If we still don't have author or title, set it from the best
+    # extraction we have
+    $ebook->set_primary_author(text => $$self{detected}{author})
+        if(!$$self{author} && $$self{detected}{author});
+    $ebook->set_title(text => $$self{detected}{title})
+        if(!$$self{title} && $$self{detected}{title});
+    
+    # Set the remaining autodetected metadata
+    $ebook->set_publisher(text => $$self{detected}{publisher})
+        if($$self{detected}{publisher});
+    $ebook->set_description(text => $$self{detected}{description})
+        if($$self{detected}{description});
+    $ebook->add_identifier(text => $$self{detected}{isbn},
+                           scheme => 'ISBN')
+        if($$self{detected}{isbn});
+    $ebook->add_subject(text => $$self{detected}{subject},
+                        basiccode => $$self{detected}{subjectcode})
+        if($$self{detected}{subject});
+    $ebook->set_date(text => $$self{detected}{publicationdate},
+                     event => 'publication')
+        if($$self{detected}{publicationdate});
+    $ebook->set_rights(text => $$self{detected}{rights})
+        if($$self{detected}{rights});
+    $ebook->set_type(text => $$self{detected}{type})
+        if($$self{detected}{type});
+    
+    
+    # Automatically clean up any mess
+    $ebook->fix_misc;
+    $ebook->fix_oeb12;
+    $ebook->fix_mobi;
+    unlink($opffile);
+    $ebook->save;
+    return 1;    
+}
+
+
 =head2 C<unpack()>
 
 This is a dispatcher for the specific unpacking methods needed to
@@ -770,7 +922,6 @@ sub unpack_mobi :method
     debug(2,"DEBUG[",$subname,"]");
 
     my $pdb = Palm::Doc->new();
-    my $ebook = EBook::Tools->new();
     my @records;
     my $data;
     my $opffile;
@@ -869,7 +1020,6 @@ sub unpack_mobi :method
 
     $self->detect_from_mobi_headers();
 
-    # Factor out this entire block?
     unless($$self{nosave})
     {
         open($fh_html,">",$htmlname);
@@ -882,57 +1032,15 @@ sub unpack_mobi :method
         croak($subname,"(): unpack failed to generate any text")
             if(-z $htmlname);
 
-        $opffile = split_metadata($htmlname);
-        
-        $ebook->init($opffile);
-        $ebook->add_document($htmlname,'text-main');
-        
-        # Set author, title, and opffile from manual overrides
-        $ebook->set_primary_author(text => $$self{author}) if($$self{author});
-        $ebook->set_title(text => $$self{title}) if($$self{title});
-        $ebook->set_opffile($$self{opffile}) if($$self{opffile});
-        
-        # If we still don't have author or title, set it from the best
-        # extraction we have
-        $ebook->set_primary_author(text => $$self{detected}{author})
-            if(!$$self{author} && $$self{detected}{author});
-        $ebook->set_title(text => $$self{detected}{title})
-            if(!$$self{title} && $$self{detected}{title});
+        $self->gen_opf(textfile => $htmlname);
 
-        # Set the remaining autodetected metadata
-        $ebook->set_publisher(text => $$self{detected}{publisher})
-            if($$self{detected}{publisher});
-        $ebook->set_description(text => $$self{detected}{description})
-            if($$self{detected}{description});
-        $ebook->add_identifier(text => $$self{detected}{isbn},
-                               scheme => 'ISBN')
-            if($$self{detected}{isbn});
-        $ebook->add_subject(text => $$self{detected}{subject},
-                            basiccode => $$self{detected}{subjectcode})
-            if($$self{detected}{subject});
-        $ebook->set_date(text => $$self{detected}{publicationdate},
-                         event => 'publication')
-            if($$self{detected}{publicationdate});
-        $ebook->set_rights(text => $$self{detected}{rights})
-            if($$self{detected}{rights});
-        $ebook->set_type(text => $$self{detected}{type})
-            if($$self{detected}{type});
-
-
-        # Automatically clean up any mess
-        $ebook->fix_misc;
-        $ebook->fix_oeb12;
-        $ebook->fix_mobi;
-        unlink($opffile);
-        $ebook->save;
-        
         if($$self{tidy})
         {
             debug(1,"Tidying '",$htmlname,"'");
             system_tidy_xhtml($htmlname);
         }
     }
-    return $ebook->opffile;
+    return 1;
 }
 
 
@@ -1337,7 +1445,7 @@ sub fix_mobi_html
 
 Takes as an argument a scalar containing a sequence of unsigned long
 int data.  Returns a string converting octet of the data to its
-two-digit hexadecimal equivalent.  There is no leading "0x" on the
+four-digit hexadecimal equivalent.  There is no leading "0x" on the
 string.
 
 =cut
@@ -1364,6 +1472,7 @@ sub hexstring
     }
     return $retval;
 }
+
 
 =head2 unpack_mobi_exth($headerdata)
 
@@ -1468,7 +1577,8 @@ sub unpack_mobi_exth
         }
         if( ($exthrecord{length} + $offset) > $length )
         {
-            carp($subname,"(): EXTH record ",$recordpos, " longer than available data");
+            carp($subname,"(): EXTH record ",$recordpos,
+                 " longer than available data");
             last;
         }
         $exthrecord{data} = substr($headerdata,$offset,$exthrecord{length});
@@ -1875,11 +1985,6 @@ sub unpack_palmdoc_header
 
 =over
 
-=item * The determination of the Mobipocket language codes is a little
-haphazard.  Primary languages should be detected, as well as all
-supported English region codes, but non-English region codes are
-almost entirely missing for languages not starting with A-M.
-
 =item * Mobipocket HuffDic encoding (used mostly on dictionaries)
 isn't supported yet.
 
@@ -1894,11 +1999,12 @@ record of a given type will be used.
 =item * Bookmarks aren't supported. This is a weakness inherited from
 Palm::Doc, and will take a while to fix.
 
-=item * unpack_mobi() could probably use some refactoring
-
 =item * Unit tests are unwritten
 
-=item * Documentation is incomplete
+=item * Documentation is incomplete.  Accessors in particular could
+use some cleaning up.
+
+=item * Need to implement setter methods for object attributes
 
 =item * Palm::Doc is currently used for extraction, with a lot of code
 in this module dedicated to extracting information that it can't.  It
