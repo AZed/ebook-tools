@@ -692,26 +692,42 @@ sub detect_from_mobi_headers :method
 
     my $mobilang = $$self{datahashes}{mobi}{language};
     my $mobiregion = $$self{datahashes}{mobi}{region};
+    my $mobidilang = $$self{datahashes}{mobi}{dictionaryinlanguage};
+    my $mobidiregion = $$self{datahashes}{mobi}{dictionaryinregion};
+    my $mobidolang = $$self{datahashes}{mobi}{dictionaryoutlanguage};
+    my $mobidoregion = $$self{datahashes}{mobi}{dictionaryoutregion};
     my @mobiexth = @{$$self{datahashes}{mobiexth}};
-    my $language;
+    my $language;   # <dc:language>
+    my $dilanguage; # <DictionaryInLanguage>
+    my $dolanguage; # <DictionaryOutLanguage>
     my $data;
 
     my %exth_is_int = (
-        114 => 1,
-        115 => 1,
-        201 => 1,
-        202 => 1,
-        203 => 1,
-        204 => 1,
-        205 => 1,
-        206 => 1,
-        207 => 1,
-        300 => 1,
-        401 => 1,
-        403 => 1,
+        114 => 'versionnumber',
+        115 => 'sample',
+        201 => 'coveroffset',
+        202 => 'thumboffset',
+        203 => 'hasfakecover',
+        204 => '204',
+        205 => '205',
+        206 => '206',
+        207 => '207',
+        300 => '300',
+        401 => 'clippinglimit',
+        403 => '403',
+        );
+
+    my %exth_repeats = (
+        101 => 'publisher',
+        104 => 'isbn',
+        105 => 'subject',
+        108 => 'contributor',
+        110 => 'subjectcode',
         );
 
     $$self{encoding} = $$self{datahashes}{mobi}{encoding} unless($$self{encoding});
+
+    # dc:Language
     if($mobilang)
     {
         $language = $mobilangcode{$mobilang}{$mobiregion};
@@ -730,12 +746,12 @@ sub detect_from_mobi_headers :method
             $language = $mobilangcode{$mobilang}{0};
             if(!$language)
             {
-                carp("WARNING: Language code ",$mobilang,
+                carp("WARNING: language code ",$mobilang,
                      " not recognized!\n");
             }
             else
             {
-                debug(1,"DEBUG: found language '",$language,"'",
+                debug(1,"DEBUG: found downgraded language '",$language,"'",
                       " (language code ",$mobilang,",",
                       " region code 0)");
                 $$self{detected}{language} = $language;
@@ -743,8 +759,73 @@ sub detect_from_mobi_headers :method
         } # if($language) / else
     } # if($mobilang)
 
-    # This conversion assumes that each type of record only shows up
-    # once.  This may be a bad assumption.
+    # DictionaryInLanguage
+    if($mobidilang)
+    {
+        $dilanguage = $mobilangcode{$mobidilang}{$mobidiregion};
+        if($dilanguage)
+        {
+            debug(2,"DEBUG: found dictionary input language '",$dilanguage,"'",
+                  " (language code ",$mobidilang,",",
+                  " region code ",$mobidiregion,")");
+            $$self{detected}{dictionaryinlanguage} = $dilanguage;
+        }
+        else
+        {
+            debug(1,"DEBUG: dictionary input language code ",$mobidilang,
+                  ", region code ",$mobidiregion," not known",
+                  " -- ignoring region code");
+            $language = $mobilangcode{$mobidilang}{0};
+            if(!$language)
+            {
+                carp("WARNING: dictionary input language code ",$mobidilang,
+                     " not recognized!\n");
+            }
+            else
+            {
+                debug(1,"DEBUG: found downgraded dictionary input language '",
+                      $dilanguage,"'",
+                      " (language code ",$mobidilang,",",
+                      " region code 0)");
+                $$self{detected}{dictionaryinlanguage} = $dilanguage;
+            }                        
+        } # if($dilanguage) / else
+    } # if($mobidilang)
+
+    # DictionaryOutLanguage
+    if($mobidolang)
+    {
+        $dolanguage = $mobilangcode{$mobidolang}{$mobidoregion};
+        if($dolanguage)
+        {
+            debug(2,"DEBUG: found dictionary output language '",$dolanguage,"'",
+                  " (language code ",$mobidolang,",",
+                  " region code ",$mobidoregion,")");
+            $$self{detected}{dictionaryoutlanguage} = $dolanguage;
+        }
+        else
+        {
+            debug(1,"DEBUG: dictionary output language code ",$mobidolang,
+                  ", region code ",$mobidiregion," not known",
+                  " -- ignoring region code");
+            $dolanguage = $mobilangcode{$mobidolang}{0};
+            if(!$language)
+            {
+                carp("WARNING: dictionary output language code ",$mobidolang,
+                     " not recognized!\n");
+            }
+            else
+            {
+                debug(1,"DEBUG: found downgraded dictionary output language '",
+                      $dolanguage,"'",
+                      " (language code ",$mobidolang,",",
+                      " region code 0)");
+                $$self{detected}{dictionaryoutlanguage} = $dolanguage;
+            }                        
+        } # if($dolanguage) / else
+    } # if($mobidolang)
+
+    # EXTH records
     foreach my $exth (@mobiexth)
     {
         my $type = $exthtypes{$$exth{type}};
@@ -763,7 +844,19 @@ sub detect_from_mobi_headers :method
         }
         
         debug(2,"DEBUG: EXTH ",$type," = '",$data,"'");
-        $$self{detected}{$type} = $data;
+        if($exth_repeats{$$exth{type}})
+        {
+            my @extharray = ();
+            my $oldexth = $$self{detected}{$type};
+            if(ref $oldexth eq 'ARRAY') { @extharray = @$oldexth; }
+            elsif($oldexth) { push(@extharray,$oldexth); }
+            push(@extharray,$data);
+            $$self{detected}{$type} = \@extharray;
+        }
+        else
+        {
+            $$self{detected}{$type} = $data;
+        }
     }
 
     return 1;
@@ -824,6 +917,13 @@ sub gen_opf :method
     my $textfile = $args{textfile};
     my $opffile = $args{htmlfile} || $$self{opffile};
     $opffile = split_metadata($textfile,$opffile) if($textfile);
+    my $detected;
+    my $code;
+    my $index;
+
+    my @test = [ '1', '2' ];
+    my $testref = \@test;
+    debug(1,"##DEBUG: testref->[0]=",ref $testref->[0]);
 
     croak($subname,"(): could not determine OPF filename\n")
         unless($opffile);
@@ -835,8 +935,11 @@ sub gen_opf :method
     }
     else
     {
-        $ebook->init_blank($opffile);
+        $ebook->init_blank(opffile => $opffile,
+                           title => $$self{title},
+                           author => $$self{author});
     }
+    $ebook->fix_metastructure_oeb12();
     $ebook->add_document($textfile,'text-main') if($textfile);
     
     # Set author, title, and opffile from manual overrides
@@ -851,17 +954,103 @@ sub gen_opf :method
     $ebook->set_title(text => $$self{detected}{title})
         if(!$$self{title} && $$self{detected}{title});
     
-    # Set the remaining autodetected metadata
-    $ebook->set_publisher(text => $$self{detected}{publisher})
-        if($$self{detected}{publisher});
-    $ebook->set_description(text => $$self{detected}{description})
+    # Set the language codes
+    $ebook->set_language(text => $$self{detected}{language})
+        if($$self{detected}{language});
+    $ebook->set_metadata(gi => 'DictionaryInLanguage',
+                         text => $$self{detected}{dictionaryinlanguage})
+        if($$self{detected}{dictionaryinlanguage});
+    $ebook->set_metadata(gi => 'DictionaryOutLanguage',
+                         text => $$self{detected}{dictionaryoutlanguage})
+        if($$self{detected}{dictionaryoutlanguage});
+
+
+    # Set the remaining autodetected metadata, some of which may or
+    # may not be in array form
+    $detected = $$self{detected}{contributor};
+    if( $detected && (ref($detected) eq 'ARRAY') )
+    {
+        foreach my $text (@$detected)
+        {
+            $ebook->add_metadata(gi => 'dc:Contributor',
+                                 parent => 'dc-metadata',
+                                 text => $text);
+        }
+    }
+    elsif($detected)
+    {
+        $ebook->add_metadata(gi => 'dc:Contributor',
+                             parent => 'dc-metadata',
+                             text => $detected);
+    }
+
+    $detected = $$self{detected}{publisher};
+    if( $detected && (ref($detected) eq 'ARRAY') )
+    {
+        foreach my $text (@$detected)
+        {
+            $ebook->add_metadata(gi => 'dc:Publisher',
+                                 parent => 'dc-metadata',
+                                 text => $text);
+        }
+    }
+    elsif($detected)
+    {
+        $ebook->set_publisher(text => $detected);
+    }
+
+    $ebook->set_description(text => decode_utf8($$self{detected}{description}))
         if($$self{detected}{description});
-    $ebook->add_identifier(text => $$self{detected}{isbn},
-                           scheme => 'ISBN')
-        if($$self{detected}{isbn});
-    $ebook->add_subject(text => $$self{detected}{subject},
-                        basiccode => $$self{detected}{subjectcode})
-        if($$self{detected}{subject});
+
+    $detected = $$self{detected}{isbn};
+    if( $detected && (ref($detected) eq 'ARRAY') )
+    {
+        foreach my $text (@$detected)
+        {
+            $ebook->add_identifier(text => $text,
+                                   scheme => 'ISBN')
+        }
+    }
+    elsif($detected)
+    {
+        $ebook->add_identifier(text => $detected,
+                               scheme => 'ISBN')
+    }
+
+    $detected = $$self{detected}{isbn};
+    if( $detected && (ref($detected) eq 'ARRAY') )
+    {
+        foreach my $text (@$detected)
+        {
+            $ebook->add_identifier(text => $text,
+                                   scheme => 'ISBN');
+        }
+    }
+    elsif($detected)
+    {
+        $ebook->add_identifier(text => $detected,
+                               scheme => 'ISBN')
+    }
+
+    $detected = $$self{detected}{subject};
+    if( $detected && (ref($detected) eq 'ARRAY') )
+    {
+        $index = 0;
+        foreach my $text (@$detected)
+        {
+            $code = @{$$self{detected}{subjectcode}}[$index];
+            $ebook->add_subject(text => $text,
+                                basiccode => $code);
+            $index++;
+        }
+    }
+    elsif($detected)
+    {
+        $code = $$self{detected}{subjectcode};
+        $ebook->add_subject(text => $$self{detected}{subject},
+                            basiccode => $code)
+    }
+
     $ebook->set_date(text => $$self{detected}{publicationdate},
                      event => 'publication')
         if($$self{detected}{publicationdate});
@@ -869,7 +1058,13 @@ sub gen_opf :method
         if($$self{detected}{rights});
     $ebook->set_type(text => $$self{detected}{type})
         if($$self{detected}{type});
-    
+    $ebook->set_adult($$self{detected}{adult})
+        if($$self{detected}{adult});
+    $ebook->set_review(text => decode_utf8($$self{detected}{review}))
+        if($$self{detected}{review});
+    $ebook->set_retailprice(text => $$self{detected}{retailprice},
+                            currency => $$self{detected}{currency})
+        if($$self{detected}{retailprice});
     
     # Automatically clean up any mess
     $ebook->fix_misc;
@@ -1441,12 +1636,11 @@ sub fix_mobi_html
 }
 
 
-=head2 hexstring($intdata)
+=head2 hexstring($bindata)
 
-Takes as an argument a scalar containing a sequence of unsigned long
-int data.  Returns a string converting octet of the data to its
-four-digit hexadecimal equivalent.  There is no leading "0x" on the
-string.
+Takes as an argument a scalar containing a sequence of binary bytes.
+Returns a string converting each octet of the data to its two-digit
+hexadecimal equivalent.  There is no leading "0x" on the string.
 
 =cut
 
@@ -1458,17 +1652,16 @@ sub hexstring
 
     croak($subname,"(): no data provided")
         unless($data);
-    croak($subname,"(): data must be a sequence of unsigned integers")
-        if(length($data) % 4);
 
-    my $int;
+    my $byte;
     my $retval = '';
     my $pos = 0;
+
     while($pos < length($data))
     {
-        $int = unpack("N",substr($data,$pos,4));
-        $retval .= sprintf("%04x",$int);
-        $pos += 4;
+        $byte = unpack("C",substr($data,$pos,1));
+        $retval .= sprintf("%02x",$byte);
+        $pos++;
     }
     return $retval;
 }
@@ -1671,10 +1864,12 @@ book.
 
 Length in bytes of the full title of the book 
 
-=item C<language>
+=item C<unknownlanguage>
 
-A main language code.  See C<%mobilangcodes> for an exact map of
-values.
+16 bits of unknown data thought to be related to the book language.
+
+Use with caution.  This key may be renamed in the future if more
+information is found.
 
 =item C<region>
 
@@ -1684,19 +1879,46 @@ exact map of values.
 The bottom two bits of this value appear to be unused (i.e. all values
 are multiples of 4).
 
-=item C<unknown80>
+=item C<language>
 
-Unsigned long int (32-bit) at offset 80.
+A main language code.  See C<%mobilangcodes> for an exact map of
+values.
+
+=item C<unknowndilanguage>
+
+16 bits of unknown data thought to be related to the dictionary input
+language.
 
 Use with caution.  This key may be renamed in the future if more
 information is found.
 
-=item C<unknown84>
+=item C<dictionaryinregion>
 
-Unsigned long int (32-bit) at offset 84.
+The specific region of C<dictionaryinlanguage>.  See C<%mobilangcodes>
+for an exact map of values.
+
+=item C<dictionaryinlanguage>
+
+The language code for the DictionaryInLanguage element.  See
+C<%mobilangcodes> for an exact map of values.
+
+=item C<unknowndolanguage>
+
+16 bits of unknown data thought to be related to the dictionary output
+language.
 
 Use with caution.  This key may be renamed in the future if more
 information is found.
+
+=item C<dictionaryoutregion>
+
+The specific region of C<dictionaryoutlanguage>.  See C<%mobilangcodes>
+for an exact map of values.
+
+=item C<dictionaryoutlanguage>
+
+The language code for the DictionaryOutLanguage element.  See
+C<%mobilangcodes> for an exact map of values.
 
 =item C<version2>
 
@@ -1765,6 +1987,80 @@ long enough to contain it.
 Use with caution.  This key may be renamed in the future if more
 information is found.
 
+=item C<unknown156>
+
+20 bytes of unknown data at offset 156, usually zeroes.  This value
+will be undefined if the header data was not long enough to contain
+it.
+
+Use with caution.  This key may be renamed in the future if more
+information is found.
+
+=item C<unknown176>
+
+16 bits of unknown data at offset 176.  This value will be undefined
+if the header data was not long enough to contain it.
+
+Use with caution.  This key may be renamed in the future if more
+information is found.
+
+=item C<unknown178>
+
+16 bits of unknown data at offset 178.  This value will be undefined
+if the header data was not long enough to contain it.
+
+Use with caution.  This key may be renamed in the future if more
+information is found.
+
+=item C<unknown180>
+
+32 bits of unknown data at offset 180.  This value will be undefined
+if the header data was not long enough to contain it.
+
+Use with caution.  This key may be renamed in the future if more
+information is found.
+
+=item C<unknown184>
+
+32 bits of unknown data at offset 184.  This value will be undefined
+if the header data was not long enough to contain it.
+
+Use with caution.  This key may be renamed in the future if more
+information is found.
+
+=item C<unknown188>
+
+32 bits of unknown data at offset 188.  This value will be undefined
+if the header data was not long enough to contain it.
+
+Use with caution.  This key may be renamed in the future if more
+information is found.
+
+=item C<unknown192>
+
+32 bits of unknown data at offset 192.  This value will be undefined
+if the header data was not long enough to contain it.
+
+Use with caution.  This key may be renamed in the future if more
+information is found.
+
+=item C<unknown196>
+
+32 bits of unknown data at offset 180.  This value will be undefined
+if the header data was not long enough to contain it.
+
+Use with caution.  This key may be renamed in the future if more
+information is found.
+
+=item C<unknown200>
+
+Unknown data of unknown length running to the end of the header.  This
+value will be undefined if the header data was not long enough to
+contain it.
+
+Use with caution.  This key may be renamed in the future if more
+information is found.
+
 =back
 
 =cut
@@ -1780,9 +2076,10 @@ sub unpack_mobi_header
 
     my $length = length($headerdata);
     my @enckeys = keys(%pdbencoding);
-    my $chunk;   # current chunk of headerdata being unpacked
-    my @list;    # temporary holding area for unpacked data
-    my %retval;  # header hash to return;
+    my $chunk;     # current chunk of headerdata being unpacked
+    my @list;      # temporary holding area for unpacked data
+    my %retval;    # header hash to return;
+    my $hexstring; # hexadecimal debugging output string
 
     croak($subname,"(): header data is too short! (only ",$length," bytes)")
         unless($length >= 116);
@@ -1813,26 +2110,42 @@ sub unpack_mobi_header
     carp($subname,"(): unknown encoding '",$retval{encoding},"'")
         unless($retval{encoding} ~~ @enckeys);
 
-    # Second chunk is 40 bytes of reserved data
+    # Second chunk is 40 bytes of reserved data, usually all 0xff
     $retval{reserved} = substr($headerdata,24,40);
-    debug(2,"DEBUG: reserved data: 0x",hexstring($retval{reserved}));
+    $hexstring = hexstring($retval{reserved});
+    debug(2,"DEBUG: reserved data: 0x",$hexstring)
+        if($hexstring ne ('ff' x 40));
 
-    # Third chunk is 16 bytes up to the next unknown block
-    $chunk = substr($headerdata,64,16);
-    @list = unpack("NNNxxcc",$chunk);
+    # Third chunk is 12 bytes up to the language block
+    $chunk = substr($headerdata,64,12);
+    @list = unpack("NNN",$chunk);
     $retval{nontextrecord} = $list[0];
     $retval{titleoffset}   = $list[1];
     $retval{titlelength}   = $list[2];
-    $retval{region}        = $list[3];
-    $retval{language}      = $list[4];
 
-    # Fourth chunk is 8 bytes of unknown data, often zeros
-    $chunk = substr($headerdata,80,8);
-    @list = unpack("NN",$chunk);
-    $retval{unknown80} = $list[0];
-    $retval{unknown84} = $list[1];
-    debug(2,"DEBUG: unknown data at offset 80: ",
-          sprintf("0x%04x 0x%04x",$retval{unknown80},$retval{unknown84}));
+    # Fourth chunk is 12 bytes containing the language codes
+    $chunk = substr($headerdata,76,12);
+    @list = unpack("nCCnCCnCC",$chunk);
+    $retval{unknownlanguage}       = $list[0];
+    $retval{region}                = $list[1];
+    $retval{language}              = $list[2];
+    $retval{unknowndilanguage}     = $list[3];
+    $retval{dictionaryinregion}    = $list[4];
+    $retval{dictionaryinlanguage}  = $list[5];
+    $retval{unknowndolanguage}     = $list[6];
+    $retval{dictionaryoutregion}   = $list[7];
+    $retval{dictionaryoutlanguage} = $list[8];
+    debug(2,"DEBUG: language codes: ",
+          sprintf("language=%02x, region=%02x, unknown=%04x",
+                  $retval{language},$retval{region},$retval{unknownlanguage}));
+    debug(2,"DEBUG: dictionary input language codes: ",
+          sprintf("language=%02x, region=%02x, unknown=%04x",
+                  $retval{dictionaryinlanguage},$retval{dictionaryinregion},
+                  $retval{unknowndilanguage}));
+    debug(2,"DEBUG: dictionary output language codes: ",
+          sprintf("language=%02x, region=%02x, unknown=%04x",
+                  $retval{dictionaryoutlanguage},$retval{dictionaryoutregion},
+                  $retval{unknowndolanguage}));
 
     # Fifth chunk is 8 bytes until next unknown block
     $chunk = substr($headerdata,88,8);
@@ -1850,11 +2163,14 @@ sub unpack_mobi_header
     $retval{unknown100} = $list[1];
     $retval{unknown104} = $list[2];
     $retval{unknown108} = $list[3];
-    debug(2,"DEBUG: unknown data at offset 96: ",
-          sprintf("0x%04x 0x%04x 0x%04x 0x%04x",
-                  $retval{unknown96},$retval{unknown100},
-                  $retval{unknown104},$retval{unknown108})
-        );
+    if($retval{unknown96} || $retval{unknown100}
+       || $retval{unknown104} || $retval{unknown108})
+    {
+        debug(2,"DEBUG: unknown data at offset 96: ",
+              sprintf("0x%08x 0x%08x 0x%08x 0x%08x",
+                      $retval{unknown96},$retval{unknown100},
+                      $retval{unknown104},$retval{unknown108}) );
+    }
 
     # Seventh and last chunk guaranteed to be present is the EXTH
     # bitfield
@@ -1874,14 +2190,43 @@ sub unpack_mobi_header
         debug(1,"DEBUG: Found DRM code ",sprintf("0x%08x",$retval{drmcode}));
     }
 
-    # Tenth and last possible chunk is unknown data lasting to the end
-    # of the header.
-    if($length >= 157)
+    # Tenth chunk is 20 bytes of unknown data, usually zeroes
+    if($length >= 176)
     {
-        $retval{unknown156} = substr($headerdata,156,$length-156);
-        debug(2,"DEBUG: Found ",$length-156,
+        $retval{unknown156} = substr($headerdata,156,20);
+        $hexstring = hexstring($retval{unknown156});
+        debug(2,"DEBUG: unknown data at offset 156: 0x",$hexstring)
+            if($hexstring ne ('00' x 20))
+    }
+
+    # Eleventh chunk is 2 16-bit values and 5 32-bit values, usually nonzero
+    if($length >= 200)
+    {
+        $chunk = substr($headerdata,176,24);
+        @list = unpack("nnNNNNN",$chunk);
+        $retval{unknown176} = $list[0];
+        $retval{unknown178} = $list[1];
+        $retval{unknown180} = $list[2];
+        $retval{unknown184} = $list[3];
+        $retval{unknown188} = $list[4];
+        $retval{unknown192} = $list[5];
+        $retval{unknown196} = $list[6];
+        debug(2,"DEBUG: unknown data at offset 176: ",
+              sprintf("0x%04x 0x%04x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x",
+                      $retval{unknown176},$retval{unknown178},
+                      $retval{unknown180},$retval{unknown184},
+                      $retval{unknown188},$retval{unknown192},
+                      $retval{unknown196}) );
+    }
+
+    # Last possible chunk is unknown data lasting to the end
+    # of the header.
+    if($length >= 201)
+    {
+        $retval{unknown200} = substr($headerdata,200,$length-200);
+        debug(2,"DEBUG: Found ",$length-200,
               " bytes of unknown final data in Mobipocket header");
-        debug(3,"       '",$retval{unknown156},"'");
+        debug(2,"       0x",hexstring($retval{unknown200}));
     }
 
     return %retval;
@@ -1920,7 +2265,7 @@ Possible values:
 
 =item ?? - HuffDic?
 
-=item 17480 - Mobipocket DRM
+=item 17480 - Mobipocket DRM?
 
 =back
 
@@ -1985,21 +2330,36 @@ sub unpack_palmdoc_header
 
 =over
 
+=item * DRM isn't handled.  Infrastructure to support this via an
+external plug-in module may eventually be built, but it will never
+become part of the main module for legal reasons.
+
 =item * Mobipocket HuffDic encoding (used mostly on dictionaries)
 isn't supported yet.
 
-=item * Not all Mobipocket EXTH records make the transition to OPF
-elements.  Most notably, Mobipocket-specific elements are likely to
-end up missing in the end result.
+=item * Not all Mobipocket data is understood, so a conversion from
+OPF to Mobipocket .prc back to OPF will not result in all data being
+retained.  Patches welcome.
 
-=item * Although unpack_mobi_exth() is prepared to deal with multiple
-EXTH records of the same type, unpack_mobi() isn't, and only the last
-record of a given type will be used.
+=item * Mobipocket EXTH subjectcode records may not end up attached to
+the correct subject element if the number of subject records differs
+from the number of subjectcode records.  This is because the
+Mobipocket format leaves the EXTH subjectcode records completely
+unlinked from the subject records, and there is no way to detect if a
+subject with no associated subjectcode comes before a subject with an
+associated subjectcode.
 
-=item * Bookmarks aren't supported. This is a weakness inherited from
-Palm::Doc, and will take a while to fix.
+Fortunately, this should rarely be a problem with real data, as
+Mobipocket Creator only allows a single subject to be set, and the
+only other way to have a subjectcode attached to a subject is to
+manually edit the OPF file and insert an additional dc:Subject element
+with a BASICCode attribute.
 
-=item * Unit tests are unwritten
+Mobipocket has indicated that they may move data currently in their
+custom elements and attributes to the standard <meta> elements in a
+future release, so this problem may become moot then.
+
+=item * Unit tests are incomplete
 
 =item * Documentation is incomplete.  Accessors in particular could
 use some cleaning up.
@@ -2010,6 +2370,9 @@ use some cleaning up.
 in this module dedicated to extracting information that it can't.  It
 may be better to split out that code into a dedicated module to
 replace Palm::Doc completely.
+
+=item * PDB Bookmarks aren't supported. This is a weakness inherited
+from Palm::Doc, and will take a while to fix.
 
 =item * Import/extraction/unpacking is currently limited to PalmDoc
 and Mobipocket.  Extraction from eReader and Microsoft Reader (.lit)
