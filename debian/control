@@ -1,0 +1,21 @@
+Source: libebook-tools-perl
+Section: perl
+Priority: optional
+Maintainer: Zed Pobre <zed@debian.org>
+Build-Depends: cdbs, debhelper (>= 6), perl (>= 5.8.8), libmodule-build-perl (>= 0.3000), libarchive-zip-perl, libdate-manip-perl, libfile-mimeinfo-perl, libhtml-parser-perl, liblist-moreutils-perl, libpalm-perl, libpalm-doc-perl, libtie-ixhash-perl, libtime-local-perl, libxml-twig-perl
+Standards-Version: 3.8.0
+Homepage: http://search.cpan.org/dist/EBook-Tools/
+
+Package: libebook-tools-perl
+Architecture: any
+Depends: perl (>= 5.8.8), libarchive-zip-perl, libdate-manip-perl, libfile-mimeinfo-perl, libhtml-parser-perl, liblist-moreutils-perl, libpalm-perl, libpalm-doc-perl, libtie-ixhash-perl, libtime-local-perl, libxml-twig-perl
+Description: E-Book manipulation tool and Perl libraries
+ EBook-Tools contains a library and a command-line tool for unpacking,
+ creating, correcting, and repacking electronic books.
+ .
+ Current native unpacking support is limited to PalmDoc, EReader, IMP,
+ and Mobipocket without DRM protection, though MS Reader (lit.) and
+ Mobipocket DRM is supported by automatic use of ConvertLIT and
+ MobiDeDRM if available.  The metadata correction tools are quite
+ extensive, however.  For more details, see the POD information on
+ EBook::Tools and EBook::Tools::Unpack.
