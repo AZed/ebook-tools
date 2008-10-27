@@ -66,7 +66,8 @@ my @metastruct_expected1 = (
     "dc:rights",
     "dc:subject",
     "dc:Subject",
-    "dc:identifier"
+    "dc:identifier",
+    "x-metadata",
     );
 
 my @metastruct_expected2 = (
@@ -92,7 +93,8 @@ my @metastruct_expected2 = (
     "dc:Rights",
     "dc:Subject",
     "dc:Subject",
-    "dc:Identifier"
+    "dc:Identifier",
+    "x-metadata",
     );
 
 my @metastruct_expected_opf20 = (
