@@ -160,5 +160,5 @@ t/mobi/mobitest.opf
 t/mobi/mobitest.prc
 t/mobi/test.html
 ebook.pl
-META.yml
 Makefile.PL
+META.yml
