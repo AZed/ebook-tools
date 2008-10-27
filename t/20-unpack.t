@@ -5,7 +5,7 @@ use EBook::Tools;
 use File::Basename qw(basename);
 use File::Copy;
 use File::Path;    # Exports 'mkpath' and 'rmtree'
-use Test::More tests => 22;
+use Test::More tests => 23;
 BEGIN { use_ok('EBook::Tools::Unpack') };
 
 my $cwd;
@@ -38,6 +38,9 @@ is($ebook->primary_author,'Zed 1 Pobre',
 @list = $ebook->contributor_list;
 is_deeply(\@list, ['Me Myself'],
           'mobitest.opf has correct contributors');
+@list = $ebook->isbn_list;
+is_deeply(\@list, ['0-9999-XXXX-1'],
+          'mobitest.opf has correct ISBNs');
 @list = $ebook->subject_list;
 is_deeply(\@list, ['Computing, Internet','Secondary subject','Education'],
    'mobitest.opf has correct subjects');
