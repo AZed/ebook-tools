@@ -7,7 +7,7 @@ binmode(STDERR,':utf8');
 
 # change 'tests => 1' to 'tests => last_test_to_print';
 
-use Test::More tests => 78;
+use Test::More tests => 79;
 binmode(Test::More->builder->failure_output,':utf8');
 use Cwd qw(chdir getcwd);
 use Data::Dumper;
@@ -194,10 +194,12 @@ is_deeply(\@manifest,['part1.html','missingfile.html','cover.jpg'],
 
 # primary_author()
 @list = $ebook2->primary_author();
-is($list[0],'Zed 1 Pobre',
-   'primary_author() finds correct text');
-is($list[1],'Pobre, Zed 1',
+is($list[0],'Pobre, Zed 1',
    'primary_author() finds correct file-as');
+is($list[1],'Zed 1 Pobre',
+   'primary_author() finds correct text');
+is($ebook2->primary_author(),'Zed 1 Pobre',
+   'primary_author() finds author in scalar context');
 
 # print_*
 ok($blank->print_errors,'print_errors() returns successfully');

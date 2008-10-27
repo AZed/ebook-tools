@@ -1,4 +1,4 @@
-﻿package EBook::Tools;
+package EBook::Tools;
 use warnings; use strict; use utf8;
 use 5.010; # Needed for smart-match operator
 require Exporter;
@@ -772,6 +772,55 @@ The following methods return data deeper in the structure than the
 auto-accessors, but still do not modify any object data or files.
 
 
+=head2 C<adult()>
+
+Returns the text of the Mobipocket-specific <Adult> element, if it
+exists.  Expected values are 'yes' and undef.
+
+=cut
+
+sub adult
+{
+    my $self = shift;
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+    $self->twigcheck;
+    
+    my $twigroot = $$self{twigroot};
+
+    my $element = $twigroot->first_descendant(qr/^adult$/ix);
+    return unless($element);
+
+    if($element->text) { return $element->text; }
+    else { return; }
+}
+
+
+=head2 C<description()>
+
+Returns the description of the e-book, if set, or undef otherwise.
+
+=cut
+
+sub description
+{
+    my $self = shift;
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+    $self->twigcheck;
+    
+    my $twigroot = $$self{twigroot};
+
+    my $element = $twigroot->first_descendant(qr/^dc:description$/ix);
+    return unless($element);
+
+    if($element->text) { return $element->text; }
+    else { return; }
+}
+
+
 =head2 C<errors()>
 
 Returns an arrayref containing any generated error messages.
@@ -1182,14 +1231,22 @@ opf:role="aut" or role="aut", or the first 'dc:creator' entry if no
 entries with either attribute can be found.  Entries must actually
 have text to be considered.
 
-Returns a two-item list, the first element of which is the text of the
-entry (the author name) and the second of which is the value of the
-'opf:file-as' or 'file-as' attribute where 'opf:file-as' is given
-precedence if both are present.
+Returns a two-item list, the first of which is the value of the
+'opf:file-as' or 'file-as' attribute (where 'opf:file-as' is given
+precedence if both are present), and the second element of which is
+the text of the entry (the author name).
+
+If called in scalar context, the text of the entry (the author name)
+is returned.
 
 If no entries are found, returns undef.
 
 Uses L</twigelt_is_author()> in the first half of the search.
+
+=head3 Example
+
+ my ($fileas, $author) = $ebook->primary_author;
+ my $author = $ebook->primary_author;
 
 =cut
 
@@ -1206,11 +1263,12 @@ sub primary_author
 
     $element = $twigroot->first_descendant(\&twigelt_is_author);
     $element = $twigroot->first_descendant(qr/dc:creator/ix) if(!$element);
-    return if(!$element);
-    return if(!$element->text);
+    carp("##DEBUG: primary_author not found") unless($element->text);
+    return unless($element);
+    return unless($element->text);
     $fileas = $element->att('opf:file-as');
     $fileas = $element->att('file-as') unless($fileas);
-    return ($element->text,$fileas);
+    return ($fileas,$element->text);
 }
 
 
@@ -1319,6 +1377,30 @@ sub publishers
     return unless(@pubs);
     return @pubs;
 }
+
+
+=head2 C<review()>
+
+Returns the text of the Mobipocket-specific <Review> element, if it
+exists.  Returns undef if one is not found.
+
+=cut
+
+sub review
+{
+    my $self = shift;
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+    $self->twigcheck;
+    
+    my $twigroot = $$self{twigroot};
+
+    my $element = $twigroot->first_descendant(qr/^review$/ix);
+    return unless($element);
+    return($element->text);
+}
+
 
 =head2 C<rights('id' => 'identifier')>
 
@@ -1676,12 +1758,12 @@ sub subject_list
     return @retval;
 }
 
+
 =head2 C<title()>
 
-Returns the title of the e-book, if set, or undef otherwise.  Note
-that this does not distinguish between a completely missing dc:title
-element (which means the OPF is invalid) and a dc:title element with
-no text.
+Returns the title of the e-book, or undef if no dc:title element
+(case-insensitive) exists.  If a dc:title element exists, but contains
+no text, returns an empty string.
 
 =cut
 
@@ -1695,11 +1777,9 @@ sub title
     
     my $twigroot = $$self{twigroot};
 
-    my $element = $twigroot->first_descendant(qr/dc:title/ix);
+    my $element = $twigroot->first_descendant(qr/^dc:title$/ix);
     return unless($element);
-
-    if($element->text) { return $element->text; }
-    else { return; }
+    return ($element->text || '');
 }
 
 
@@ -2113,6 +2193,168 @@ sub add_item   ## no critic (Always unpack @_ first)
 	);
 
     debug(2,"DEBUG[/",$subname,"]");
+    return 1;
+}
+
+
+=head2 add_metadata(%args)
+
+Creates a metadata element with the specified text, attributes, and parent.
+
+If a <dc-metadata> element exists underneath <metadata>, the language
+element will be created underneath the <dc-metadata> and any standard
+attributes will be created in OEB 1.2 format, otherwise the element is
+created underneath <metadata> in OPF 2.0 format.
+
+Returns 1 on success, returns undef if no gi or if no text was specified.
+
+=cut
+
+=head3 Arguments
+
+=over
+
+=item C<gi>
+
+The generic identifier (tag) of the metadata element to alter or
+create.  If not specified, the method sets an error and returns undef.
+
+=item C<parent>
+
+The generic identifier (tag) of the parent to use for any newly
+created element.  If not specified, defaults to 'dc-metadata' if
+'dc-metadata' exists underneath 'metadata', and 'metadata' otherwise.
+
+A newly created element will be created under the first element found
+with this gi.  A modified element will be moved under the first
+element found with this gi.
+
+Newly created elements will use OPF 2.0 attribute names if the parent
+is 'metadata' and OEB 1.2 attribute names otherwise.
+
+=item C<text>
+
+This specifies the element text to set.  If not specified, the method
+sets an error and returns undef.
+
+=item C<id> (optional)
+
+This specifies the ID to set on the element.  If set and the ID is
+already in use, a warning is logged and the ID is removed from the
+other location and assigned to the element.
+
+=item C<fileas> (optional)
+
+This specifies the file-as attribute to set on the element.
+
+=item C<role> (optional)
+
+This specifies the role attribute to set on the element.
+
+=item C<scheme> (optional)
+
+This specifies the scheme attribute to set on the element.
+
+=back
+
+=head3 Example
+
+ $retval = $ebook->add_metadata(gi => 'AuthorNonstandard',
+                                text => 'Element Text',
+                                id => 'customid',
+                                fileas => 'Text, Element',
+                                role => 'xxx',
+                                scheme => 'code');
+
+=cut
+
+sub add_metadata
+{
+    my $self = shift;
+    my (%args) = @_;
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(3,"DEBUG[",$subname,"]");
+    my %valid_args = (
+        'gi' => 1,
+        'parent' => 1,
+        'text' => 1,
+        'id' => 1,
+        'fileas' => 1,
+        'role' => 1,
+        'scheme' => 1,
+        );
+    foreach my $arg (keys %args)
+    {
+        croak($subname,"(): invalid argument '",$arg,"'")
+            if(!$valid_args{$arg});
+    }
+
+    my $gi = $args{gi};
+    unless($gi)
+    {
+        $self->add_error($subname,"(): no gi specified");
+        return;
+    }
+
+    my $text = $args{text};
+    unless($text)
+    {
+        $self->add_error($subname,"(): no text specified");
+        return;
+    }
+
+    my $newid = $args{id};
+    my $idelem;
+    my $element;
+    my $meta;
+    my $dcmeta;
+    my $parent;
+    my %dcatts;
+    
+    $self->fix_metastructure_basic();
+    $parent =  $$self{twigroot}->first_descendant(qr/^ $args{parent} $/ix)
+        if($args{parent});
+    $meta = $$self{twigroot}->first_child('metadata');
+    $dcmeta = $meta->first_child('dc-metadata');
+    $parent = $parent || $dcmeta || $meta;
+    if($parent->gi eq 'metadata')
+    {
+        %dcatts = (
+            'file-as' => 'opf:file-as',
+            'role' => 'opf:role',
+            'scheme' => 'opf:scheme',
+            );
+    }
+    else
+    {
+        %dcatts = (
+            'file-as' => 'file-as',
+            'role' => 'role',
+            'scheme' => 'scheme'
+        );
+    }
+
+    debug(2,"DEBUG: creating '",$gi,"' under <",$parent->gi,">");
+    $element = $parent->insert_new_elt('last_child',$gi);
+    $element->set_att($dcatts{'file-as'},$args{fileas})
+        if($args{fileas});
+    $element->set_att($dcatts{'role'},$args{role})
+        if($args{role});
+    $element->set_att($dcatts{'scheme'},$args{scheme})
+        if($args{scheme});
+    $element->set_text($text);
+
+    $idelem = $$self{twig}->first_elt("*[\@id='$newid']") if($newid);
+    if($idelem && $idelem->cmp($element) )
+    {
+        $self->add_warning(
+            $subname,"(): reassigning id '",$newid,
+            "' from a '",$idelem->gi,"' to a '",$element->gi,"'!"
+            );
+        $idelem->del_att('id');
+    }
+    $element->set_att('id' => $newid) if($newid);
     return 1;
 }
 
@@ -2760,7 +3002,7 @@ sub fix_metastructure_basic
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
-    debug(2,"DEBUG[",$subname,"]");
+    debug(3,"DEBUG[",$subname,"]");
     $self->twigcheck();
 
     my $twigroot = $$self{twigroot};
@@ -2771,7 +3013,7 @@ sub fix_metastructure_basic
 	debug(1,"DEBUG: creating <metadata>");
 	$metadata = $twigroot->insert_new_elt('first_child','metadata');
     }
-    debug(2,"DEBUG: moving <metadata> to be the first child of <package>");
+    debug(3,"DEBUG: moving <metadata> to be the first child of <package>");
     $metadata->move('first_child',$twigroot);
     return 1;
 }
@@ -2780,9 +3022,9 @@ sub fix_metastructure_basic
 =head2 C<fix_metastructure_oeb12()>
 
 Verifies the existence of <metadata>, <dc-metadata>, and <x-metadata>,
-creating the first two (but not <x-metadata>!) as needed, and making
-sure that <metadata> is a child of <package>, while <dc-metadata> and
-<x-metadata> are children of <metadata>.
+creating them as needed, and making sure that <metadata> is a child of
+<package>, while <dc-metadata> and <x-metadata> are children of
+<metadata>.
 
 Used in L</fix_oeb12()> and L</fix_mobi()>.
 
@@ -2793,7 +3035,7 @@ sub fix_metastructure_oeb12
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
-    debug(2,"DEBUG[",$subname,"]");
+    debug(3,"DEBUG[",$subname,"]");
     $self->twigcheck();
 
     my $twigroot = $$self{twigroot};
@@ -2823,18 +3065,20 @@ sub fix_metastructure_oeb12
 	$dcmeta->move('first_child',$metadata);
     }
 
-    # Make sure that x-metadata is a child of metadata, but don't
-    # create it if it is missing
+    # If <x-metadata> doesn't exist, create it
     $xmeta = $metadata->first_descendant('x-metadata');
-    if($xmeta)
+    if(! $xmeta)
     {
-        # Make sure x-metadata belongs to metadata
-        $parent = $xmeta->parent;
-        if($parent != $metadata)
-	{
-	    debug(2,"DEBUG: moving <x-metadata>");
-	    $xmeta->move('after',$dcmeta);
-	}
+        debug(2,"DEBUG: creating <x-metadata>");
+        $xmeta = $metadata->insert_new_elt('last_child','x-metadata');
+    }
+
+    # Make sure that x-metadata is a child of metadata
+    $parent = $xmeta->parent;
+    if($parent != $metadata)
+    {
+        debug(2,"DEBUG: moving <x-metadata>");
+        $xmeta->move('after',$dcmeta);
     }
     return 1;
 }
@@ -3058,8 +3302,6 @@ sub fix_oeb12
     $self->twigcheck();
     
     my $twigroot = $$self{twigroot};
-
-    # Make the twig conform to the OEB 1.2 standard
     my $metadata;
     my $dcmeta;
     my $xmeta;
@@ -3095,8 +3337,8 @@ sub fix_oeb12
         }
     }
     
-    # Deal with any remaining elements under <metadata> that don't
-    # match *-metadata
+    # Handle non-DC metadata, deleting <x-metadata> if it isn't
+    # needed.
     @elements = $metadata->children(qr/^(?!(?s:.*)-metadata)/x);
     if(@elements)
     {
@@ -3106,28 +3348,19 @@ sub fix_oeb12
 	    foreach my $el (@elements) { print {*STDERR} $el->gi," "; }
 	    print {*STDERR} "\n";
 	}
-	# Create x-metadata under metadata if necessary
-	if(! $xmeta)
-	{
-	    debug(1,"DEBUG: creating <x-metadata>");
-	    $xmeta = $metadata->insert_new_elt('last_child','x-metadata')
-	}
-
 	foreach my $el (@elements)
 	{
 	    $el->move('last_child',$xmeta);
 	}
     }
-
-    # Find any <meta> elements anywhere in the package and move them
-    # under <x-metadata>.  Force the tag to lowercase.
-
     @elements = $twigroot->children(qr/^meta$/ix);
     foreach my $el (@elements)
     {
         $el->set_gi(lc $el->gi);
         $el->move('last_child',$xmeta);
     }
+    @elements = $xmeta->children;
+    $xmeta->delete unless(@elements);
 
     # Fix <manifest> and <spine>
     $self->fix_manifest;
@@ -3138,12 +3371,10 @@ sub fix_oeb12
                               "http://openebook.org/dtds/oeb-1.2/oebpkg12.dtd",
                               "+//ISBN 0-9673008-1-9//DTD OEB 1.2 Package//EN");
     
-    # Remove <package> version attribute used in OPF 2.0
+    # Clean up <package>
     $twigroot->del_att('version');
-
-    # Set OEB 1.2 namespace attribute on <package>
-    $twigroot->set_att('xmlns' => 'http://openebook.org/namespaces/oeb-package/1.0/');
-    # Fix the package unique-identifier while we're here
+    $twigroot->set_att(
+        'xmlns' => 'http://openebook.org/namespaces/oeb-package/1.0/');
     $self->fix_packageid;
 
     $$self{spec} = $validspecs{'OEB12'};
@@ -3949,7 +4180,60 @@ sub save
 }
 
 
-=head2 set_date(%args)
+=head2 C<set_adult($bool)>
+
+Sets the Mobipocket-specific <Adult> element, creating or deleting it
+as necessary.  If C<$bool> is true, the text is set to 'yes'.  If it
+is defined but false, any existing elements are deleted.  If it is
+undefined, the method immediately returns.
+
+If a new element has to be created, L</fix_metastructure_oeb12> is
+called to ensure that <x-metadata> exists and the element is created
+under <x-metadata>, as Mobipocket elements are not recognized by
+Mobipocket's software when placed directly under <metadata>
+
+=cut
+
+sub set_adult
+{
+    my $self = shift;
+    my $adult = shift;
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+    $self->twigcheck;
+
+    return 1 unless(defined $adult);
+
+    my $xmeta;
+    my $element;
+    my @elements;
+
+    if($adult)
+    {
+        $element = $$self{twigroot}->first_descendant(qr/^adult$/ix);
+        unless($element)
+        {
+            $self->fix_metastructure_oeb12();
+            $xmeta = $$self{twigroot}->first_descendant('x-metadata');
+            $element = $xmeta->insert_new_elt('last_child','Adult');
+        }
+        $element->set_text('yes');
+    }
+    else
+    {
+        @elements = $$self{twigroot}->descendants(qr/^adult$/ix);
+        foreach my $el (@elements)
+        {
+            debug(2,"DEBUG: deleting <Adult> flag");
+            $el->delete;
+        }
+    }
+    return 1;
+}
+
+
+=head2 C<set_date(%args)>
 
 Sets the date metadata for a given event.  If more than one dc:date or
 dc:Date element is present with the specified event attribute, sets
@@ -4124,29 +4408,297 @@ sub set_description
         return;
     }
 
-    my $newid = $args{id};
-    my $idelem;
-    $idelem = $$self{twig}->first_elt("*[\@id='$newid']") if($newid);
-
     $self->fix_metastructure_basic();
     my $element = $$self{twigroot}->first_descendant(qr/^dc:description$/ix);
     my $meta = $$self{twigroot}->first_child('metadata');
     my $dcmeta = $meta->first_child('dc-metadata');
 
-    if(!$element && $dcmeta)
+    my $gi = ($dcmeta) ? 'dc:Description' : 'dc:description';
+    $self->set_metadata(gi => $gi,
+                        text => $text,
+                        id => $args{id});
+
+    return 1;
+}
+
+
+=head2 C<set_language(%args)>
+
+Sets the text and optionally the ID of the first dc:language element
+found (case-insensitive).  Creates the element if one did not exist.
+If a <dc-metadata> element exists underneath <metadata>, the language
+element will be created underneath the <dc-metadata> in OEB 1.2
+format, otherwise the title element is created underneath <metadata>
+in OPF 2.0 format.
+
+Returns 1 on success, returns undef if no text was specified.
+
+=head3 Arguments
+
+=over
+
+=item C<text>
+
+This specifies the language set as the text of the element.  If not
+specified, the method sets an error and returns undef.  This should be
+an IANA language code, and it will be lowercased before it is set.
+
+=item C<id> (optional)
+
+This specifies the ID to set on the element.  If set and the ID is
+already in use, a warning is logged and the ID is removed from the
+other location and assigned to the element.
+
+=back
+
+=head3 Example
+
+ $retval = $ebook->set_language('text' => 'en-us',
+                                'id' => 'langid');
+
+=cut
+
+sub set_language
+{
+    my $self = shift;
+    my (%args) = @_;
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+    my %valid_args = (
+        'text' => 1,
+        'id' => 1,
+        );
+    foreach my $arg (keys %args)
     {
-        $element = $dcmeta->insert_new_elt('last_child','dc:Description');
+        croak($subname,"(): invalid argument '",$arg,"'")
+            if(!$valid_args{$arg});
     }
-    elsif(!$element)
+
+    my $text = lc($args{text});
+    unless($text)
     {
-        $element = $meta->insert_new_elt('last_child','dc:description');
+        $self->add_error($subname,"(): no text specified");
+        return;
     }
-    $element->set_text($text);
+
+    $self->fix_metastructure_basic();
+    my $element = $$self{twigroot}->first_descendant(qr/^dc:language$/ix);
+    my $meta = $$self{twigroot}->first_child('metadata');
+    my $dcmeta = $meta->first_child('dc-metadata');
+
+    my $gi = ($dcmeta) ? 'dc:Language' : 'dc:language';
+    $self->set_metadata(gi => $gi,
+                        text => $text,
+                        id => $args{id});
+    return 1;
+}
+
+
+=head2 set_metadata(%args)
+
+Sets the text and optionally the ID of the first specified element
+type found (case-insensitive).  Creates the element if one did not
+exist (with the exact capitalization specified).
+
+If a <dc-metadata> element exists underneath <metadata>, the language
+element will be created underneath the <dc-metadata> and any standard
+attributes will be created in OEB 1.2 format, otherwise the element is
+created underneath <metadata> in OPF 2.0 format.
+
+Returns 1 on success, returns undef if no gi or if no text was specified.
+
+=cut
+
+=head3 Arguments
+
+=over
+
+=item C<gi>
+
+The generic identifier (tag) of the metadata element to alter or
+create.  If not specified, the method sets an error and returns undef.
+
+=item C<parent>
+
+The generic identifier (tag) of the parent to use for any newly
+created element.  If not specified, defaults to 'dc-metadata' if
+'dc-metadata' exists underneath 'metadata', and 'metadata' otherwise.
+
+A newly created element will be created under the first element found
+with this gi.  A modified element will be moved under the first
+element found with this gi.
+
+Newly created elements will use OPF 2.0 attribute names if the parent
+is 'metadata' and OEB 1.2 attribute names otherwise.
+
+=item C<text>
+
+This specifies the element text to set.  If not specified, the method
+sets an error and returns undef.
+
+=item C<id> (optional)
+
+This specifies the ID to set on the element.  If set and the ID is
+already in use, a warning is logged and the ID is removed from the
+other location and assigned to the element.
+
+=item C<fileas> (optional)
+
+This specifies the file-as attribute to set on the element.
+
+=item C<role> (optional)
+
+This specifies the role attribute to set on the element.
+
+=item C<scheme> (optional)
+
+This specifies the scheme attribute to set on the element.
+
+=back
+
+=head3 Example
+
+ $retval = $ebook->set_metadata(gi => 'AuthorNonstandard',
+                                text => 'Element Text',
+                                id => 'customid',
+                                fileas => 'Text, Element',
+                                role => 'xxx',
+                                scheme => 'code');
+
+=cut
+
+sub set_metadata
+{
+    my $self = shift;
+    my (%args) = @_;
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(3,"DEBUG[",$subname,"]");
+    my %valid_args = (
+        'gi' => 1,
+        'parent' => 1,
+        'text' => 1,
+        'id' => 1,
+        'fileas' => 1,
+        'role' => 1,
+        'scheme' => 1,
+        );
+    foreach my $arg (keys %args)
+    {
+        croak($subname,"(): invalid argument '",$arg,"'")
+            if(!$valid_args{$arg});
+    }
+
+    my $gi = $args{gi};
+    unless($gi)
+    {
+        $self->add_error($subname,"(): no gi specified");
+        return;
+    }
+
+    my $text = $args{text};
+    unless($text)
+    {
+        $self->add_error($subname,"(): no text specified");
+        return;
+    }
+
+    my $newid = $args{id};
+    my $idelem;
+    $idelem = $$self{twig}->first_elt("*[\@id='$newid']") if($newid);
+
+    my $element = $$self{twigroot}->first_descendant(qr/^ $gi $/ix);
+    my $meta;
+    my $dcmeta;
+    my $parent;
+    my %dcatts;
+    
+    $self->fix_metastructure_basic();
+    $parent =  $$self{twigroot}->first_descendant(qr/^ $args{parent} $/ix)
+        if($args{parent});
+    $meta = $$self{twigroot}->first_child('metadata');
+    $dcmeta = $meta->first_child('dc-metadata');
+    $parent = $parent || $dcmeta || $meta;
+    if($parent->gi eq 'metadata')
+    {
+        %dcatts = (
+            'file-as' => 'opf:file-as',
+            'role' => 'opf:role',
+            'scheme' => 'opf:scheme',
+            );
+    }
+    else
+    {
+        %dcatts = (
+            'file-as' => 'file-as',
+            'role' => 'role',
+            'scheme' => 'scheme'
+        );
+    }
+
+
+    if($element)
+    {
+        debug(2,"DEBUG: updating '",$gi,"'");
+        if($element->att('opf:file-as') && $args{fileas})
+        {
+            debug(3,"DEBUG:   setting opf:file-as '",$args{fileas},"'");
+            $element->set_att('opf:file-as',$args{fileas});
+        }
+        elsif($args{fileas})
+        {
+            debug(3,"DEBUG:   setting file-as '",$args{fileas},"'");
+            $element->set_att('file-as',$args{fileas});
+        }
+        if($element->att('opf:role') && $args{role})
+        {
+            debug(3,"DEBUG:   setting opf:role '",$args{role},"'");
+            $element->set_att('opf:role',$args{role});
+        }
+        elsif($args{role})
+        {
+            debug(3,"DEBUG:   setting role '",$args{role},"'");
+            $element->set_att('role',$args{role});
+        }
+        if($element->att('opf:scheme') && $args{scheme})
+        {
+            debug(3,"DEBUG:   setting opf:scheme '",$args{scheme},"'");
+            $element->set_att('opf:scheme',$args{scheme});
+        }
+        elsif($args{scheme})
+        {
+            debug(3,"DEBUG:   setting scheme '",$args{scheme},"'");
+            $element->set_att('scheme',$args{scheme});
+        }
+        debug(3,"DEBUG:   setting text");
+        $element->set_text($text);
+
+        unless($element->parent->gi eq $parent->gi)
+        {
+            debug(2,"DEBUG: moving <",$element->gi,"> under <",
+                  $parent->gi,">");
+            $element->move('last_child',$parent);
+        }
+    }
+    else
+    {
+        debug(2,"DEBUG: creating '",$gi,"' under <",$parent->gi,">");
+        $element = $parent->insert_new_elt('last_child',$gi);
+        $element->set_att($dcatts{'file-as'},$args{fileas})
+            if($args{fileas});
+        $element->set_att($dcatts{'role'},$args{role})
+            if($args{role});
+        $element->set_att($dcatts{'scheme'},$args{scheme})
+            if($args{scheme});
+        $element->set_text($text);
+    }
+
     if($idelem && $idelem->cmp($element) )
     {
         $self->add_warning(
             $subname,"(): reassigning id '",$newid,
-            "' from a '",$idelem->gi,"' element!"
+            "' from a '",$idelem->gi,"' to a '",$element->gi,"'!"
             );
         $idelem->del_att('id');
     }
@@ -4179,6 +4731,89 @@ sub set_opffile
         return;
     }
     $$self{opffile} = $filename;
+    return 1;
+}
+
+
+=head2 set_retailprice(%args)
+
+Sets the Mobipocket-specific <SRP> element (Suggested Retail Price),
+creating or deleting it as necessary.
+
+If a new element has to be created, L</fix_metastructure_oeb12> is
+called to ensure that <x-metadata> exists and the element is created
+under <x-metadata>, as Mobipocket elements are not recognized by
+Mobipocket's software when placed directly under <metadata>
+
+=head3 Arguments
+
+=over
+
+=item * C<text>
+
+The price to set as the text of the element.  If this is undefined,
+the method sets an error and returns undef.  If it is set but false,
+any existing <SRP> element is deleted.
+
+=item * C<currency> (optional)
+
+The value to set on the 'Currency' attribute.  If not provided,
+defaults to 'USD' (US Dollars)
+
+=back
+
+=cut
+
+sub set_retailprice
+{
+    my $self = shift;
+    my %args = @_;
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+    $self->twigcheck;
+
+    my %valid_args = (
+        'text' => 1,
+        'currency' => 1,
+        );
+
+    foreach my $arg (keys %args)
+    {
+        croak($subname,"(): invalid argument '",$arg,"'")
+            if(!$valid_args{$arg});
+    }
+    unless(defined $args{text})
+    {
+        $self->add_error($subname,"(): text not defined");
+        return;
+    }
+
+    my $xmeta;
+    my $element;
+    my @elements;
+
+    if($args{text})
+    {
+        $element = $$self{twigroot}->first_descendant(qr/^ SRP $/ix);
+        unless($element)
+        {
+            $self->fix_metastructure_oeb12();
+            $xmeta = $$self{twigroot}->first_descendant('x-metadata');
+            $element = $xmeta->insert_new_elt('last_child','SRP');
+        }
+        $element->set_text($args{text});
+        $element->set_att('Currency',$args{currency}) if($args{currency});
+    }
+    else
+    {
+        @elements = $$self{twigroot}->descendants(qr/^ SRP $/ix);
+        foreach my $el (@elements)
+        {
+            debug(2,"DEBUG: deleting <SRP>");
+            $el->delete;
+        }
+    }
     return 1;
 }
 
@@ -4398,6 +5033,76 @@ sub set_publisher
         $idelem->del_att('id');
     }
     $element->set_att('id' => $newid) if($newid);
+    return 1;
+}
+
+
+=head2 set_review(%args)
+
+Sets the text and optionally ID of the first <Review> element found
+(case-insensitive), creating the element if one did not exist.
+
+This is a Mobipocket-specific element and if it needs to be created it
+will always be created under <x-metadata> with
+L</fix_metastructure_oeb12()> called to ensure that <x-metadata>
+exists.
+
+Returns 1 on success, returns undef if no review text was specified
+
+=head3 Arguments
+
+=over
+
+=item C<text>
+
+This specifies the description to use as the text of the element.  If
+not specified, the method returns undef.
+
+=item C<id> (optional)
+
+This specifies the ID to set on the element.  If set and the ID is
+already in use, a warning is logged and the ID is removed from the
+other location and assigned to the element.
+
+=back
+
+=head3 Example
+
+ $retval = $ebook->set_review('text' => 'This book is perfect!',
+                              'id' => 'revid');
+
+=cut
+
+sub set_review
+{
+    my $self = shift;
+    my (%args) = @_;
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+    my %valid_args = (
+        'text' => 1,
+        'id' => 1,
+        );
+    foreach my $arg (keys %args)
+    {
+        croak($subname,"(): invalid argument '",$arg,"'")
+            if(!$valid_args{$arg});
+    }
+
+    my $text = $args{text};
+    unless($text)
+    {
+        $self->add_error($subname,"(): no text specified");
+        return;
+    }
+
+    $self->fix_metastructure_oeb12();
+    $self->set_metadata(gi => 'Review',
+                        parent => 'x-metadata',
+                        text => $args{text},
+                        id => $args{id});
+
     return 1;
 }
 
@@ -5977,6 +6682,9 @@ elements aren't allowed.
 
 =item * fix_languages() needs to convert language names into IANA
 language codes.
+
+=item * set_language() should add a warning if the text isn't a valid
+IANA language code.
 
 =item * NCX generation only generates from the spine.  It should be
 possible to use a TOC html file for generation instead.  In the long
