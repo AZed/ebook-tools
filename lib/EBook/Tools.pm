@@ -281,10 +281,10 @@ tie %dcelements12, 'Tie::IxHash', (
     "dc:identifier"  => "dc:Identifier",
     "dc:title"       => "dc:Title",
     "dc:creator"     => "dc:Creator",
+    "dc:contributor" => "dc:Contributor",
     "dc:subject"     => "dc:Subject",
     "dc:description" => "dc:Description",
     "dc:publisher"   => "dc:Publisher",
-    "dc:contributor" => "dc:Contributor",
     "dc:date"        => "dc:Date",
     "dc:type"        => "dc:Type",
     "dc:format"      => "dc:Format",
@@ -301,10 +301,10 @@ tie %dcelements20, 'Tie::IxHash', (
     "dc:identifier"  => "dc:identifier",
     "dc:title"       => "dc:title",
     "dc:creator"     => "dc:creator",
+    "dc:contributor" => "dc:contributor",
     "dc:subject"     => "dc:subject",
     "dc:description" => "dc:description",
     "dc:publisher"   => "dc:publisher",
-    "dc:contributor" => "dc:contributor",
     "dc:date"        => "dc:date",
     "dc:type"        => "dc:type",
     "dc:format"      => "dc:format",
@@ -794,6 +794,39 @@ sub adult
 
     if($element->text) { return $element->text; }
     else { return; }
+}
+
+
+=head2 C<contributor_list()>
+
+Returns a list containing the text of all dc:contributor elements
+(case-insensitive) or undef if none are found.
+
+In scalar context, returns the first contributor, not the last.
+
+=cut
+
+sub contributor_list
+{
+    my $self = shift;
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+    $self->twigcheck;
+
+    my @retval = ();
+    my $twigroot = $$self{twigroot};
+
+    my @elements = $twigroot->descendants(qr/dc:contributor/ix);
+    return unless(@elements);
+
+    foreach my $el (@elements)
+    {
+        push(@retval,$el->text) if($el->text);
+    }
+    return unless(@retval);
+    if(wantarray()) { return @retval; }
+    else { return $retval[0]; }
 }
 
 
@@ -1734,6 +1767,8 @@ sub spine_idrefs
 Returns a list containing the text of all dc:subject elements or undef
 if none are found.
 
+In scalar context, returns the first subject, not the last.
+
 =cut
 
 sub subject_list
@@ -1755,7 +1790,8 @@ sub subject_list
         push(@retval,$subject->text) if($subject->text);
     }
     return unless(@retval);
-    return @retval;
+    if(wantarray) { return @retval; }
+    else { return $retval[0]; }
 }
 
 
