@@ -825,8 +825,85 @@ sub contributor_list
         push(@retval,$el->text) if($el->text);
     }
     return unless(@retval);
-    if(wantarray()) { return @retval; }
+    if(wantarray) { return @retval; }
     else { return $retval[0]; }
+}
+
+
+=head2 C<date_list(%args)>
+
+Returns the text of all dc:date elements (case-insensitive) matching
+the specified attributes.
+
+In scalar context, returns the first match, not the last.
+
+Returns undef if no matches are found.
+
+=head3 Arguments
+
+=over
+
+=item * C<id> - 'id' attribute that must be matched exactly for the
+result to be added to the list
+
+=item * C<event> 'opf:event' or 'event' attribute that must be
+matched exactly for the result to be added to the list
+
+=over
+
+If both arguments are specified a value is added to the list if it
+matches either one (i.e. the logic is OR).
+
+=cut
+
+sub date_list
+{
+    my $self = shift;
+    my (%args) = @_;
+    my %valid_args = (
+        'id' => 1,
+        'event' => 1,
+        );
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+    $self->twigcheck();
+    foreach my $arg (keys %args)
+    {
+        croak($subname,"(): invalid argument '",$arg,"'")
+            if(!$valid_args{$arg});
+    }
+
+    my @elements = $$self{twigroot}->descendants(qr/^ dc:date $/ix);
+    my @list = ();
+    my $id;
+    my $scheme;
+    foreach my $el (@elements)
+    {
+        if($args{id})
+        {
+            $id = $el->att('id') || '';
+            if($id eq $args{id})
+            {
+                push(@list,$el->text);
+                next;
+            }
+        }
+        if($args{event})
+        {
+            $scheme = $el->att('opf:event') || $el->att('event') || '';
+            if($scheme eq $args{event})
+            {
+                push(@list,$el->text);
+                next;
+            }
+        }
+        next if($args{id} || $args{event});
+        push(@list,$el->text);
+    }
+    return unless(@list);
+    if(wantarray) { return @list; }
+    else { return $list[0]; }
 }
 
 
@@ -851,6 +928,114 @@ sub description
 
     if($element->text) { return $element->text; }
     else { return; }
+}
+
+
+=head2 C<element_list(%args)>
+
+Returns a list containing the text values of all elements matching the
+specified criteria.
+
+=head3 Arguments
+
+=over
+
+=item * C<cond>
+
+The L<XML::Twig> search condition used to find the elements.
+Typically this is just the GI (tag) of the element you wish to find,
+but it can also be a qr// expression, coderef, or anything else that
+XML::Twig can work with.  See the XML::Twig documentation for details.
+
+If this is not specified, an error is added and the method returns
+undef.
+
+=item * C<id> (optional)
+
+'id' attribute that must be matched exactly for the
+result to be added to the list
+
+=item * C<scheme> (optional)
+
+'opf:scheme' or 'scheme' attribute that must be
+matched exactly for the result to be added to the list
+
+=item * C<event> (optional)
+
+'opf:event' or 'event' attribute that must be matched exactly for the
+result to be added to the list
+
+=over
+
+If more than one of the arguments C<id>, C<scheme>, or C<event> are
+specified a value is added to the list if it matches any one (i.e. the
+logic is OR).
+
+=cut
+
+sub element_list
+{
+    my $self = shift;
+    my (%args) = @_;
+    my %valid_args = (
+        'cond' => 1,
+        'id' => 1,
+        'scheme' => 1,
+        );
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+    $self->twigcheck();
+    foreach my $arg (keys %args)
+    {
+        croak($subname,"(): invalid argument '",$arg,"'")
+            if(!$valid_args{$arg});
+    }
+    unless($args{cond})
+    {
+        $self->add_error($subname,"(): no search condition specified");
+        return;
+    }
+
+    my @elements = $$self{twigroot}->descendants($args{cond});
+    my @list = ();
+    my $id;
+    my $scheme;
+    foreach my $el (@elements)
+    {
+        if($args{id})
+        {
+            $id = $el->att('id') || '';
+            if($id eq $args{id})
+            {
+                push(@list,$el->text);
+                next;
+            }
+        }
+        if($args{event})
+        {
+            $scheme = $el->att('opf:event') || $el->att('event') || '';
+            if($scheme eq $args{event})
+            {
+                push(@list,$el->text);
+                next;
+            }
+        }
+        if($args{scheme})
+        {
+            $scheme = $el->att('opf:scheme') || $el->att('scheme') || '';
+            if($scheme eq $args{scheme})
+            {
+                push(@list,$el->text);
+                next;
+            }
+        }
+        next if($args{id} || $args{event} || $args{scheme});
+        push(@list,$el->text);
+    }
+    return unless(@list);
+    if(wantarray) { return @list; }
+    else { return $list[0]; }
 }
 
 
@@ -907,18 +1092,22 @@ elements are found.
 
 Returns undef if no matches are found.
 
+In scalar context returns the first match, not the last.
+
 See also L</isbns(%args)>.
 
 =head3 Arguments
 
-C<isbn_list()> takes two optional named arguments:
-
 =over
 
-=item * C<id> - 'id' attribute that must be matched exactly for the
+=item * C<id> (optional)
+
+'id' attribute that must be matched exactly for the
 result to be added to the list
 
-=item * C<scheme> 'opf:scheme' or 'scheme' attribute that must be
+=item * C<scheme> (optional)
+
+'opf:scheme' or 'scheme' attribute that must be
 matched exactly for the result to be added to the list
 
 =over
@@ -946,35 +1135,11 @@ sub isbn_list
             if(!$valid_args{$arg});
     }
 
-    my @elements = $$self{twigroot}->descendants(\&twigelt_is_isbn);
-    my @list = ();
-    my $id;
-    my $scheme;
-    foreach my $el (@elements)
-    {
-        if($args{id})
-        {
-            $id = $el->att('id') || '';
-            if($id eq $args{id})
-            {
-                push(@list,$el->text);
-                next;
-            }
-        }
-        if($args{scheme})
-        {
-            $scheme = $el->att('opf:scheme') || $el->att('scheme') || '';
-            if($scheme eq $args{scheme})
-            {
-                push(@list,$el->text);
-                next;
-            }
-        }
-        next if($args{id} || $args{scheme});
-        push(@list,$el->text);
-    }
+    my @list = $self->element_list(cond => \&twigelt_is_isbn,
+                                   %args);
     return unless(@list);
-    return @list;
+    if(wantarray) { return @list; }
+    else { return $list[0]; }
 }
 
 
@@ -989,6 +1154,8 @@ attribute, whichever is found first), and 'isbn' (containing the text
 of the element).
 
 If no entries are found, returns undef.
+
+In scalar context returns the first match, not the last.
 
 See also L</isbn_list(%args)>.
 
@@ -1073,7 +1240,37 @@ sub isbns
              });
     }
     return unless(@list);
-    return @list;
+    if(wantarray) { return @list; }
+    else { return $list[0]; }
+}
+
+
+=head2 C<languages()>
+
+Returns a list containing the text of all dc:language
+(case-insensitive) entries, or undef if none are found.
+
+In scalar context returns the first match, not the last.
+
+=cut
+
+sub languages
+{
+    my $self = shift;
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+    $self->twigcheck;
+
+    my @retval = ();
+    my @elements = $$self{twigroot}->descendants(qr/^dc:language$/ix);
+    foreach my $el (@elements)
+    {
+        push(@retval,$el->text) if($el->text);
+    }
+    return unless(@retval);
+    if(wantarray) { return @retval; }
+    else { return $retval[0]; }
 }
 
 
@@ -1083,6 +1280,8 @@ Returns all of the items in the manifest as a list of hashrefs, with
 one hash per manifest item in the order that they appear, where the
 hash keys are 'id', 'href', and 'media-type', each returning the
 appropriate attribute, if any.
+
+In scalar context, returns the first match, not the last.
 
 =head3 Arguments
 
@@ -1196,7 +1395,8 @@ sub manifest
                  'media-type' => $el->att('media-type')
              });
     }
-    return @retarray;
+    if(wantarray) { return @retarray; }
+    else { return $retarray[0]; }
 }
 
 
@@ -1204,6 +1404,8 @@ sub manifest
 
 Returns a list of all of the hrefs in the current OPF manifest, or the
 empty list if none are found.
+
+In scalar context returns the first href, not the last.
 
 See also: C<manifest()>, C<spine_idrefs()>
 
@@ -1234,7 +1436,8 @@ sub manifest_hrefs
 	push(@retval,$href) if($href);
     }
     debug(2,"DEBUG[/",$subname,"]");
-    return @retval;
+    if(wantarray) { return @retval; }
+    else { return $retval[0]; }
 }
 
 
@@ -1300,7 +1503,7 @@ sub primary_author
     return unless($element->text);
     $fileas = $element->att('opf:file-as');
     $fileas = $element->att('file-as') unless($fileas);
-    if(wantarray()) { return ($element->text, $fileas); }
+    if(wantarray) { return ($element->text, $fileas); }
     else { return $element->text; }
 }
 
@@ -1390,25 +1593,56 @@ sub print_opf
 Returns a list containing the text of all dc:publisher
 (case-insensitive) entries, or undef if none are found.
 
+In scalar context returns the first match, not the last.
+
 =cut
 
 sub publishers
 {
     my $self = shift;
-    my (%args) = @_;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
     $self->twigcheck;
 
     my @pubs = ();
-    my @elements = $$self{twigroot}->descendants(qr/^dc:publisher$/i);
+    my @elements = $$self{twigroot}->descendants(qr/^dc:publisher$/ix);
     foreach my $el (@elements)
     {
         push(@pubs,$el->text) if($el->text);
     }
     return unless(@pubs);
-    return @pubs;
+    if(wantarray) { return @pubs; }
+    else { return $pubs[0]; }
+}
+
+
+=head2 C<retailprice()>
+
+Returns a two-scalar list, the first scalar being the text of the
+Mobipocket-specific <SRP> element, if it exists, and the second being
+the 'Currency' attribute of that element, if it exists.
+
+In scalar context, returns just the text (price).
+
+Returns undef if the SRP element is not found.
+
+=cut
+
+sub retailprice
+{
+    my $self = shift;
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+    $self->twigcheck;
+    
+    my $twigroot = $$self{twigroot};
+
+    my $element = $twigroot->first_descendant(qr/^ SRP $/ix);
+    return unless($element);
+    if(wantarray) { return ($element->text,$element->att('Currency')); }
+    else { return $element->text };
 }
 
 
@@ -1431,7 +1665,7 @@ sub review
 
     my $element = $twigroot->first_descendant(qr/^review$/ix);
     return unless($element);
-    return($element->text);
+    return $element->text;
 }
 
 
@@ -1440,6 +1674,8 @@ sub review
 Returns a list containing the text of all of dc:rights or
 dc:copyrights (case-insensitive) entries in the e-book, or undef if
 none are found.
+
+In scalar context returns the first match, not the last.
 
 If the optional named argument 'id' is specified, it will only return
 entries where the id attribute matches the specified identifier.
@@ -1492,7 +1728,8 @@ sub rights
             if(scalar(@rights) > 1);
     }
     return unless(@rights);
-    return @rights;
+    if(wantarray) { return @rights; }
+    else { return $rights[0]; }
 }
 
 
@@ -1660,6 +1897,8 @@ hashrefs, with one hash per manifest item in the order that they
 appear, where the hash keys are 'id', 'href', and 'media-type', each
 returning the appropriate attribute, if any.
 
+In scalar context, returns the first item, not the last.
+
 Returns undef if there is no <spine> element directly underneath
 <package>, or if <spine> contains no itemrefs.  If <spine> exists, but
 <manifest> does not, or a spine itemref exists but points an ID not
@@ -1724,7 +1963,8 @@ sub spine
                  'media-type' => $element->att('media-type')
              });
     }
-    return @retarray;
+    if(wantarray) { return @retarray; }
+    else { return $retarray[0]; }
 }
 
 
@@ -1732,6 +1972,8 @@ sub spine
 
 Returns a list of all of the idrefs in the current OPF spine, or the
 empty list if none are found.
+
+In scalar context, returns the first idref, not the last.
 
 See also: L</spine()>, L</manifest_hrefs()>
 
@@ -1758,7 +2000,8 @@ sub spine_idrefs
 	$idref = $item->att('idref');
 	push(@retval,$idref) if($idref);
     }
-    return @retval;
+    if(wantarray) { return @retval; }
+    else { return $retval[0]; }
 }
 
 
