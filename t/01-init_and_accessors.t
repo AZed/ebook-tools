@@ -194,10 +194,10 @@ is_deeply(\@manifest,['part1.html','missingfile.html','cover.jpg'],
 
 # primary_author()
 @list = $ebook2->primary_author();
-is($list[0],'Pobre, Zed 1',
-   'primary_author() finds correct file-as');
-is($list[1],'Zed 1 Pobre',
+is($list[0],'Zed 1 Pobre',
    'primary_author() finds correct text');
+is($list[1],'Pobre, Zed 1',
+   'primary_author() finds correct file-as');
 is($ebook2->primary_author(),'Zed 1 Pobre',
    'primary_author() finds author in scalar context');
 

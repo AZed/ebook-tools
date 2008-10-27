@@ -1231,13 +1231,12 @@ opf:role="aut" or role="aut", or the first 'dc:creator' entry if no
 entries with either attribute can be found.  Entries must actually
 have text to be considered.
 
-Returns a two-item list, the first of which is the value of the
-'opf:file-as' or 'file-as' attribute (where 'opf:file-as' is given
-precedence if both are present), and the second element of which is
-the text of the entry (the author name).
+In list context, returns a two-item list, the first of which is the
+text of the entry (the author name), and the second element of which
+is the value of the 'opf:file-as' or 'file-as' attribute (where
+'opf:file-as' is given precedence if both are present).
 
-If called in scalar context, the text of the entry (the author name)
-is returned.
+In scalar context, returns the text of the entry (the author name).
 
 If no entries are found, returns undef.
 
@@ -1268,7 +1267,8 @@ sub primary_author
     return unless($element->text);
     $fileas = $element->att('opf:file-as');
     $fileas = $element->att('file-as') unless($fileas);
-    return ($fileas,$element->text);
+    if(wantarray()) { return ($element->text, $fileas); }
+    else { return $element->text; }
 }
 
 
