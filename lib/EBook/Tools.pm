@@ -57,6 +57,8 @@ both OEBPS v1.2 and OPS/OPF v2.0.
 
 =item Archive::Zip
 
+=item Data::UUID (or OSSP::UUID)
+
 =item Date::Manip
 
 Note that Date::Manip will die on MS Windows system unless the
@@ -6259,8 +6261,8 @@ sub split_metadata
 
     if(-z $htmlfile)
     {
-        carp("split_metadata(): HTML has zero size.",
-             "  Not replacing original.\n");
+        debug(1,"split_metadata(): HTML has zero size.",
+             "  Not replacing original.");
         unlink($htmlfile);
     }
     else
