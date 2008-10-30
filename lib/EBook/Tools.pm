@@ -6205,11 +6205,11 @@ sub split_metadata
     }
 
     debug(2,"  splitting '",$metahtmlfile,"'");
-    open($fh_metahtml,"<:utf8",$metahtmlfile)
+    open($fh_metahtml,"<:raw",$metahtmlfile)
 	or croak($subname,"(): Failed to open '",$metahtmlfile,"' for reading!");
-    open($fh_meta,">:utf8",$metafile)
+    open($fh_meta,">:raw",$metafile)
 	or croak($subname,"(): Failed to open '",$metafile,"' for writing!");
-    open($fh_html,">:utf8",$htmlfile)
+    open($fh_html,">:raw",$htmlfile)
 	or croak($subname,"(): Failed to open '",$htmlfile,"' for writing!");
 
 
