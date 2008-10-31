@@ -50,6 +50,7 @@ our @EXPORT_OK;
 use Carp;
 use EBook::Tools qw(debug);
 use File::Basename qw(fileparse);
+use HTML::TextToHTML;
 use Palm::PDB;
 use Palm::Raw();
 
@@ -156,6 +157,26 @@ sub text :method
     return $self->{text};
 }
 
+
+=head2 C<html()>
+
+Returns the text of the file converted to HTML via L<HTML::TextToHTML>.
+
+=cut
+
+sub html :method
+{
+    my $self = shift;
+    my $subname = ( caller(0) )[3];
+    debug(2,"DEBUG[",$subname,"]");
+
+    my $conv = HTML::TextToHTML->new();
+    my $header = "<html>\n<head>\n  <title>" . $self->{name} . "</title>\n";
+    $header   .= "</head>\n<body>\n";
+    my $footer = "</body>\n</html>\n";
+
+    return $header . $conv->process_chunk($self->{text}) . $footer;
+}
 
 ######################################
 ########## MODIFIER METHODS ##########

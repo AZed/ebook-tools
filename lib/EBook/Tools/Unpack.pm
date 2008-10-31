@@ -751,26 +751,11 @@ sub unpack_ereader :method
     debug(2,"DEBUG[",$subname,"]");
 
     my $pdb = EBook::Tools::EReader->new();
-    my @records;
     my $textname;
     my $fh_text;
     my $fh_data;
-    my %datahash;
-
-    my $reccount = 0; # The Record ID cannot be reliably used to identify 
-                      # the first record.  This increments as each
-                      # record is examined
-    my $nontextrec;
-    my $version;
-    my @list;
-    my @footnoteids = ();
-    my @footnotes = ();
-    
 
     $pdb->Load($$self{file});
-    @records = @{$pdb->{records}};
-    $version = $pdb->{header}->{version};
-    croak($subname,"(): no pdb records found!\n") unless(@records);
 
     $$self{datahashes}{ereader} = $pdb->{header};
     $$self{detected}{title}     = $pdb->{title};
@@ -805,6 +790,7 @@ sub unpack_ereader :method
         }
         close($fh_text)
             or croak($subname,"(): unable to close '",$textname,"'!\n");
+        $pdb->write_unknown_records if($$self{raw});
         $self->gen_opf(textfile => $textname);
     }
     return 1;
@@ -909,7 +895,6 @@ sub unpack_palmdoc :method
     my $pdb = EBook::Tools::PalmDoc->new();
     my ($outfile,$bookmarkfile,$fh);
     my %bookmarks;
-    $outfile = $self->filebase . ".txt";
     $bookmarkfile = $self->filebase . "-bookmarks.txt";
 
     $pdb->Load($filename);
@@ -925,15 +910,28 @@ sub unpack_palmdoc :method
     unless($$self{nosave})
     {
         $self->usedir;
-        open($fh,">:raw",$outfile)
-            or croak("Failed to open '",$outfile,"' for writing!");
-        print {*$fh} $pdb->text;
-        close($fh)
-            or croak("Failed to close '",$outfile,"'!");
+        if($$self{htmlconvert})
+        {
+            $outfile = $self->filebase . ".html";
+            open($fh,'>:utf8',$outfile)
+                or croak($subname,"(): unable to open '",$outfile,
+                         "' for writing!\n");
+            print {*$fh} $pdb->html;
+            close($fh)
+                or croak("Failed to close '",$outfile,"'!");
+        }
+        else
+        {
+            $outfile = $self->filebase . ".txt";
+            open($fh,">:raw",$outfile)
+                or croak("Failed to open '",$outfile,"' for writing!");
+            print {*$fh} $pdb->text;
+            close($fh)
+                or croak("Failed to close '",$outfile,"'!");
+        }   
 
         open($fh,">:raw",$bookmarkfile)
             or croak("Failed to open '",$bookmarkfile,"' for writing!");
-
         %bookmarks = $pdb->bookmarks;
         if(%bookmarks) 
         {
@@ -948,7 +946,7 @@ sub unpack_palmdoc :method
         $ebook->init_blank(opffile => $$self{opffile},
                            title => $$self{title},
                            author => $$self{author});
-        $ebook->add_document($outfile,'text-main','text/plain');
+        $ebook->add_document($outfile,'text-main');
         $ebook->save;
     }
     return $$self{opffile};

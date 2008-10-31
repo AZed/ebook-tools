@@ -28,24 +28,25 @@ use Getopt::Long qw(:config bundling);
 #####################################
 
 my %opt = (
-    'author'     => '',
-    'dir'        => '',
-    'fileas'     => '',
-    'filename'   => '',
-    'help'       => 0,
-    'id'         => '',
-    'mimetype'   => '',
-    'mobi'       => 0,
-    'nosave'     => 0,
-    'oeb12'      => 0,
-    'opf20'      => 0,
-    'opffile'    => '',
-    'raw'        => 0,
-    'tidy'       => 0,
-    'tidycmd'    => '',
-    'tidysafety' => 1,
-    'title'      => '',
-    'verbose'    => 0,
+    'author'      => '',
+    'dir'         => '',
+    'fileas'      => '',
+    'filename'    => '',
+    'help'        => 0,
+    'htmlconvert' => 0,
+    'id'          => '',
+    'mimetype'    => '',
+    'mobi'        => 0,
+    'nosave'      => 0,
+    'oeb12'       => 0,
+    'opf20'       => 0,
+    'opffile'     => '',
+    'raw'         => 0,
+    'tidy'        => 0,
+    'tidycmd'     => '',
+    'tidysafety'  => 1,
+    'title'       => '',
+    'verbose'     => 0,
     );
 
 GetOptions(
@@ -55,6 +56,7 @@ GetOptions(
     'fileas=s',
     'filename|file|f=s',
     'help|h|?',
+    'htmlconvert',
     'id=s',
     'mimetype|mtype=s',
     'mobi|m',
@@ -693,6 +695,11 @@ The unpacking routines should autodetect the type of book under normal
 conditions.  If autodetection fails, a format can be forced here.  See
 L<EBook::Tools::Unpack> for a list of available formats.
 
+=item C<--htmlconvert>
+
+Attempt to convert the extracted text to HTML.  This is obviously only
+of value if the format doesn't use HTML normally.
+
 =item C<--raw>
 
 This causes a lot of raw, unparsed, unmodified data to be dumped into
@@ -799,6 +806,7 @@ sub unpack
         'file' => $filename,
         'dir' => $dir,
         'format' => $opt{format},
+        'htmlconvert' => $opt{htmlconvert},
         'raw' => $opt{raw},
         'author' => $opt{author},
         'title' => $opt{title},
@@ -853,6 +861,10 @@ sub useoptdir ()
 =head1 BUGS/TODO
 
 =over
+
+=item * Need to implement a one-pass conversion from one format to
+another.  This will wait until more formats are supported by the
+underlying modules, however.
 
 =item * documentation is incomplete
 
