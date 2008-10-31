@@ -3,7 +3,7 @@ use warnings; use strict; use utf8;
 use 5.010; # Needed for smart-match operator
 require Exporter;
 use base qw(Exporter);
-use version; our $VERSION = qv("0.1.0");
+use version; our $VERSION = qv("0.1.1");
 # $Revision $ $Date $
 
 
@@ -36,9 +36,9 @@ or, more simply:
  $unpacker->unpack;
 
 
-=head2 DEPENDENCIES
+=head1 DEPENDENCIES
 
-=head3 Perl Modules
+=head2 Perl Modules
 
 =over
 
@@ -50,72 +50,27 @@ or, more simply:
 
 =item * C<P5-Palm>
 
-=item * C<Palm::Doc>
-
 =back
 
 =cut
 
 
 use Carp;
-use EBook::Tools qw(debug split_metadata system_tidy_xhtml);
+use Compress::Zlib;
+use EBook::Tools qw(debug hexstring split_metadata system_tidy_xhtml);
+use EBook::Tools::EReader qw(cp1252_to_pml pml_to_html);
+use EBook::Tools::Mobipocket;
+use EBook::Tools::PalmDoc qw(uncompress_palmdoc);
 use Encode;
 use Fcntl qw(SEEK_CUR SEEK_SET);
 use File::Basename qw(dirname fileparse);
 use File::Path;     # Exports 'mkpath' and 'rmtree'
-use HTML::TreeBuilder;
 use Image::Size;
-use List::MoreUtils qw(uniq);
 use Palm::PDB;
-use Palm::Doc;
-#use Palm::Raw;
 
 our @EXPORT_OK;
 @EXPORT_OK = qw (
-    &hexstring
     );
-
-our %exthtypes = (
-    1 => 'drm_server_id',
-    2 => 'drm_commerce_id',
-    3 => 'drm_ebookbase_book_id',
-    100 => 'author',
-    101 => 'publisher',
-    102 => 'imprint',
-    103 => 'description',
-    104 => 'isbn',
-    105 => 'subject',
-    106 => 'publicationdate',
-    107 => 'review',
-    108 => 'contributor',
-    109 => 'rights',
-    110 => 'subjectcode',
-    111 => 'type',
-    112 => 'source',
-    113 => 'asin',
-    114 => 'versionnumber',
-    115 => 'sample',
-    116 => 'startreading',
-    117 => 'adult',
-    118 => 'retailprice',
-    119 => 'currency',
-    120 => '120',
-    201 => 'coveroffset',
-    202 => 'thumboffset',
-    203 => 'hasfakecover',
-    204 => '204',
-    205 => '205',
-    206 => '206',
-    207 => '207',
-    300 => '300',
-    401 => 'clippinglimit',
-    402 => 'publisherlimit',
-    403 => '403',
-    501 => 'cdetype',
-    502 => 'lastupdatetime',
-    503 => 'updatedtitle',
-    );
-
 
 our %mobilangcode;
 $mobilangcode{0}{0}   = undef;
@@ -291,6 +246,7 @@ our %palmdbcodes = (
     'BVokBDIC' => 'bdicty',
     'DB99DBOS' => 'db',
     'PNPdPPrs' => 'ereader',
+    'PNRdPPrs' => 'ereader',
     'vIMGView' => 'fireviewer',
     'PmDBPmDB' => 'handbase',
     'InfoINDB' => 'infoview',
@@ -321,15 +277,11 @@ our %pdbcompression = (
     17480 => 'Mobipocket DRM',
     );
 
-our %pdbencoding = (
-    '1252' => 'Windows-1252',
-    '65001' => 'UTF-8',
-    );
-
 our %unpack_dispatch = (
-    'palmdoc' => \&unpack_palmdoc,
-    'aportisdoc' => \&unpack_palmdoc,
+    'ereader'    => \&unpack_ereader,
     'mobipocket' => \&unpack_mobi,
+    'palmdoc'    => \&unpack_palmdoc,
+    'aportisdoc' => \&unpack_palmdoc,
     );
 
 my %record_links;
@@ -427,6 +379,7 @@ my @fields = (
     'encoding',
     'format',
     'formatinfo',
+    'htmlconvert',
     'raw',
     'key',
     'keyfile',
@@ -458,6 +411,7 @@ sub new   ## no critic (Always unpack @_ first)
         'key' => 1,
         'keyfile' => 1,
         'format' => 1,
+        'htmlconvert' => 1,
         'raw' => 1,
         'author' => 1,
         'language' => 1,
@@ -488,6 +442,7 @@ sub new   ## no critic (Always unpack @_ first)
     $self->{title} = $args{title} if($args{title});
     $self->{datahashes} = {};
     $self->{detected} = {};
+    $self->{htmlconvert} = $args{htmlconvert};
     $self->{raw} = $args{raw};
     $self->{tidy} = $args{tidy};
     $self->{nosave} = $args{nosave};
@@ -649,6 +604,7 @@ sub detect_format :method
     sysseek($fh,60,SEEK_SET);
     sysread($fh,$ident,8);
 
+    debug(3,"DEBUG: $ident");
     if($palmdbcodes{$ident})
     {
         $$self{format} = $palmdbcodes{$ident};
@@ -701,6 +657,7 @@ sub detect_from_mobi_headers :method
     my $dilanguage; # <DictionaryInLanguage>
     my $dolanguage; # <DictionaryOutLanguage>
     my $data;
+    my %exthtypes = %EBook::Tools::Mobipocket::exthtypes;
 
     my %exth_is_int = (
         114 => 'versionnumber',
@@ -923,7 +880,6 @@ sub gen_opf :method
 
     my @test = [ '1', '2' ];
     my $testref = \@test;
-    debug(1,"##DEBUG: testref->[0]=",ref $testref->[0]);
 
     croak($subname,"(): could not determine OPF filename\n")
         unless($opffile);
@@ -1017,21 +973,6 @@ sub gen_opf :method
                                scheme => 'ISBN')
     }
 
-    $detected = $$self{detected}{isbn};
-    if( $detected && (ref($detected) eq 'ARRAY') )
-    {
-        foreach my $text (@$detected)
-        {
-            $ebook->add_identifier(text => $text,
-                                   scheme => 'ISBN');
-        }
-    }
-    elsif($detected)
-    {
-        $ebook->add_identifier(text => $detected,
-                               scheme => 'ISBN')
-    }
-
     $detected = $$self{detected}{subject};
     if( $detected && (ref($detected) eq 'ARRAY') )
     {
@@ -1104,6 +1045,79 @@ sub unpack :method
 }
 
 
+=head2 C<unpack_ereader()>
+
+Unpacks Fictionwise/PeanutPress eReader (-er.pdb) files.
+
+=cut
+
+sub unpack_ereader :method
+{
+    my $self = shift;
+    my $subname = ( caller(0) )[3];
+    debug(2,"DEBUG[",$subname,"]");
+
+    my $pdb = EBook::Tools::EReader->new();
+    my @records;
+    my $textname;
+    my $fh_text;
+    my $fh_data;
+    my %datahash;
+
+    my $reccount = 0; # The Record ID cannot be reliably used to identify 
+                      # the first record.  This increments as each
+                      # record is examined
+    my $nontextrec;
+    my $version;
+    my @list;
+    my @footnoteids = ();
+    my @footnotes = ();
+    
+
+    $pdb->Load($$self{file});
+    @records = @{$pdb->{records}};
+    $version = $pdb->{header}->{version};
+    croak($subname,"(): no pdb records found!\n") unless(@records);
+
+    $$self{datahashes}{ereader} = $pdb->{header};
+    $$self{detected}{title}     = $pdb->{title};
+    $$self{detected}{author}    = $pdb->{author};
+    $$self{detected}{rights}    = $pdb->{rights};
+    $$self{detected}{publisher} = $pdb->{publisher};
+    $$self{detected}{isbn}      = $pdb->{isbn};
+    debug(1,"DEBUG: PDB title: '",$$self{detected}{title},"'");
+    debug(1,"DEBUG: PDB author: '",$$self{detected}{author},"'");
+    debug(1,"DEBUG: PDB copyright: '",$$self{detected}{rights},"'");
+    debug(1,"DEBUG: PDB publisher: '",$$self{detected}{publisher},"'");
+    debug(1,"DEBUG: PDB ISBN: '",$$self{detected}{isbn},"'");
+
+    if($$self{htmlconvert}) { $textname = $self->filebase . ".html"; }
+    else { $textname = $self->filebase . ".pml"; }
+    unless($$self{nosave})
+    {
+        $self->usedir;
+        if($$self{htmlconvert})
+        {
+            open($fh_text,'>:utf8',$textname)
+                or croak($subname,"(): unable to open '",$textname,
+                         "' for writing!\n");
+            print {*$fh_text} $pdb->html;
+        }
+        else
+        {
+            open($fh_text,'>:raw',$textname)
+                or croak($subname,"(): unable to open '",$textname,
+                         "' for writing!\n");
+            print {*$fh_text} $pdb->pml;
+        }
+        close($fh_text)
+            or croak($subname,"(): unable to close '",$textname,"'!\n");
+        $self->gen_opf(textfile => $textname);
+    }
+    return 1;
+}
+
+
 =head2 C<unpack_mobi()>
 
 Unpacks Mobipocket (.prc / .mobi) files.
@@ -1116,11 +1130,10 @@ sub unpack_mobi :method
     my $subname = ( caller(0) )[3];
     debug(2,"DEBUG[",$subname,"]");
 
-    my $pdb = Palm::Doc->new();
+    my $mobi = EBook::Tools::Mobipocket->new();
     my @records;
     my $data;
     my $opffile;
-    my $text;
     my @list;    # Generic temporary list storage
 
     # Used for extracting images
@@ -1138,95 +1151,33 @@ sub unpack_mobi :method
     my $reccount = 0; # The Record ID cannot be reliably used to identify 
                       # the first record.  This increments as each
                       # record is examined
-    my $imgindex = 1; # Image index used to keep track of which image
-                      # record maps to which link.  This has to start
-                      # at 1 to match what mobipocket does with the
-                      # recindex attributes in the text
 
-    $pdb->Load($$self{file});
+    $mobi->Load($$self{file});
     $self->usedir unless($$self{nosave});
 
-    @records = @{$pdb->{records}};
+    @records = @{$mobi->{records}};
     croak($subname,"(): no pdb records found!") unless(@records);
 
-    # Factor out this entire block?
-    foreach my $rec (@records)
-    {
-        my $idstring = sprintf("%04d",$rec->{id});
-        debug(3,"DEBUG: parsing record ",$idstring);
-        $data = $rec->{data};
-        if($reccount == 0)
-        {
-            $self->unpack_mobi_record0($data);
-            if($$self{datahashes}{mobi}{imagerecord})
-            {
-                $firstimagerec = $$self{datahashes}{mobi}{imagerecord};
-            }
-        }
-        elsif($reccount >= $firstimagerec)
-        { 
-            ($imagex,$imagey,$imagetype) = imgsize(\$data);
-        }
-
-        if(defined($imagex) && $imagetype)
-        {
-            $imagename = 
-                $self->filebase . '-' . $idstring . '.' . lc($imagetype);
-            debug(1,"DEBUG: unpacking image '",$imagename,
-                  "' (",$imagex," x ",$imagey,")");
-            unless($$self{nosave})
-            {
-                open($fh_image,">",$imagename)
-                    or croak("Unable to open '",$imagename,"' to write image!");
-                binmode($fh_image);
-                print {*$fh_image} $data;
-                close($fh_image)
-                    or croak("Unable to close image file '",$imagename,"'");
-            }
-            $record_links{$imgindex} = $imagename;
-            $imgindex++;
-        }
-        elsif($$self{raw})  # Dump non-image records as well
-        {
-            unless($$self{nosave})
-            {
-                debug(1,"Dumping raw record #",$idstring);
-                $rawname = "raw-record." . $idstring;
-                open($fh_raw,">",$rawname)
-                    or croak("Unable to open '",$rawname,"' to write raw record!");
-                binmode($fh_raw);
-                print {*$fh_raw} $data;
-                close($fh_raw)
-                    or croak("Unable to close raw record file '",$rawname,"'");
-            }
-        }
-        $reccount++;
-    } # foreach my $rec (@records)
-
-    $text = $pdb->text;
-    croak($subname,"(): found no text in '",$$self{file},"'!")
-        unless($text);
-
-    fix_mobi_html('textref' => \$text,
-                  'filename' => $htmlname,
-                  'encoding' => $$self{encoding} )
-        unless($$self{raw});
-
-
+    $$self{datahashes}{palm} = $mobi->{header}{palm};
+    $$self{datahashes}{mobi} = $mobi->{header}{mobi};
+    $$self{datahashes}{mobiexth} = $mobi->{header}{exth};
+    $$self{detected}{title} = $mobi->{title};
     $self->detect_from_mobi_headers();
+    
+    if($$self{raw} && !$$self{nosave})
+    {
+        $mobi->write_unknown_records();
+    }
+
+    croak($subname,"(): found no text in '",$$self{file},"'!")
+        unless($mobi->{text});
+
+    $mobi->fix_html(filename => $htmlname) unless($$self{raw});
 
     unless($$self{nosave})
     {
-        open($fh_html,">",$htmlname);
-        if($$self{encoding} == 65001) { binmode($fh_html,":utf8"); }
-        else { binmode($fh_html); }
-        debug(1,"DEBUG: writing corrected text to '",$htmlname,"'");
-        print {*$fh_html} $text;
-        close($fh_html);
-        
-        croak($subname,"(): unpack failed to generate any text")
-            if(-z $htmlname);
-
+        $mobi->write_text($htmlname);
+        $mobi->write_images();
         $self->gen_opf(textfile => $htmlname);
 
         if($$self{tidy})
@@ -1235,98 +1186,6 @@ sub unpack_mobi :method
             system_tidy_xhtml($htmlname);
         }
     }
-    return 1;
-}
-
-
-=head2 unpack_mobi_record0($data)
-
-Converts the information in the header data of PDB record 0 to entries
-inside the C<datahashes> attribute.
-
-=head3 Keys
-
-The following keys are added to C<datahashes>:
-
-=over
-
-=item * C<palm>
-
-Information from L</unpack_palmdoc_header()>
-
-=item * C<mobi>
-
-Information from L</unpack_mobi_header()>
-
-=item * C<mobiexth>
-
-Information from L</unpack_mobi_exth()>
-
-=back
-
-=cut
-
-sub unpack_mobi_record0 :method
-{
-    my $self = shift;
-    my $data = shift;
-    my $subname = ( caller(0) )[3];
-    debug(2,"DEBUG[",$subname,"]");
-
-    my $headerdata;  # used for holding temporary data segments
-    my $headersize;  # size of variable-length header data
-    my %headerpalm;
-    my %headermobi;
-    my @headerexth;
-
-    my @list;
-
-    # First 16 bytes are a slightly modified palmdoc header
-    # See http://wiki.mobileread.com/wiki/MOBI
-    $headerdata = substr($data,0,16);
-    %headerpalm = unpack_palmdoc_header($headerdata);
-    
-    # Find out how long the Mobipocket header actually is
-    $headerdata = substr($data,16,8);
-    @list = unpack("a4N",$headerdata);
-    croak($subname,
-          "(): Unrecognized Mobipocket header ID '",$list[0],
-          "' (expected 'MOBI')")
-        unless($list[0] eq 'MOBI');
-    $headersize = $list[1];
-    croak($subname,"(): unable to determine Mobipocket header size")
-        unless($list[1]);
-    
-    # Unpack the full Mobipocket header
-    $headerdata = substr($data,16,$headersize);
-    %headermobi = unpack_mobi_header($headerdata);
-    
-    if($headermobi{exthflags} & 0x040) # If bit 6 is set, EXTH exists
-    {
-        debug(2,"DEBUG: Unpacking EXTH data");
-        $headerdata = substr($data,$headersize+16);
-        @headerexth = unpack_mobi_exth($headerdata);
-    }
-    
-    if($headermobi{titleoffset} && $headermobi{titlelength})
-    {
-        # This is a better guess at the title than the one
-        # derived from $pdb->name
-        $$self{detected}{title} = 
-            substr($data,$headermobi{titleoffset},$headermobi{titlelength});
-        debug(1,"DEBUG: Extracted title '",$$self{detected}{title},"'");
-    }
-    
-    $$self{datahashes}{palm} = \%headerpalm;
-    $$self{datahashes}{mobi} = \%headermobi;
-    $$self{datahashes}{mobiexth} = \@headerexth;
-
-    croak($subname,"(): DRM code ",
-          sprintf("0x%08x",$headermobi{drmcode}),
-          " found, but DRM is not supported.\n")
-        if($headermobi{drmcode}
-           && ($headermobi{drmcode} != hex("0xffffffff")) );
-
     return 1;
 }
 
@@ -1346,9 +1205,11 @@ sub unpack_palmdoc :method
     my $filename = $$self{file};
 
     my $ebook = EBook::Tools->new();
-    my $pdb = Palm::Doc->new();
-    my ($outfile,$fh_outfile);
+    my $pdb = EBook::Tools::PalmDoc->new();
+    my ($outfile,$bookmarkfile,$fh);
+    my %bookmarks;
     $outfile = $self->filebase . ".txt";
+    $bookmarkfile = $self->filebase . "-bookmarks.txt";
 
     $pdb->Load($filename);
     debug(2,"DEBUG: PalmDoc Name: ",$pdb->{'name'});
@@ -1363,11 +1224,25 @@ sub unpack_palmdoc :method
     unless($$self{nosave})
     {
         $self->usedir;
-        open($fh_outfile,">:utf8",$outfile)
+        open($fh,">:raw",$outfile)
             or croak("Failed to open '",$outfile,"' for writing!");
-        print {*$fh_outfile} $pdb->text;
-        close($fh_outfile)
+        print {*$fh} $pdb->text;
+        close($fh)
             or croak("Failed to close '",$outfile,"'!");
+
+        open($fh,">:raw",$bookmarkfile)
+            or croak("Failed to open '",$bookmarkfile,"' for writing!");
+
+        %bookmarks = $pdb->bookmarks;
+        if(%bookmarks) 
+        {
+            foreach my $offset (sort {$a <=> $b} keys %bookmarks)
+            {
+                print {*$fh} $offset,"\t",$bookmarks{$offset},"\n";
+            }
+            close($fh)
+                or croak("Failed to close '",$bookmarkfile,"'!");
+        }
 
         $ebook->init_blank(opffile => $$self{opffile},
                            title => $$self{title},
@@ -1413,916 +1288,8 @@ finalized, none are even exportable.
 
 Consider these to be private subroutines and use at your own risk.
 
-=head2 fix_mobi_html(%args)
-
-Takes raw Mobipocket output text and replaces the custom tags and file
-position anchors
-
-=head3 Arguments
-
-=over
-
-=item * C<textref>
-
-A reference to the raw document text.  The procedure croaks if this is
-not supplied.
-
-=item * C<encoding>
-
-The encoding of the raw document text.  Valid values are '1252'
-(Windows-1252) and '65001' (UTF-8).  If not specified, '1252' will be
-assumed.
-
-=item * C<filename>
-
-The name of the output HTML file (used in generating hrefs).  The
-procedure croaks if this is not supplied.
-
-=item * C<nonewlines>
-
-If this is set to true, the procedure will not attempt to insert
-newlines for readability.  This will leave the output in a single
-unreadable line, but has the advantage of reducing the processing
-time, especially useful if tidy is going to be run on the output
-anyway.
-
-=back
-
 =cut
 
-sub fix_mobi_html
-{
-    my (%args) = @_;
-
-    my $subname = ( caller(0) )[3];
-    debug(2,"DEBUG[",$subname,"]");
-    my %valid_args = (
-        'textref' => 1,
-        'encoding' => 1,
-        'filename' => 1,
-        'nonewlines' => 1,
-        );
-    foreach my $arg (keys %args)
-    {
-        croak($subname,"(): invalid argument '",$arg,"'")
-            if(!$valid_args{$arg});
-    }
-    my $html = $args{textref};
-    my $filename = $args{filename};
-    my $encoding = $args{encoding} || 1252;
-    croak($subname,"(): no text supplied")
-        unless($$html);
-    croak($subname,"(): no filename supplied")
-        unless($filename);
-    croak($subname,"(): textref must be a reference")
-        unless(ref $html);
-
-    my $tree;
-    my @elements;
-    my $recindex;
-    my $link;
-
-    # The very first thing that has to be done is map out all of the
-    # filepos references and generate anchors at the referenced
-    # positions.  This must be done first because any other
-    # modifications to the text will invalidate those positions.
-    my @filepos = ($$html =~ /filepos="?([0-9]+)/gix);
-    my $length = length($$html);
-    my $atpos;
-
-    debug(1,"DEBUG: creating filepos anchors");
-    foreach my $pos (uniq reverse sort @filepos)
-    {
-        # First, see if we're pointing to a position outside the text
-        if($pos >= $length-4)
-        {
-            debug(1,"DEBUG: filepos ",$pos," outside text, skipping");
-            next;
-        }
-
-        # Second, figure out what we're dealing with at the filepos
-        # offset indicated
-        $atpos = substr($$html,$pos,5);
-        
-        if($atpos =~ /^<mbp/)
-        {
-            # Mobipocket-specific element
-            # Insert a whole new <a id> here
-            debug(2,"DEBUG: filepos ",$pos," points to '<mbp',",
-                  " creating new anchor");
-            substring($$html,$pos,4,'<a id="' . $pos . '"></a><mbp');
-        }
-        elsif($atpos =~ /^<(a|p)[ >]/ix)
-        {
-            # 1-character block-level elements
-            debug(2,"DEBUG: filepos ",$pos," points to '",$1,"', updating id");
-            substr($$html,$pos,2,"<$1 id=\"fp" . $pos . '"');
-        }
-        elsif($atpos =~ /^<(h\d)[ >]/)
-        {
-            # 2-character block-level elements
-            debug(2,"DEBUG: filepos ",$pos," points to '",$1,"', updating id");
-            substr($$html,$pos,3,"<$1 id=\"fp" . $pos . '"');
-        }
-        elsif($atpos =~ /^<(div)[ >]/)
-        {
-            # 3-character block-level elements
-            debug(2,"DEBUG: filepos ",$pos," points to '",$1,"', updating id");
-            substr($$html,$pos,4,"<$1 id=\"fp" . $pos . '"');
-        }
-        elsif($atpos =~ /^</)
-        {
-            # All other elements
-            debug(2,"DEBUG: filepos ",$pos," points to '",$atpos,
-                  "', creating new anchor");
-            substr($$html,$pos,1,'<a id="' . $pos . '"></a><');
-        }
-        else
-        {
-            # Not an element
-            carp("WARNING: filepos ",$pos," pointing to '",$atpos,
-                 "' not handled!");
-        }
-    }
-
-
-    # Convert or remove the Mobipocket-specific tags
-    $$html =~ s#<mbp:pagebreak [\s\n]*
-               #<br style="page-break-after: always" #gix;
-    $$html =~ s#</mbp:pagebreak>##gix;
-    $$html =~ s#</?mbp:nu>##gix;
-    $$html =~ s#</?mbp:section>##gix;
-    $$html =~ s#</?mbp:frameset##gix;
-    $$html =~ s#</?mbp:slave-frame##gix;
-
-
-    # More complex alterations will require a HTML tree
-    $tree = HTML::TreeBuilder->new();
-    $tree->ignore_unknown(0);
-
-    # If the encoding is UTF-8, we have to decode it before the parse
-    # or the parser will break
-    if($encoding == 65001)
-    {
-        debug(1,"DEBUG: decoding utf8 text");
-        croak($subname,"(): failed to decode UTF-8 text")
-            unless(decode_utf8($$html));
-        $tree->parse($$html);
-    }
-    else { $tree->parse($$html); }
-    $tree->eof();
-
-    # Replace img recindex links with img src links 
-    debug(2,"DEBUG: converting img recindex attributes");
-    @elements = $tree->find('img');
-    foreach my $el (@elements)
-    {
-        $recindex = $el->attr('recindex') + 0;
-        debug(3,"DEBUG: converting recindex ",$recindex," to src='",
-              $record_links{$recindex},"'");
-        $el->attr('recindex',undef);
-        $el->attr('hirecindex',undef);
-        $el->attr('lorecindex',undef);
-        $el->attr('src',$record_links{$recindex});
-    }
-
-    # Replace filepos attributes with href attributes
-    debug(2,"DEBUG: converting filepos attributes");
-    @elements = $tree->look_down('filepos',qr/.*/);
-    foreach my $el (@elements)
-    {
-        $link = $el->attr('filepos');
-        if($link)
-        {
-            debug(3,"DEBUG: converting filepos ",$link," to href");
-            $link = '#fp' . $link;
-            $el->attr('href',$link);
-            $el->attr('filepos',undef);
-        }
-    }
-
-    debug(2,"DEBUG: converting HTML tree");
-    $$html = $tree->as_HTML;
-
-    croak($subname,"(): HTML tree output is empty")
-        unless($$html);
-
-    # Strip embedded nulls
-    debug(2,"DEBUG: stripping nulls");
-    $$html =~ s/\0//gx;
-
-    # HTML::TreeBuilder will remove all of the newlines, so add some
-    # back in for readability even if tidy isn't called
-    # This is unfortunately quite slow.
-    unless($args{nonewlines})
-    {
-        debug(1,"DEBUG: adding newlines");
-        $$html =~ s#<(body|html)> \s* \n?
-                   #<$1>\n#gix;
-        $$html =~ s#\n? <div
-                   #\n<div#gix;
-        $$html =~ s#</div> \s* \n?
-                   #</div>\n#gix;
-        $$html =~ s#</h(\d)> \s* \n?
-                   #</h$1>\n#gix;
-        $$html =~ s#</head> \s* \n?
-                   #</head>\n#gix;
-        $$html =~ s#\n? <(br|p)([\s>])
-                   #\n<$1$2#gix;
-        $$html =~ s#</p>\s*
-                   #</p>\n#gix;
-    }
-    return 1;
-}
-
-
-=head2 hexstring($bindata)
-
-Takes as an argument a scalar containing a sequence of binary bytes.
-Returns a string converting each octet of the data to its two-digit
-hexadecimal equivalent.  There is no leading "0x" on the string.
-
-=cut
-
-sub hexstring
-{
-    my $data = shift;
-    my $subname = ( caller(0) )[3];
-    debug(3,"DEBUG[",$subname,"]");
-
-    croak($subname,"(): no data provided")
-        unless($data);
-
-    my $byte;
-    my $retval = '';
-    my $pos = 0;
-
-    while($pos < length($data))
-    {
-        $byte = unpack("C",substr($data,$pos,1));
-        $retval .= sprintf("%02x",$byte);
-        $pos++;
-    }
-    return $retval;
-}
-
-
-=head2 unpack_mobi_exth($headerdata)
-
-Takes as an argument a scalar containing the variable-length
-Mobipocket EXTH data from the first record.  Returns an array of
-hashes, each hash containing the data from one EXTH record with values
-from that data keyed to recognizable names.
-
-If C<$headerdata> doesn't appear to be an EXTH header, carps a warning
-and returns an empty list.
-
-See:
-
-http://wiki.mobileread.com/wiki/MOBI
-
-=head3 Hash keys
-
-=over
-
-=item * C<type>
-
-A numeric value indicating the type of EXTH data in the record.  See
-package variable C<%exthtypes>.
-
-=item * C<length>
-
-The length of the C<data> value in bytes
-
-=item * C<data>
-
-The data of the record.
-
-=back
-
-=cut
-
-sub unpack_mobi_exth
-{
-    my ($headerdata) = @_;
-    my $subname = ( caller(0) )[3];
-    debug(2,"DEBUG[",$subname,"]");
-
-    croak($subname,"(): no header data provided")
-        unless($headerdata);
-
-    my $length = length($headerdata);
-    my @list;
-    my $chunk;
-    my @exthrecords = ();
-
-    my $offset;
-    my $recordcnt;
-
-
-    $chunk = substr($headerdata,0,12);
-    @list = unpack("a4NN",$chunk);
-    unless($list[0] eq 'EXTH')
-    {
-        debug(1,"(): Unrecognized Mobipocket EXTH ID '",$list[0],
-             "' (expected 'EXTH')");
-        return @exthrecords;
-    }
-    # The EXTH data never seems to be as long as remaining data after
-    # the Mobipocket main header, so only check to see if it is
-    # shorter, not equal
-    unless($list[1] < $length)
-    {
-        debug(1,"EXTH header specified length ",$list[1]," but found ",
-             $length," bytes.\n");
-    }
-
-    $recordcnt= $list[2];
-    unless($recordcnt > 0)
-    {
-        debug(1,"EXTH flag set, but no EXTH records present");
-        return @exthrecords;
-    }
-
-    $offset = 12;
-    debug(2,"DEBUG: Examining ",$recordcnt," EXTH records");
-    foreach my $recordpos (1 .. $recordcnt)
-    {
-        my %exthrecord;
-
-        $chunk = substr($headerdata,$offset,8);
-        $offset += 8;
-        @list = unpack("NN",$chunk);
-        $exthrecord{type} = $list[0];
-        $exthrecord{length} = $list[1] - 8;
-
-        unless($exthtypes{$exthrecord{type}})
-        {
-            carp($subname,"(): EXTH record ",$recordpos," has unknown type ",
-                 $exthrecord{type},"\n");
-            $offset += $exthrecord{length};
-            next;
-        }
-        unless($exthrecord{length})
-        {
-            carp($subname,"(): EXTH record ",$recordpos," has zero length\n");
-            next;
-        }
-        if( ($exthrecord{length} + $offset) > $length )
-        {
-            carp($subname,"(): EXTH record ",$recordpos,
-                 " longer than available data");
-            last;
-        }
-        $exthrecord{data} = substr($headerdata,$offset,$exthrecord{length});
-        debug(3,"DEBUG: EXTH record ",$recordpos," [",$exthtypes{$exthrecord{type}},
-              "] has ",$exthrecord{length}, " bytes");
-        push(@exthrecords,\%exthrecord);
-        $offset += $exthrecord{length};
-    }
-    debug(1,"DEBUG: Found ",$#exthrecords+1," EXTH records");
-    return @exthrecords;
-}
-
-
-=head2 unpack_mobi_header($headerdata)
-
-Takes as an argument a scalar containing the variable-length
-Mobipocket-specific header data from the first record.  Returns a hash
-containing values from that data keyed to recognizable names.
-
-See:
-
-http://wiki.mobileread.com/wiki/MOBI
-
-=head3 keys
-
-The returned hash will have the following keys (documented in the
-order in which they are encountered in the header):
-
-=over
-
-=item C<identifier>
-
-This should always be the string 'MOBI'.  If it isn't, the procedure
-croaks.
-
-=item C<headerlength>
-
-This is the size of the complete header.  If this value is different
-from the length of the argument, the procedure croaks.
-
-=item C<type>
-
-A numeric code indicating what category of Mobipocket file this is.
-
-=item C<encoding>
-
-A numeric code representing the encoding.  Expected values are '1252'
-(for Windows-1252) and '65001 (for UTF-8).
-
-The procedure carps a warning if an unexpected value is encountered.
-
-=item C<uniqueid>
-
-This is thought to be a unique ID for the book, but its actual use is
-unknown.
-
-Use with caution.  This key may be renamed in the future if more
-information is found.
-
-=item C<version>
-
-This is thought to be the Mobipocket format version.  A second version
-code shows up again later as C<version2> which is usually the same on
-unprotected books but different on DRMd books.
-
-Use with caution.  This key may be renamed in the future if more
-information is found.
-
-=item C<reserved>
-
-40 bytes of reserved data.
-
-Use with caution.  This key may be renamed in the future if more
-information is found.
-
-=item C<nontextrecord>
-
-This is thought to be an index to the first PDB record other than the
-header record that does not contain the book text.
-
-Use with caution.  This key may be renamed in the future if more
-information is found.
-
-=item C<titleoffset>
-
-Offset in record 0 (not from start of file) of the full title of the
-book.
-
-=item C<titlelength>
-
-Length in bytes of the full title of the book 
-
-=item C<unknownlanguage>
-
-16 bits of unknown data thought to be related to the book language.
-
-Use with caution.  This key may be renamed in the future if more
-information is found.
-
-=item C<region>
-
-The specific region of C<language>.  See C<%mobilangcodes> for an
-exact map of values.
-
-The bottom two bits of this value appear to be unused (i.e. all values
-are multiples of 4).
-
-=item C<language>
-
-A main language code.  See C<%mobilangcodes> for an exact map of
-values.
-
-=item C<unknowndilanguage>
-
-16 bits of unknown data thought to be related to the dictionary input
-language.
-
-Use with caution.  This key may be renamed in the future if more
-information is found.
-
-=item C<dictionaryinregion>
-
-The specific region of C<dictionaryinlanguage>.  See C<%mobilangcodes>
-for an exact map of values.
-
-=item C<dictionaryinlanguage>
-
-The language code for the DictionaryInLanguage element.  See
-C<%mobilangcodes> for an exact map of values.
-
-=item C<unknowndolanguage>
-
-16 bits of unknown data thought to be related to the dictionary output
-language.
-
-Use with caution.  This key may be renamed in the future if more
-information is found.
-
-=item C<dictionaryoutregion>
-
-The specific region of C<dictionaryoutlanguage>.  See C<%mobilangcodes>
-for an exact map of values.
-
-=item C<dictionaryoutlanguage>
-
-The language code for the DictionaryOutLanguage element.  See
-C<%mobilangcodes> for an exact map of values.
-
-=item C<version2>
-
-This is another Mobipocket format version related to DRM.  If no DRM
-is present, it should be the same as C<version>.
-
-Use with caution.  This key may be renamed in the future if more
-information is found.
-
-=item C<imagerecord>
-
-This is thought to be an index to the first record containing image
-data.
-
-Use with caution.  This key may be renamed in the future if more
-information is found.
-
-=item C<unknown96>
-
-Unsigned long int (32-bit) at offset 96.
-
-Use with caution.  This key may be renamed in the future if more
-information is found.
-
-=item C<unknown100>
-
-Unsigned long int (32-bit) at offset 100.
-
-Use with caution.  This key may be renamed in the future if more
-information is found.
-
-=item C<unknown104>
-
-Unsigned long int (32-bit) at offset 104.
-
-Use with caution.  This key may be renamed in the future if more
-information is found.
-
-=item C<unknown108>
-
-Unsigned long int (32-bit) at offset 108.
-
-Use with caution.  This key may be renamed in the future if more
-information is found.
-
-=item C<exthflags>
-
-A 32-bit bitfield related to the Mobipocket EXTH data.  If bit 6
-(0x40) is set, then there is at least one EXTH record.
-
-=item C<unknown116>
-
-36 bytes of unknown data at offset 116.  This value will be undefined
-if the header data was not long enough to contain it.
-
-Use with caution.  This key may be renamed in the future if more
-information is found.
-
-=item C<drmcode>
-
-A number thought to be related to DRM.  If present and no DRM is set,
-contains either the value 0xFFFFFFFF (normal books) or 0x00000000
-(samples).  This value will be undefined if the header data was not
-long enough to contain it.
-
-Use with caution.  This key may be renamed in the future if more
-information is found.
-
-=item C<unknown156>
-
-20 bytes of unknown data at offset 156, usually zeroes.  This value
-will be undefined if the header data was not long enough to contain
-it.
-
-Use with caution.  This key may be renamed in the future if more
-information is found.
-
-=item C<unknown176>
-
-16 bits of unknown data at offset 176.  This value will be undefined
-if the header data was not long enough to contain it.
-
-Use with caution.  This key may be renamed in the future if more
-information is found.
-
-=item C<unknown178>
-
-16 bits of unknown data at offset 178.  This value will be undefined
-if the header data was not long enough to contain it.
-
-Use with caution.  This key may be renamed in the future if more
-information is found.
-
-=item C<unknown180>
-
-32 bits of unknown data at offset 180.  This value will be undefined
-if the header data was not long enough to contain it.
-
-Use with caution.  This key may be renamed in the future if more
-information is found.
-
-=item C<unknown184>
-
-32 bits of unknown data at offset 184.  This value will be undefined
-if the header data was not long enough to contain it.
-
-Use with caution.  This key may be renamed in the future if more
-information is found.
-
-=item C<unknown188>
-
-32 bits of unknown data at offset 188.  This value will be undefined
-if the header data was not long enough to contain it.
-
-Use with caution.  This key may be renamed in the future if more
-information is found.
-
-=item C<unknown192>
-
-32 bits of unknown data at offset 192.  This value will be undefined
-if the header data was not long enough to contain it.
-
-Use with caution.  This key may be renamed in the future if more
-information is found.
-
-=item C<unknown196>
-
-32 bits of unknown data at offset 180.  This value will be undefined
-if the header data was not long enough to contain it.
-
-Use with caution.  This key may be renamed in the future if more
-information is found.
-
-=item C<unknown200>
-
-Unknown data of unknown length running to the end of the header.  This
-value will be undefined if the header data was not long enough to
-contain it.
-
-Use with caution.  This key may be renamed in the future if more
-information is found.
-
-=back
-
-=cut
-
-sub unpack_mobi_header
-{
-    my ($headerdata) = @_;
-    my $subname = ( caller(0) )[3];
-    debug(2,"DEBUG[",$subname,"]");
-
-    croak($subname,"(): no header data provided")
-        unless($headerdata);
-
-    my $length = length($headerdata);
-    my @enckeys = keys(%pdbencoding);
-    my $chunk;     # current chunk of headerdata being unpacked
-    my @list;      # temporary holding area for unpacked data
-    my %retval;    # header hash to return;
-    my $hexstring; # hexadecimal debugging output string
-
-    croak($subname,"(): header data is too short! (only ",$length," bytes)")
-        unless($length >= 116);
-
-    # The Mobipocket header data is large enough that it's easier to
-    # deal with when handled in smaller chunks
-
-    # First chunk is 24 bytes before reserved block
-    $chunk = substr($headerdata,0,24);
-    @list = unpack("a4NNNNN",$chunk);
-    croak($subname,
-          "(): Unrecognized Mobipocket header ID '",$list[0],
-          "' (expected 'MOBI')")
-        unless($list[0] eq 'MOBI');
-    croak($subname,
-          "(): header specified length ",$list[1]," but found ",
-          $length," bytes.")
-        unless($list[1] == $length);
-
-    $retval{identifier}   = $list[0];
-    $retval{headerlength} = $list[1];
-    $retval{type}         = $list[2];
-    $retval{encoding}     = $list[3];
-    $retval{uniqueid}     = $list[4];
-    $retval{version}      = $list[5];
-
-    debug(1,"DEBUG: Found encoding ",$pdbencoding{$retval{encoding}});
-    carp($subname,"(): unknown encoding '",$retval{encoding},"'")
-        unless($retval{encoding} ~~ @enckeys);
-
-    # Second chunk is 40 bytes of reserved data, usually all 0xff
-    $retval{reserved} = substr($headerdata,24,40);
-    $hexstring = hexstring($retval{reserved});
-    debug(2,"DEBUG: reserved data: 0x",$hexstring)
-        if($hexstring ne ('ff' x 40));
-
-    # Third chunk is 12 bytes up to the language block
-    $chunk = substr($headerdata,64,12);
-    @list = unpack("NNN",$chunk);
-    $retval{nontextrecord} = $list[0];
-    $retval{titleoffset}   = $list[1];
-    $retval{titlelength}   = $list[2];
-
-    # Fourth chunk is 12 bytes containing the language codes
-    $chunk = substr($headerdata,76,12);
-    @list = unpack("nCCnCCnCC",$chunk);
-    $retval{unknownlanguage}       = $list[0];
-    $retval{region}                = $list[1];
-    $retval{language}              = $list[2];
-    $retval{unknowndilanguage}     = $list[3];
-    $retval{dictionaryinregion}    = $list[4];
-    $retval{dictionaryinlanguage}  = $list[5];
-    $retval{unknowndolanguage}     = $list[6];
-    $retval{dictionaryoutregion}   = $list[7];
-    $retval{dictionaryoutlanguage} = $list[8];
-    debug(2,"DEBUG: language codes: ",
-          sprintf("language=%02x, region=%02x, unknown=%04x",
-                  $retval{language},$retval{region},$retval{unknownlanguage}));
-    debug(2,"DEBUG: dictionary input language codes: ",
-          sprintf("language=%02x, region=%02x, unknown=%04x",
-                  $retval{dictionaryinlanguage},$retval{dictionaryinregion},
-                  $retval{unknowndilanguage}));
-    debug(2,"DEBUG: dictionary output language codes: ",
-          sprintf("language=%02x, region=%02x, unknown=%04x",
-                  $retval{dictionaryoutlanguage},$retval{dictionaryoutregion},
-                  $retval{unknowndolanguage}));
-
-    # Fifth chunk is 8 bytes until next unknown block
-    $chunk = substr($headerdata,88,8);
-    @list = unpack("NN",$chunk);
-    $retval{version2}    = $list[0];
-    $retval{imagerecord} = $list[1];
-
-    debug(1,"DEBUG: First image record is ",$retval{imagerecord})
-        if($retval{imagerecord});
-
-    # Sixth chunk is 16 bytes of unknown data, often zeros
-    $chunk = substr($headerdata,96,16);
-    @list = unpack("NNNN",$chunk);
-    $retval{unknown96}  = $list[0];
-    $retval{unknown100} = $list[1];
-    $retval{unknown104} = $list[2];
-    $retval{unknown108} = $list[3];
-    if($retval{unknown96} || $retval{unknown100}
-       || $retval{unknown104} || $retval{unknown108})
-    {
-        debug(2,"DEBUG: unknown data at offset 96: ",
-              sprintf("0x%08x 0x%08x 0x%08x 0x%08x",
-                      $retval{unknown96},$retval{unknown100},
-                      $retval{unknown104},$retval{unknown108}) );
-    }
-
-    # Seventh and last chunk guaranteed to be present is the EXTH
-    # bitfield
-    $chunk = substr($headerdata,112,4);
-    $retval{exthflags} = unpack("N",$chunk);
-
-    # Remaining chunks are only parsed if the header is long enough
-
-    # Eighth chunk is 36 bytes of unknown data
-    $retval{unknown116} = substr($headerdata,116,36) if($length >= 152);
-
-    # Ninth chunk is 32 bits of DRM-related data
-    if($length >= 156)
-    {
-        $chunk = substr($headerdata,152,4);
-        $retval{drmcode} = unpack("N",$chunk);
-        debug(1,"DEBUG: Found DRM code ",sprintf("0x%08x",$retval{drmcode}));
-    }
-
-    # Tenth chunk is 20 bytes of unknown data, usually zeroes
-    if($length >= 176)
-    {
-        $retval{unknown156} = substr($headerdata,156,20);
-        $hexstring = hexstring($retval{unknown156});
-        debug(2,"DEBUG: unknown data at offset 156: 0x",$hexstring)
-            if($hexstring ne ('00' x 20))
-    }
-
-    # Eleventh chunk is 2 16-bit values and 5 32-bit values, usually nonzero
-    if($length >= 200)
-    {
-        $chunk = substr($headerdata,176,24);
-        @list = unpack("nnNNNNN",$chunk);
-        $retval{unknown176} = $list[0];
-        $retval{unknown178} = $list[1];
-        $retval{unknown180} = $list[2];
-        $retval{unknown184} = $list[3];
-        $retval{unknown188} = $list[4];
-        $retval{unknown192} = $list[5];
-        $retval{unknown196} = $list[6];
-        debug(2,"DEBUG: unknown data at offset 176: ",
-              sprintf("0x%04x 0x%04x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x",
-                      $retval{unknown176},$retval{unknown178},
-                      $retval{unknown180},$retval{unknown184},
-                      $retval{unknown188},$retval{unknown192},
-                      $retval{unknown196}) );
-    }
-
-    # Last possible chunk is unknown data lasting to the end
-    # of the header.
-    if($length >= 201)
-    {
-        $retval{unknown200} = substr($headerdata,200,$length-200);
-        debug(2,"DEBUG: Found ",$length-200,
-              " bytes of unknown final data in Mobipocket header");
-        debug(2,"       0x",hexstring($retval{unknown200}));
-    }
-
-    return %retval;
-}
-
-
-=head2 unpack_palmdoc_header
-
-Takes as an argument a scalar containing the 16 bytes of the PalmDoc
-header (also used by Mobipocket).  Returns a hash containing those
-values keyed to recognizable names.
-
-See:
-
-http://wiki.mobileread.com/wiki/DOC#PalmDOC
-
-and
-
-http://wiki.mobileread.com/wiki/MOBI
-
-=head3 keys
-
-The returned hash will have the following keys:
-
-=over
-
-=item * C<compression>
-
-Possible values:
-
-=over
-
-=item 1 - no compression
-
-=item 2 - PalmDoc compression
-
-=item ?? - HuffDic?
-
-=item 17480 - Mobipocket DRM?
-
-=back
-
-A warning will be carped if an unknown value is found.
-
-=item * C<textlength>
-
-Uncompressed length of book text in bytes
-
-=item * C<textrecords>
-
-Number of PDB records used for book text
-
-=item * C<recordsize>
-
-Maximum size of each record containing book text. This should always
-be 2048 (for some Mobipocket files) or 4096 (for everything else).  A
-warning will be carped if it isn't.
-
-=item * C<unused>
-
-Two bytes that should always be zero.  A warning will be carped if
-they aren't.
-
-=back
-
-Note that the current position component of the header is discarded.
-
-=cut
-
-sub unpack_palmdoc_header
-{
-    my ($headerdata) = @_;
-    my $subname = ( caller(0) )[3];
-    debug(2,"DEBUG[",$subname,"]");
-
-    my @list = unpack("nnNnnxxxx",$headerdata);
-    my @compression_keys = keys(%pdbcompression);
-    my %retval;
-
-    $retval{compression} = $list[0];
-    $retval{unused}      = $list[1];
-    $retval{textlength}  = $list[2];
-    $retval{textrecords} = $list[3];
-    $retval{recordsize}  = $list[4];
-    carp($subname,"(): value ",$retval{unused},
-         " found in unused header segment (expected 0)")
-        unless($retval{unused} == 0);
-    carp($subname,"(): found text record size ",$retval{recordsize},
-         ", expected 2048 or 4096")
-        unless($retval{recordsize} ~~ [2048,4096]);
-    carp($subname,"(): found unknown compression value ",$retval{compression})
-        unless($retval{compression} ~~ @compression_keys);
-    debug(1,"DEBUG: PDB compression type is ",
-          $pdbcompression{$retval{compression}});
-    return %retval;
-}
 
 ########## END CODE ##########
 
@@ -2370,9 +1337,6 @@ use some cleaning up.
 in this module dedicated to extracting information that it can't.  It
 may be better to split out that code into a dedicated module to
 replace Palm::Doc completely.
-
-=item * PDB Bookmarks aren't supported. This is a weakness inherited
-from Palm::Doc, and will take a while to fix.
 
 =item * Import/extraction/unpacking is currently limited to PalmDoc
 and Mobipocket.  Extraction from eReader and Microsoft Reader (.lit)

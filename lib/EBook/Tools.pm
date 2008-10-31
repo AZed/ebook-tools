@@ -117,6 +117,7 @@ use HTML::Entities qw(decode_entities _decode_entities %entity2char);
 use Tie::IxHash;
 use Time::Local;
 use XML::Twig;
+use Palm::Doc();
 
 our @EXPORT_OK;
 @EXPORT_OK = qw (
@@ -125,6 +126,7 @@ our @EXPORT_OK;
     &debug
     &fix_datestring
     &find_links
+    &hexstring
     &get_container_rootfile
     &print_memory
     &split_metadata
@@ -137,16 +139,6 @@ our @EXPORT_OK;
     &twigelt_fix_opf20_atts
     &twigelt_is_author
     &ymd_validate
-    %dcelements12
-    %dcelements20
-    %nonxmlentity2char
-    %validspecs
-    %publishermap
-    %relatorcodes
-    $tidycmd
-    $tidyxhtmlerrors
-    $tidyxmlerrors
-    $tidysafety
     );
 
 
@@ -344,6 +336,7 @@ our %publishermap = (
     'ballantine books'      => 'Ballantine Books',
     'barnes and noble'      => 'Barnes and Noble Publishing',
     'barnesandnoble.com'    => 'Barnes and Noble Publishing',
+    'cpan'                  => 'CPAN',
     'delrey'                => 'Del Rey Books',
     'del rey'               => 'Del Rey Books',
     'del rey books'         => 'Del Rey Books',
@@ -362,6 +355,12 @@ our %publishermap = (
     'harpercollins'         => 'HarperCollins',
     'harper collins'        => 'HarperCollins',
     'harper-collins'        => 'HarperCollins',
+    'manybooks'             => 'ManyBooks',
+    'manybooks.net'         => 'ManyBooks',
+    'project gutenberg'     => 'Project Gutenberg',
+    'gutenberg'             => 'Project Gutenberg',
+    'gutenberg.org'         => 'Project Gutenberg',
+    'www.gutenberg.org'     => 'Project Gutenberg',
     'randomhouse'           => 'Random House',
     'randomhouse.co.uk'     => 'Random House',
     'www.randomhouse.co.uk' => 'Random House',
@@ -375,7 +374,7 @@ our %publishermap = (
     'wildside'              => 'Wildside Press',
     'wildside press'        => 'Wildside Press',
     );
-        
+
 
 our %nonxmlentity2char = %entity2char;
 delete($nonxmlentity2char{'amp'});
@@ -622,7 +621,8 @@ sub init    ## no critic (Always unpack @_ first)
     
     if(! -f $$self{opffile})
     {
-	croak($subname,"(): '",$$self{opffile},"' does not exist or is not a regular file!")
+	croak($subname,"(): '",$$self{opffile},
+              "' does not exist or is not a regular file!")
     }
 
     if(-z $$self{opffile})
@@ -5811,6 +5811,38 @@ sub debug
     print {*STDERR} @message,"\n" if($debug >= $level);
     return 1;
 }
+
+
+=head2 hexstring($bindata)
+
+Takes as an argument a scalar containing a sequence of binary bytes.
+Returns a string converting each octet of the data to its two-digit
+hexadecimal equivalent.  There is no leading "0x" on the string.
+
+=cut
+
+sub hexstring
+{
+    my $data = shift;
+    my $subname = ( caller(0) )[3];
+    debug(3,"DEBUG[",$subname,"]");
+
+    croak($subname,"(): no data provided")
+        unless($data);
+
+    my $byte;
+    my $retval = '';
+    my $pos = 0;
+
+    while($pos < length($data))
+    {
+        $byte = unpack("C",substr($data,$pos,1));
+        $retval .= sprintf("%02x",$byte);
+        $pos++;
+    }
+    return $retval;
+}
+
 
 =head2 C<find_links($filename)>
 
