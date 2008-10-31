@@ -27,6 +27,14 @@ Fictionwise/PeanutPress eReader format.
 
 =head1 SYNOPSIS
 
+ use EBook::Tools::EReader;
+ my $pdb = EBook::Tools::EReader->new();
+ $pdb->Load('myfile-er.pdb');
+ print "Loaded '",$pdb->{title},"' by ",$pdb->{author},"\n";
+ my $html = $pdb->html;
+ my $pml = $pdb->pml
+ $pdb->write_unknown_records
+
 =head1 DEPENDENCIES
 
 =over
@@ -56,6 +64,7 @@ use List::Util qw(min);
 use List::MoreUtils qw(uniq);
 use Palm::PDB;
 use Palm::Raw();
+use Tie::IxHash;
 
 our %pdbencoding = (
     '1252' => 'Windows-1252',
@@ -102,11 +111,306 @@ sub new
 }
 
 
+######################################
+########## ACCESSOR METHODS ##########
+######################################
+
 =head1 ACCESSOR METHODS
+
+=head2 C<footnotes()>
+
+Returns a hash containing all of the footnotes found in the file,
+where the keys are the footnote ids and the values contain the
+footnote text.
 
 =cut
 
+sub footnotes
+{
+    my $self = shift;
+    my $subname = ( caller(0) )[3];
+    debug(2,"DEBUG[",$subname,"]");
+
+    my %footnotehash;
+    my @footnoteids = ();
+    my @footnotes = ();
+    my $lastindex;
+
+    if(ref $self->{footnoteids} eq 'ARRAY' and @{$self->{footnoteids}})
+    {
+        @footnoteids = @{$self->{footnoteids}};
+    }
+
+    if(ref $self->{footnotes} eq 'ARRAY' and @{$self->{footnotes}})
+    {
+        @footnotes = @{$self->{footnotes}};
+    }
+    
+    if($#footnotes != $#footnoteids)
+    {
+        carp($subname,"(): found ",scalar(@footnotes)," footnotes but ",
+             scalar(@footnoteids)," footnote ids\n");
+    }
+    $lastindex = min($#footnotes, $#footnoteids);
+
+    foreach my $idx (0 .. $lastindex)
+    {
+        $footnotehash{$footnoteids[$idx]} = $footnotes[$idx];
+    }
+
+    return %footnotehash;
+}
+
+
+=head2 C<footnotes_pml()>
+
+Returns a string containing all of the footnotes in a form suitable to
+append to the end of PML text output.  This is called as part of
+L</pml()>.
+
+=cut
+
+sub footnotes_pml
+{
+    my $self = shift;
+    my $subname = ( caller(0) )[3];
+    debug(2,"DEBUG[",$subname,"]");
+
+    my %footnotehash = $self->footnotes;
+    my $text;
+
+    foreach my $footnoteid (sort keys %footnotehash)
+    {
+        $text .= '<footnote id="' . $footnoteid . '">';
+        $text .= $footnotehash{$footnoteid};
+        $text .= "</footnote>\n\n";
+    }
+    return $text;
+}
+
+
+=head2 C<footnotes_html()>
+
+Returns a string containing all of the footnotes in a form suitable to
+append to the end of HTML text output.  This is called as part of
+L</html()>.
+
+=cut
+
+sub footnotes_html
+{
+    my $self = shift;
+    my $subname = ( caller(0) )[3];
+    debug(2,"DEBUG[",$subname,"]");
+
+    my %footnotehash = $self->footnotes;
+    my $text = '<h2 id="footnotes">Footnotes</h2>';
+    $text .= "\n<dl>\n";
+    
+    foreach my $footnoteid (sort keys %footnotehash)
+    {
+        $text .= '<dt>[<a id="' . $footnoteid . '" href="#';
+        $text .= $footnoteid . '-ref">' . $footnoteid;
+        $text .= "</a>]</dt>\n";
+
+        $text .= '<dd>' . $footnotehash{$footnoteid} . "</dd>\n";
+    }
+    $text .= "</dl>\n";
+    $text = pml_to_html($text);
+    return $text;
+}
+
+
+=head2 C<pml()>
+
+Returns a string containing the entire original document text in its
+original encoding, including all sidebars and footnotes.
+
+=cut
+
+sub pml
+{
+    my $self = shift;
+    my $subname = ( caller(0) )[3];
+    debug(2,"DEBUG[",$subname,"]");
+    debug(2,"DEBUG: returning ",length($self->{text})," bytes of PML text");
+    return $self->{text} . "\n" . $self->sidebars_pml . $self->footnotes_pml;
+}
+
+
+=head2 C<html()>
+
+Returns a string containing the entire document text (including all
+sidebars and footnotes) converted to HTML.
+
+Note that the PML text is stored in the object (and thus retrieving it
+is very fast), but generating the HTML output requires that the text
+be converted every time this method is used, consuming extra
+processing time.
+
+=cut
+
+sub html
+{
+    my $self = shift;
+    my $subname = ( caller(0) )[3];
+    debug(2,"DEBUG[",$subname,"]");
+
+    my $header = "<html>\n<head>\n  <title>" . $self->{title} . "</title>\n";
+    $header   .= "</head>\n<body>\n";
+    my $footer = "</body>\n</html>\n";
+
+    return 
+        $header . pml_to_html($self->{text})
+        . $self->sidebars_html . $self->footnotes_html . $footer;
+}
+
+
+=head2 C<sidebars()>
+
+Returns a hash containing all of the sidebars found in the file, where
+the keys are the sidebar ids and the values contain the sidebar text.
+
+=cut
+
+sub sidebars
+{
+    my $self = shift;
+    my $subname = ( caller(0) )[3];
+    debug(2,"DEBUG[",$subname,"]");
+
+    my %sidebarhash;
+    my @sidebarids = ();
+    my @sidebars = ();
+    my $lastindex;
+
+    if(ref $self->{sidebarids} eq 'ARRAY' and @{$self->{sidebarids}})
+    {
+        @sidebarids = @{$self->{sidebarids}};
+    }
+
+    if(ref $self->{sidebars} eq 'ARRAY' and @{$self->{sidebars}})
+    {
+        @sidebars = @{$self->{sidebars}};
+    }
+    
+    if($#sidebars != $#sidebarids)
+    {
+        carp($subname,"(): found ",scalar(@sidebars)," sidebars but ",
+             scalar(@sidebarids)," sidebar ids\n");
+    }
+    $lastindex = min($#sidebars, $#sidebarids);
+
+    foreach my $idx (0 .. $lastindex)
+    {
+        $sidebarhash{$sidebarids[$idx]} = $sidebars[$idx];
+    }
+
+    return %sidebarhash;
+}
+
+
+=head2 C<sidebars_pml()>
+
+Returns a string containing all of the sidebars in a form suitable to
+append to the end of PML text output.  This is called as part of
+L</pml()>.
+
+=cut
+
+sub sidebars_pml
+{
+    my $self = shift;
+    my $subname = ( caller(0) )[3];
+    debug(2,"DEBUG[",$subname,"]");
+
+    my %sidebarhash = $self->sidebars;
+    my $text;
+
+    foreach my $sidebarid (sort keys %sidebarhash)
+    {
+        $text .= '<sidebar id="' . $sidebarid . '">';
+        $text .= $sidebarhash{$sidebarid};
+        $text .= "</sidebar>\n\n";
+    }
+    return $text;
+}
+
+
+=head2 C<footnotes_html()>
+
+Returns a string containing all of the footnotes in a form suitable to
+append to the end of HTML text output.  This is called as part of
+L</html()>.
+
+=cut
+
+sub sidebars_html
+{
+    my $self = shift;
+    my $subname = ( caller(0) )[3];
+    debug(2,"DEBUG[",$subname,"]");
+
+    my %sidebarhash = $self->sidebars;
+    my $text = '<h2 id="sidebars">Sidebars</h2>';
+    $text .= "\n<dl>\n";
+    
+    foreach my $sidebarid (sort keys %sidebarhash)
+    {
+        $text .= '<dt>[<a id="' . $sidebarid . '" href="#';
+        $text .= $sidebarid . '-ref">' . $sidebarid;
+        $text .= "</a>]</dt>\n";
+
+        $text .= '<dd>' . $sidebarhash{$sidebarid} . "</dd>\n";
+    }
+    $text .= "</dl>\n";
+    $text = pml_to_html($text);
+    return $text;
+}
+
+
+=head2 C<write_unknown_records()>
+
+Writes each unidentified record to disk with a filename in the format of
+'raw-record-####', where #### is the record number (not the record ID).
+
+Returns the number of records written.
+
+=cut
+
+sub write_unknown_records :method
+{
+    my $self = shift;
+    my $subname = ( caller(0) )[3];
+    debug(3,"DEBUG[",$subname,"]");
+
+    my %unknowndata = %{$self->{unknowndata}};
+
+    foreach my $rec (sort keys %unknowndata)
+    {
+        my $recstring = sprintf("%04d",$rec);
+        debug(1,"Dumping raw record ",$recstring);
+        my $rawname = "raw-record-" . $recstring;
+        open(my $fh,">:raw",$rawname)
+            or croak("Unable to open '",$rawname,"' to write raw record\n");
+        print {*$fh} $$self{unknowndata}{$rec};
+        close($fh)
+            or croak("Unable to close raw record file '",$rawname,"'\n");
+    }
+    return scalar(keys %unknowndata);
+}
+
+
+######################################
+########## MODIFIER METHODS ##########
+######################################
+
 =head1 MODIFIER METHODS
+
+=head2 C<ParseRecord(%record)>
+
+Parses PDB records, updating the object attributes.  This method is
+called automatically on every database record during C<Load()>.
 
 =cut
 
@@ -150,11 +454,10 @@ sub ParseRecord :method
 
 
     # Start handling non-header records
-    if($currentrecord < $self->{header}->{nontextrec})
+    if($currentrecord < $self->{header}->{nontextoffset})
     {
         $recordtext = $uncompress->($record{data});
         $recordtext =~ s/\0//;
-#        $recordtext = decode('windows-1252',$recordtext);
         if($recordtext)
         {
             $self->{text} .= $recordtext;
@@ -168,24 +471,26 @@ sub ParseRecord :method
             $$self{unknowndata}{$currentrecord} = $record{data};
         }
     }
-    elsif($currentrecord >= $self->{header}->{nontextrec}
-          && $currentrecord < $self->{header}->{bookmarkrec})
+    elsif($currentrecord >= $self->{header}->{nontextoffset}
+          && $currentrecord < $self->{header}->{bookmarkoffset})
     {
-        $recordtext = $uncompress->($record{data});
-        debug(1,"DEBUG: record ",$currentrecord," contains ",
-              length($record{data})," bytes of unknown data");
-
+        $recordtext = uncompress($record{data});
+        $recordtext = uncompress_palmdoc($record{data}) unless($recordtext);
         if($recordtext)
         {
             $$self{unknowndata}{$currentrecord} = $recordtext;
+            debug(1,"DEBUG: record ",$currentrecord," contains ",
+                  length($record{data})," bytes of unknown text");
         }
         else
         {
             $$self{unknowndata}{$currentrecord} = $record{data};
+            debug(1,"DEBUG: record ",$currentrecord," contains ",
+                  length($record{data})," bytes of unknown data");
         }
     }
-    elsif($currentrecord >= $self->{header}->{bookmarkrec}
-          && $currentrecord < $self->{header}->{metadatarec})
+    elsif($currentrecord >= $self->{header}->{bookmarkoffset}
+          && $currentrecord < $self->{header}->{metadataoffset})
     {
         my @list = unpack('nn',$record{data});
         $recordtext = substr($record{data},4);
@@ -195,7 +500,7 @@ sub ParseRecord :method
               $recordtext,
               "' [",sprintf("unk=0x%04x offset=0x%04x",@list),"]");
     }
-    elsif($currentrecord == $self->{header}->{metadatarec})
+    elsif($currentrecord == $self->{header}->{metadataoffset})
     {
         # The metadata record consists of five null-terminated
         # strings
@@ -206,15 +511,70 @@ sub ParseRecord :method
         $self->{publisher} = $list[3];
         $self->{isbn}      = $list[4];
     }
-    elsif($currentrecord == $self->{header}->{footnoterec})
+    elsif($self->{header}->{sidebarrecs}
+          && $currentrecord == $self->{header}->{sidebaroffset})
+    {
+        my @sidebarids = $record{data} =~ m/(\w+)\0/gx;
+        $self->{sidebarids} = \@sidebarids;
+        debug(2,"DEBUG: record ",$currentrecord," has sidebar ids: '",
+              join("' '",@sidebarids),"'");
+    }
+    elsif($self->{header}->{sidebarrecs}
+          && $currentrecord > $self->{header}->{sidebaroffset}
+          && $currentrecord < $self->{header}->{footnoteoffset})
+    {
+        my @sidebars;
+        my @sidebarids;
+
+        if(ref $self->{sidebarids} eq 'ARRAY' and @{$self->{sidebarids}})
+        {
+            @sidebarids = @{$self->{sidebarids}};
+        }
+        else
+        {
+            carp($subname,
+                 "(): adding a footnote, but no footnote IDs found\n");
+            @sidebarids = [];
+        }
+
+        if(ref $self->{sidebars} eq 'ARRAY' and @{$self->{sidebars}})
+        {
+            @sidebars = @{$self->{sidebars}};
+        }
+
+        $recordtext = $uncompress->($record{data});
+        if($recordtext)
+        {
+            $recordtext =~ s/\0//x;
+            chomp($recordtext);
+            push(@sidebars,$recordtext);
+        }
+
+        if( scalar(@sidebars) > scalar(@sidebarids) )
+        {
+            carp($subname,
+                 "(): sidebar ",scalar(@sidebars),
+                 " has no associated ID\n");
+        }
+        else
+        {
+            debug(2,"DEBUG: record ",$currentrecord," is sidebar '",
+                  $sidebarids[$#sidebars],"'");
+        }
+
+        $self->{sidebars} = \@sidebars;
+    }
+    elsif($self->{header}->{footnoterecs}
+          && $currentrecord == $self->{header}->{footnoteoffset})
     {
         my @footnoteids = $record{data} =~ m/(\w+)\0/gx;
         $self->{footnoteids} = \@footnoteids;
         debug(2,"DEBUG: record ",$currentrecord," has footnote ids: '",
               join("' '",@footnoteids),"'");
     }
-    elsif($currentrecord > $self->{header}->{footnoterec}
-          && $currentrecord < $self->{header}->{lastdatarec})
+    elsif($self->{header}->{footnoterecs}
+          && $currentrecord > $self->{header}->{footnoteoffset}
+          && $currentrecord < $self->{header}->{lastdataoffset})
     {
         my @footnotes;
         my @footnoteids;
@@ -239,6 +599,7 @@ sub ParseRecord :method
         if($recordtext)
         {
             $recordtext =~ s/\0//x;
+            chomp($recordtext);
             push(@footnotes,$recordtext);
         }
 
@@ -259,7 +620,8 @@ sub ParseRecord :method
     else
     {
         my ($imagex,$imagey,$imagetype) = imgsize(\$record{data});
-        $recordtext = $uncompress->($record{data});
+        $recordtext = uncompress($record{data});
+        $recordtext = uncompress_palmdoc($record{data}) unless($recordtext);
         if(defined($imagex) && $imagetype)
         {
             debug(1,"DEBUG: record ",$currentrecord," is image");
@@ -281,6 +643,15 @@ sub ParseRecord :method
     return \%record;
 }
 
+
+=head2 C<ParseRecord0($data)>
+
+Parses the header record and places the parsed values into the hashref
+C<$self->{header}>.
+
+Returns the hash (not the hashref).
+
+=cut
 
 sub ParseRecord0 :method
 {
@@ -308,33 +679,36 @@ sub ParseRecord0 :method
     $header{unknown4}       = $list[2]; # Bytes 4-7
     $header{unknown8}       = $list[3]; # Bytes 8-9
     $header{unknown10}      = $list[4]; # Bytes 10-11
-    $header{nontextrec}     = $list[5]; # Bytes 12-13
-    $header{nontextrec2}    = $list[5]; # Bytes 14-15
+    $header{nontextoffset}  = $list[5]; # Bytes 12-13
+    $header{nontextoffset2} = $list[5]; # Bytes 14-15
 
     $headerdata = substr($data,16,16);
     @list = unpack('nnNnnnn',$headerdata);
-    $header{unknown16} = $list[0];
-    $header{unknown18} = $list[1];
-    $header{unknown20} = $list[2];
-    $header{unknown22} = $list[3];
-    $header{unknown24} = $list[4];
-    $header{unknown28} = $list[5];
-    $header{unknown30} = $list[6];
+    $header{unknown16}    = $list[0];
+    $header{unknown18}    = $list[1];
+    $header{unknown20}    = $list[2];
+    $header{unknown22}    = $list[3];
+    $header{unknown24}    = $list[4];
+    $header{footnoterecs} = $list[5];
+    $header{sidebarrecs}  = $list[6];
 
     $headerdata = substr($data,32,24);
     @list = unpack('nnnnnnnnnnnn',$headerdata);
-    $header{bookmarkrec}   = $list[0];
-    $header{unknown34}     = $list[1];
-    $header{nontextrec3}   = $list[2];
-    $header{unknown38}     = $list[3];
-    $header{metadatarec}   = $list[4];
-    $header{metadatarec2}  = $list[5];
-    $header{metadatarec3}  = $list[6];
-    $header{metadatarec4}  = $list[7];
-    $header{footnoterec}   = $list[8];
-    $header{unknown50}     = $list[9];
-    $header{lastdatarec}   = $list[10];
-    $header{unknown54}     = $list[11];
+    $header{bookmarkoffset}  = $list[0];
+    $header{unknown34}       = $list[1];
+    $header{nontextoffset3}  = $list[2];
+    $header{unknown38}       = $list[3];
+    $header{metadataoffset}  = $list[4];
+    $header{metadataoffset2} = $list[5];
+    $header{metadataoffset3} = $list[6];
+    $header{metadataoffset4} = $list[7];
+    $header{footnoteoffset}  = $list[8];
+    $header{sidebaroffset}   = $list[9];
+    $header{lastdataoffset}  = $list[10];
+    $header{unknown54}       = $list[11];
+
+    # If the footnoteoffset and sidebarrec are the same, only one or the
+    # other exists, and there's no way to tell which.
 
     $offset = 60;
     while($headerdata = substr($data,$offset,4))
@@ -357,107 +731,20 @@ sub ParseRecord0 :method
 }    
 
 
-sub footnotes
-{
-    my $self = shift;
-    my $subname = ( caller(0) )[3];
-    debug(2,"DEBUG[",$subname,"]");
-
-    my %footnotehash;
-    my @footnoteids = ();
-    my @footnotes = ();
-    my $lastindex;
-
-    if(ref $self->{footnoteids} eq 'ARRAY' and @{$self->{footnoteids}})
-    {
-        @footnoteids = @{$self->{footnoteids}};
-    }
-
-    if(ref $self->{footnotes} eq 'ARRAY' and @{$self->{footnotes}})
-    {
-        @footnotes = @{$self->{footnotes}};
-    }
-    
-    if($#footnotes != $#footnoteids)
-    {
-        carp($subname,"(): found ",scalar(@footnotes)," footnotes but ",
-             scalar(@footnoteids)," footnote ids\n");
-    }
-    $lastindex = min($#footnotes, $#footnoteids);
-
-    foreach my $idx (0 .. $lastindex)
-    {
-        $footnotehash{$footnoteids[$idx]} = $footnotes[$idx];
-    }
-
-    return %footnotehash;
-}
-
-
-sub footnotes_pml
-{
-    my $self = shift;
-    my $subname = ( caller(0) )[3];
-    debug(2,"DEBUG[",$subname,"]");
-
-    my %footnotehash = $self->footnotes;
-    my $text;
-
-    foreach my $footnoteid (sort keys %footnotehash)
-    {
-        $text .= '<footnote id="' . $footnoteid . '">';
-        $text .= $footnotehash{$footnoteid};
-        $text .= "</footnote>\n\n";
-    }
-    return $text;
-}
-
-sub pml
-{
-    my $self = shift;
-    my $subname = ( caller(0) )[3];
-    debug(2,"DEBUG[",$subname,"]");
-    debug(2,"DEBUG: returning ",length($self->{text})," bytes of PML text");
-    return $self->{text} . "\n" . $self->footnotes_pml;
-}
-
-
-sub html
-{
-    my $self = shift;
-    my $subname = ( caller(0) )[3];
-    debug(2,"DEBUG[",$subname,"]");
-
-    return pml_to_html($self->{text});
-}
-
-
-sub write_unknown_records :method
-{
-    my $self = shift;
-    my $subname = ( caller(0) )[3];
-    debug(3,"DEBUG[",$subname,"]");
-
-    my %unknowndata = %{$self->{unknowndata}};
-
-    foreach my $rec (sort keys %unknowndata)
-    {
-        my $recstring = sprintf("%04d",$rec);
-        debug(1,"Dumping raw record ",$recstring);
-        my $rawname = "raw-record-" . $recstring;
-        open(my $fh,">:raw",$rawname)
-            or croak("Unable to open '",$rawname,"' to write raw record\n");
-        print {*$fh} $$self{unknowndata}{$rec};
-        close($fh)
-            or croak("Unable to close raw record file '",$rawname,"'\n");
-    }
-    return scalar(keys %unknowndata);
-}
-
-
 ################################
 ########## PROCEDURES ##########
 ################################
+
+=head1 PROCEDURES
+
+=head2 C<cp1252_to_pml()>
+
+An unfinished and completely nonfunctional procedure to convert
+Windows-1252 characters to PML \a codes.
+
+DO NOT USE.
+
+=cut
 
 sub cp1252_to_pml
 {
@@ -479,6 +766,14 @@ sub cp1252_to_pml
 }
 
 
+=head2 C<pml_to_html()>
+
+Takes as input a text string in Windows-1252 encoding containing PML
+markup codes and returns a string with those codes converted to UTF-8
+HTML.
+
+=cut
+
 sub pml_to_html
 {
     my $text = shift;
@@ -486,19 +781,21 @@ sub pml_to_html
     debug(2,"DEBUG[",$subname,"]");
     
     return unless(defined $text);
+    $text = decode('Windows-1252',$text);
+
     my %pmlcodes = (
-        '\p' => '<br style="page-break-after: always" />',
-        '\x' => [ '<h1>','</h1>' ],
-        '\X0' => [ '<h1>','</h1>' ],
-        '\X1' => [ '<h2>','</h2>' ],
-        '\X2' => [ '<h3>','</h3>' ],
-        '\X3' => [ '<h4>','</h4>' ],
-        '\X4' => [ '<h5>','</h5>' ],
-        '\C0=' => '<div class="C0" id="$1"></div>',
-        '\C0=' => '<div class="C1" id="$1"></div>',
-        '\C0=' => '<div class="C2" id="$1"></div>',
-        '\C0=' => '<div class="C3" id="$1"></div>',
-        '\C0=' => '<div class="C4" id="$1"></div>',
+        '\p' => '<br style="page-break-after: always" />\n',
+        '\x' => [ '<h1 style="page-break-before: always">','</h1>\n' ],
+        '\X0' => [ '<h1>','</h1>\n' ],
+        '\X1' => [ '<h2>','</h2>\n' ],
+        '\X2' => [ '<h3>','</h3>\n' ],
+        '\X3' => [ '<h4>','</h4>\n' ],
+        '\X4' => [ '<h5>','</h5>\n' ],
+        '\C0=' => '<div class="C0"></div>',
+        '\C1=' => '<div class="C1"></div>',
+        '\C2=' => '<div class="C2"></div>',
+        '\C3=' => '<div class="C3"></div>',
+        '\C4=' => '<div class="C4"></div>',
         '\c' => [ '<div style="text-align: center">','</div>' ],
         '\r' => [ '<div style="text-align: right">','</div>' ],
         '\i' => [ '<em>','</em>' ],
@@ -506,13 +803,9 @@ sub pml_to_html
         '\o' => [ '<strike>','</strike>' ],
         '\v' => [ '<!-- ',' -->' ],
         '\t' => [ '<ul>','</ul>' ],
-        '\T=' => undef,
-        '\w=' => '<hr />',
-        '\n' => undef,
-        '\s' => undef,
+        '\T=' => '',
         '\b' => [ '<b>','</b>' ],
         '\B' => [ '<strong>','</strong>' ],
-        '\l' => [ '<font size="+2">','</font>' ],
         '\Sb' => [ '<sub>','</sub>' ],
         '\Sp' => [ '<sup>','</sup>' ],
         # font-variant: small-caps is very badly supported on most
@@ -521,44 +814,83 @@ sub pml_to_html
         '\k' => [ '<div style="font-size: smaller; text-transform: uppercase;">',
                   '</div>' ],
         "\\\\" => "\\",
-        '\m=' => undef,
-        '\q=' => [ '<a href="$1">','</a>' ],
-        '\Q=' => [ '<div id="$1">','</div>' ],
+        '\m=' => '',
         '\-' => '',
-        '\Fn=' => [ undef, undef ],
-        '\Sd=' => [ undef, undef ],
         '\I' => [ '<div class="refindex">','</div>' ],
         );
 
+    # Convert newlines to <br /> first
+    $text =~ s#\n(.*?)\n
+              #\n<br />$1<br />\n#gsx;
+
+    # Handle simple tag replacements
     while(my ($pmlcode,$replacement) = each(%pmlcodes) )
     {
         if(ref $replacement eq 'ARRAY')
         {
             if($pmlcode =~ / = $/x)
             {
+                # This doesn't work?  Need to rewrite for RHS eval?
                 $pmlcode =~ s/= $//x;
-                $text =~ s/$pmlcode="(.*?)" (.*?) $pmlcode
-                          /$replacement->[0]$2$replacement->[1]/gx;
+                $text =~ s#\Q$pmlcode\E
+                           ="(.*?)" (.*?) \Q $pmlcode \E
+                          #$replacement->[0]$2$replacement->[1]#gsx;
             }
             else
             {
-                $text =~ s/$pmlcode (.*?) $pmlcode
-                          /$replacement->[0]$1$replacement->[1]/gx;
+                $text =~ s#\Q$pmlcode\E (.*?) \Q$pmlcode\E
+                          #$replacement->[0]$1$replacement->[1]#gsx;
             }
         }
         else
         {
             if($pmlcode =~ / = $/x)
             {
-                $text =~ s/$pmlcode"(.*?)"/$replacement/gx;
+                $text =~ s#\Q$pmlcode\E "(.*?)"
+                          #$replacement#gsx;
             }
             else
             {
-                $text =~ s/$pmlcode/$replacement/gx;
+                $text =~ s#\Q$pmlcode\E
+                          #$replacement#gsx;
             }
             
         }
     } # while(my ($pmlcode,$replacement) = each(%pmlcodes) )
+
+    tie my %pmlfonts, 'Tie::IxHash', (
+        '\s' => '<div style="font-size: 80%">',
+        '\l' => '<div style="font-size: 120%">',
+        '\n' => '<div style="font-size: 100%">',
+    );
+
+    # Font markers can be terminated by a \n as well as their own
+    # code.
+    foreach my $pmlfont (keys %pmlfonts)
+    {
+        $text =~ s#\Q$pmlfont\E (.*?) (?:\Q$pmlfont\E|\Q\n\E)
+                  #$pmlfonts{$pmlfont}$1</div>#gsx;
+    }
+    # Strip leftover \n codes
+    $text =~ s#\\n
+              ##gsx;
+
+    # Horizontal rules
+    $text =~ s!\\w="(.*?)"
+              !<hr width="$1" />!gsx;
+
+    # Anchors and references
+    $text =~ s!\\q="(.*?)"(.*?)\\q
+              !<a href="#$1">$2</a>!gsx;
+    $text =~ s!\\Q="(.*?)"
+              !<a id="$1"></a>!gsx;
+
+    # Footnotes and sidebars
+    $text =~ s!\\Fn="(.*?)"(.*?)\\Fn
+              !<a id="$1-ref" href="#$1">$2</a>!gsx;
+    $text =~ s!\\Sd="(.*?)"(.*?)\\Sd
+              !<a id="$1-ref" href="#$1">$2</a>!gsx;
+
     return $text;
 }
 
@@ -568,11 +900,10 @@ sub pml_to_html
 
 =over
 
-=item * Footnotes are extracted, but sidebars aren't.
+=item * Images aren't handled.
 
-=item * HTML conversion is very poor
-
-=item * Documentation is very incomplete
+=item * HTML conversion doesn't handle handle the \T command used to
+        indent.
 
 =back
 
