@@ -11,6 +11,8 @@ our @EXPORT_OK;
 @EXPORT_OK = qw (
     &parse_mobi_exth
     &parse_mobi_header
+    &parse_mobi_language
+    &unpack_mobi_language
     );
 
 sub import
@@ -103,6 +105,200 @@ our %exthtypes = (
     502 => 'lastupdatetime',
     503 => 'updatedtitle',
     );
+
+# A subset of %exthtypes where the value is an integer, not a string
+our %exth_is_int = (
+    114 => 'versionnumber',
+    115 => 'sample',
+    201 => 'coveroffset',
+    202 => 'thumboffset',
+    203 => 'hasfakecover',
+    204 => '204',
+    205 => '205',
+    206 => '206',
+    207 => '207',
+    300 => '300',
+    401 => 'clippinglimit',
+    403 => '403',
+    );
+
+# A subset of %exthtypes where the value could conceivably show up
+# several times
+our %exth_repeats = (
+    101 => 'publisher',
+    104 => 'isbn',
+    105 => 'subject',
+    108 => 'contributor',
+    110 => 'subjectcode',
+    );
+
+
+our %mobilangcode;
+$mobilangcode{0}{0}   = '';
+$mobilangcode{54}{0}  = 'af'; # Afrikaans
+$mobilangcode{28}{0}  = 'sq'; # Albanian
+$mobilangcode{1}{0}   = 'ar'; # Arabic
+$mobilangcode{1}{20}  = 'ar-dz'; # Arabic (Algeria)
+$mobilangcode{1}{60}  = 'ar-bh'; # Arabic (Bahrain)
+$mobilangcode{1}{12}  = 'ar-eg'; # Arabic (Egypt)
+#$mobilangcode{1}{??} = 'ar-iq'; # Arabic (Iraq) -- Mobipocket broken
+$mobilangcode{1}{44}  = 'ar-jo'; # Arabic (Jordan)
+$mobilangcode{1}{52}  = 'ar-kw'; # Arabic (Kuwait)
+$mobilangcode{1}{48}  = 'ar-lb'; # Arabic (Lebanon)
+#$mobilangcode{1}{??} = 'ar-ly'; # Arabic (Libya) -- Mobipocket broken
+$mobilangcode{1}{24}  = 'ar-ma'; # Arabic (Morocco)
+$mobilangcode{1}{32}  = 'ar-om'; # Arabic (Oman)
+$mobilangcode{1}{64}  = 'ar-qa'; # Arabic (Qatar)
+$mobilangcode{1}{4}   = 'ar-sa'; # Arabic (Saudi Arabia)
+$mobilangcode{1}{40}  = 'ar-sy'; # Arabic (Syria)
+$mobilangcode{1}{28}  = 'ar-tn'; # Arabic (Tunisia)
+$mobilangcode{1}{56}  = 'ar-ae'; # Arabic (United Arab Emirates)
+$mobilangcode{1}{36}  = 'ar-ye'; # Arabic (Yemen)
+$mobilangcode{43}{0}  = 'hy'; # Armenian
+$mobilangcode{77}{0}  = 'as'; # Assamese
+$mobilangcode{44}{0}  = 'az'; # "Azeri (IANA: Azerbaijani)
+#$mobilangcode{44}{??} = 'az-cyrl'; # "Azeri (Cyrillic)" -- Mobipocket broken
+#$mobilangcode{44}{??} = 'az-latn'; # "Azeri (Latin)" -- Mobipocket broken
+$mobilangcode{45}{0}  = 'eu'; # Basque
+$mobilangcode{35}{0}  = 'be'; # Belarusian
+$mobilangcode{69}{0}  = 'bn'; # Bengali
+$mobilangcode{2}{0}   = 'bg'; # Bulgarian
+$mobilangcode{3}{0}   = 'ca'; # Catalan
+$mobilangcode{4}{0}   = 'zh'; # Chinese
+$mobilangcode{4}{12}  = 'zh-hk'; # Chinese (Hong Kong)
+$mobilangcode{4}{8}   = 'zh-cn'; # Chinese (PRC)
+$mobilangcode{4}{16}  = 'zh-sg'; # Chinese (Singapore)
+$mobilangcode{4}{4}   = 'zh-tw'; # Chinese (Taiwan)
+$mobilangcode{26}{0}  = 'hr'; # Croatian
+$mobilangcode{5}{0}   = 'cs'; # Czech
+$mobilangcode{6}{0}   = 'da'; # Danish
+$mobilangcode{19}{0}  = 'nl'; # Dutch / Flemish
+$mobilangcode{19}{8}  = 'nl-be'; # Dutch (Belgium)
+$mobilangcode{9}{0}   = 'en'; # English
+$mobilangcode{9}{12}  = 'en-au'; # English (Australia)
+$mobilangcode{9}{40}  = 'en-bz'; # English (Belize)
+$mobilangcode{9}{16}  = 'en-ca'; # English (Canada)
+$mobilangcode{9}{24}  = 'en-ie'; # English (Ireland)
+$mobilangcode{9}{32}  = 'en-jm'; # English (Jamaica)
+$mobilangcode{9}{20}  = 'en-nz'; # English (New Zealand)
+$mobilangcode{9}{52}  = 'en-ph'; # English (Philippines)
+$mobilangcode{9}{28}  = 'en-za'; # English (South Africa)
+$mobilangcode{9}{44}  = 'en-tt'; # English (Trinidad)
+$mobilangcode{9}{8}   = 'en-gb'; # English (United Kingdom)
+$mobilangcode{9}{4}   = 'en-us'; # English (United States)
+$mobilangcode{9}{48}  = 'en-zw'; # English (Zimbabwe)
+$mobilangcode{37}{0}  = 'et'; # Estonian
+$mobilangcode{56}{0}  = 'fo'; # Faroese
+$mobilangcode{41}{0}  = 'fa'; # Farsi / Persian
+$mobilangcode{11}{0}  = 'fi'; # Finnish
+$mobilangcode{12}{0}  = 'fr'; # French
+$mobilangcode{12}{4}  = 'fr'; # French (Mobipocket bug?)
+$mobilangcode{12}{8}  = 'fr-be'; # French (Belgium)
+$mobilangcode{12}{12} = 'fr-ca'; # French (Canada)
+$mobilangcode{12}{20} = 'fr-lu'; # French (Luxembourg)
+$mobilangcode{12}{24} = 'fr-mc'; # French (Monaco)
+$mobilangcode{12}{16} = 'fr-ch'; # French (Switzerland)
+$mobilangcode{55}{0}  = 'ka'; # Georgian
+$mobilangcode{7}{0}   = 'de'; # German
+$mobilangcode{7}{12}  = 'de-at'; # German (Austria)
+$mobilangcode{7}{20}  = 'de-li'; # German (Liechtenstein)
+$mobilangcode{7}{16}  = 'de-lu'; # German (Luxembourg)
+$mobilangcode{7}{8}   = 'de-ch'; # German (Switzerland)
+$mobilangcode{8}{0}   = 'el'; # Greek, Modern (1453-)
+$mobilangcode{71}{0}  = 'gu'; # Gujarati
+$mobilangcode{13}{0}  = 'he'; # Hebrew (also code 'iw'?)
+$mobilangcode{57}{0}  = 'hi'; # Hindi
+$mobilangcode{14}{0}  = 'hu'; # Hungarian
+$mobilangcode{15}{0}  = 'is'; # Icelandic
+$mobilangcode{33}{0}  = 'id'; # Indonesian
+$mobilangcode{16}{0}  = 'it'; # Italian
+$mobilangcode{16}{4}  = 'it'; # Italian (Mobipocket bug?)
+$mobilangcode{16}{8}  = 'it-ch'; # Italian (Switzerland)
+$mobilangcode{17}{0}  = 'ja'; # Japanese
+$mobilangcode{75}{0}  = 'kn'; # Kannada
+$mobilangcode{63}{0}  = 'kk'; # Kazakh
+$mobilangcode{87}{0}  = 'x-kok'; # Konkani (real language code is 'kok'?)
+$mobilangcode{18}{0}  = 'ko'; # Korean
+$mobilangcode{38}{0}  = 'lv'; # Latvian
+$mobilangcode{39}{0}  = 'lt'; # Lithuanian
+$mobilangcode{47}{0}  = 'mk'; # Macedonian
+$mobilangcode{62}{0}  = 'ms'; # Malay
+#$mobilangcode{62}{??}  = 'ms-bn'; # Malay (Brunei Darussalam) -- not supported
+#$mobilangcode{62}{??}  = 'ms-my'; # Malay (Malaysia) -- Mobipocket bug
+$mobilangcode{76}{0}  = 'ml'; # Malayalam
+$mobilangcode{58}{0}  = 'mt'; # Maltese
+$mobilangcode{78}{0}  = 'mr'; # Marathi
+$mobilangcode{97}{0}  = 'ne'; # Nepali
+$mobilangcode{20}{0}  = 'no'; # Norwegian
+#$mobilangcode{??}{??} = 'nb'; # Norwegian Bokmål (Mobipocket not supported)
+#$mobilangcode{??}{??} = 'nn'; # Norwegian Nynorsk (Mobipocket not supported)
+$mobilangcode{72}{0}  = 'or'; # Oriya
+$mobilangcode{21}{0}  = 'pl'; # Polish
+$mobilangcode{22}{0}  = 'pt'; # Portuguese
+$mobilangcode{22}{8}  = 'pt'; # Portuguese (Mobipocket bug?)
+$mobilangcode{22}{4}  = 'pt-br'; # Portuguese (Brazil)
+$mobilangcode{70}{0}  = 'pa'; # Punjabi
+$mobilangcode{23}{0}  = 'rm'; # "Rhaeto-Romanic" (IANA: Romansh)
+$mobilangcode{24}{0}  = 'ro'; # Romanian
+#$mobilangcode{24}{??}  = 'ro-mo'; # Romanian (Moldova) (Mobipocket output is 0)
+$mobilangcode{25}{0}  = 'ru'; # Russian
+#$mobilangcode{25}{??}  = 'ru-mo'; # Russian (Moldova) (Mobipocket output is 0)
+$mobilangcode{59}{0}  = 'sz'; # "Sami (Lappish)" (not an IANA language code)
+                              # IANA code for "Northern Sami" is 'se'
+                              # 'SZ' is the IANA region code for Swaziland
+$mobilangcode{79}{0}  = 'sa'; # Sanskrit
+$mobilangcode{26}{12} = 'sr'; # Serbian -- Mobipocket Cyrillic/Latin distinction broken
+#$mobilangcode{26}{12} = 'sr-cyrl'; # Serbian (Cyrillic) (Mobipocket bug)
+#$mobilangcode{26}{12} = 'sr-latn'; # Serbian (Latin) (Mobipocket bug)
+$mobilangcode{27}{0}  = 'sk'; # Slovak
+$mobilangcode{36}{0}  = 'sl'; # Slovenian
+$mobilangcode{46}{0}  = 'sb'; # "Sorbian" (not an IANA language code)
+                              # 'SB' is IANA region code for 'Solomon Islands'
+                              # Lower Sorbian = 'dsb'
+                              # Upper Sorbian = 'hsb'
+                              # Sorbian Languages = 'wen'
+$mobilangcode{10}{0}  = 'es'; # Spanish
+$mobilangcode{10}{4}  = 'es'; # Spanish (Mobipocket bug?)
+$mobilangcode{10}{44} = 'es-ar'; # Spanish (Argentina)
+$mobilangcode{10}{64} = 'es-bo'; # Spanish (Bolivia)
+$mobilangcode{10}{52} = 'es-cl'; # Spanish (Chile)
+$mobilangcode{10}{36} = 'es-co'; # Spanish (Colombia)
+$mobilangcode{10}{20} = 'es-cr'; # Spanish (Costa Rica)
+$mobilangcode{10}{28} = 'es-do'; # Spanish (Dominican Republic)
+$mobilangcode{10}{48} = 'es-ec'; # Spanish (Ecuador)
+$mobilangcode{10}{68} = 'es-sv'; # Spanish (El Salvador)
+$mobilangcode{10}{16} = 'es-gt'; # Spanish (Guatemala)
+$mobilangcode{10}{72} = 'es-hn'; # Spanish (Honduras)
+$mobilangcode{10}{8}  = 'es-mx'; # Spanish (Mexico)
+$mobilangcode{10}{76} = 'es-ni'; # Spanish (Nicaragua)
+$mobilangcode{10}{24} = 'es-pa'; # Spanish (Panama)
+$mobilangcode{10}{60} = 'es-py'; # Spanish (Paraguay)
+$mobilangcode{10}{40} = 'es-pe'; # Spanish (Peru)
+$mobilangcode{10}{80} = 'es-pr'; # Spanish (Puerto Rico)
+$mobilangcode{10}{56} = 'es-uy'; # Spanish (Uruguay)
+$mobilangcode{10}{32} = 'es-ve'; # Spanish (Venezuela)
+$mobilangcode{48}{0}  = 'sx'; # "Sutu" (not an IANA language code)
+                              # "Sutu" is another name for "Southern Sotho"?
+                              # IANA code for "Southern Sotho" is 'st'
+$mobilangcode{65}{0}  = 'sw'; # Swahili
+$mobilangcode{29}{0}  = 'sv'; # Swedish
+$mobilangcode{29}{8}  = 'sv-fi'; # Swedish (Finland)
+$mobilangcode{73}{0}  = 'ta'; # Tamil
+$mobilangcode{68}{0}  = 'tt'; # Tatar
+$mobilangcode{74}{0}  = 'te'; # Telugu
+$mobilangcode{30}{0}  = 'th'; # Thai
+$mobilangcode{49}{0}  = 'ts'; # Tsonga
+$mobilangcode{50}{0}  = 'tn'; # Tswana
+$mobilangcode{31}{0}  = 'tr'; # Turkish
+$mobilangcode{34}{0}  = 'uk'; # Ukrainian
+$mobilangcode{32}{0}  = 'ur'; # Urdu
+$mobilangcode{67}{0}  = 'uz'; # Uzbek
+$mobilangcode{67}{8}  = 'uz'; # Uzbek (Mobipocket bug?)
+#$mobilangcode{67}{??} = 'uz-cyrl'; # Uzbek (Cyrillic)
+#$mobilangcode{67}{??} = 'uz-latn'; # Uzbek (Latin)
+$mobilangcode{42}{0}  = 'vi'; # Vietnamese
+$mobilangcode{52}{0}  = 'xh'; # Xhosa
+$mobilangcode{53}{0}  = 'zu'; # Zulu
 
 our %pdbencoding = (
     '1252' => 'Windows-1252',
@@ -961,27 +1157,20 @@ book.
 
 Length in bytes of the full title of the book 
 
-=item C<unknownlanguage>
+=item C<languageunknown>
 
 16 bits of unknown data thought to be related to the book language.
 
 Use with caution.  This key may be renamed in the future if more
 information is found.
 
-=item C<region>
-
-The specific region of C<language>.  See C<%mobilangcodes> for an
-exact map of values.
-
-The bottom two bits of this value appear to be unused (i.e. all values
-are multiples of 4).
-
 =item C<language>
 
-A main language code.  See C<%mobilangcodes> for an exact map of
-values.
+A pseudo-IANA language code string representing the main book language
+(i.e. the value of <dc:language>).  See C<%mobilangcodes> for an exact
+map of raw values to this string and notes on non-compliant results.
 
-=item C<unknowndilanguage>
+=item C<dilanguageunknown>
 
 16 bits of unknown data thought to be related to the dictionary input
 language.
@@ -989,17 +1178,13 @@ language.
 Use with caution.  This key may be renamed in the future if more
 information is found.
 
-=item C<dictionaryinregion>
+=item C<dilanguage>
 
-The specific region of C<dictionaryinlanguage>.  See C<%mobilangcodes>
-for an exact map of values.
+A pseudo-IANA language code string for the DictionaryInLanguage
+element.  See C<%mobilangcodes> for an exact map of raw values to this
+string and notes on non-compliant results.
 
-=item C<dictionaryinlanguage>
-
-The language code for the DictionaryInLanguage element.  See
-C<%mobilangcodes> for an exact map of values.
-
-=item C<unknowndolanguage>
+=item C<dolanguageunknown>
 
 16 bits of unknown data thought to be related to the dictionary output
 language.
@@ -1007,15 +1192,11 @@ language.
 Use with caution.  This key may be renamed in the future if more
 information is found.
 
-=item C<dictionaryoutregion>
+=item C<dolanguage>
 
-The specific region of C<dictionaryoutlanguage>.  See C<%mobilangcodes>
-for an exact map of values.
-
-=item C<dictionaryoutlanguage>
-
-The language code for the DictionaryOutLanguage element.  See
-C<%mobilangcodes> for an exact map of values.
+A pseudo-IANA language code string for the DictionaryOutLanguage
+element.  See C<%mobilangcodes> for an exact map of raw values to this
+string and notes on non-compliant results.
 
 =item C<version2>
 
@@ -1232,26 +1413,12 @@ sub parse_mobi_header
     # Fourth chunk is 12 bytes containing the language codes
     $chunk = substr($headerdata,76,12);
     @list = unpack("nCCnCCnCC",$chunk);
-    $header{unknownlanguage}       = $list[0];
-    $header{region}                = $list[1];
-    $header{language}              = $list[2];
-    $header{unknowndilanguage}     = $list[3];
-    $header{dictionaryinregion}    = $list[4];
-    $header{dictionaryinlanguage}  = $list[5];
-    $header{unknowndolanguage}     = $list[6];
-    $header{dictionaryoutregion}   = $list[7];
-    $header{dictionaryoutlanguage} = $list[8];
-    debug(2,"DEBUG: language codes: ",
-          sprintf("language=%02x, region=%02x, unknown=%04x",
-                  $header{language},$header{region},$header{unknownlanguage}));
-    debug(2,"DEBUG: dictionary input language codes: ",
-          sprintf("language=%02x, region=%02x, unknown=%04x",
-                  $header{dictionaryinlanguage},$header{dictionaryinregion},
-                  $header{unknowndilanguage}));
-    debug(2,"DEBUG: dictionary output language codes: ",
-          sprintf("language=%02x, region=%02x, unknown=%04x",
-                  $header{dictionaryoutlanguage},$header{dictionaryoutregion},
-                  $header{unknowndolanguage}));
+    $header{languageunknown}   = $list[0];
+    $header{language}          = parse_mobi_language($list[2],$list[1]);
+    $header{dilanguageunknown} = $list[3];
+    $header{dilanguage}        = parse_mobi_language($list[5],$list[4]);
+    $header{dolanguageunknown} = $list[6];
+    $header{dolanguage}        = parse_mobi_language($list[8],$list[7]);
 
     # Fifth chunk is 8 bytes until next unknown block
     $chunk = substr($headerdata,88,8);
@@ -1347,13 +1514,142 @@ sub parse_mobi_header
 }
 
 
+=head2 C<parse_mobi_language($languagecode, $regioncode)>
+
+Takes the integer values C<$languagecode> and C<$regioncode> unpacked from
+the Mobipocket header and returns a language string mostly (but not
+entirely) conformant to the IANA language subtag registry codes.
+
+Croaks if C<$languagecode> is not provided.  If C<$regioncode> is not
+provided or not recognized, it is disregarded and the base language
+string (with no region or script) is returned.
+
+If C<$languagecode> is not provided, the sub croaks.  If it isn't
+recognized, a warning is carped and the sub returns undef.  Note that
+0,0 is a recognized code returning an empty string.
+
+See C<%mobilanguagecodes> for an exact map of values.  Note that the
+bottom two bits of the region code appear to be unused (i.e. the
+values are all multiples of 4).
+
+=cut
+
+sub parse_mobi_language
+{
+    my ($languagecode,$regioncode) = @_;
+    my $subname = ( caller(0) )[3];
+    debug(2,"DEBUG[",$subname,"]");
+
+    croak($subname,"(): no language code provided\n")
+        unless(defined $languagecode);
+
+    my $language = $mobilangcode{$languagecode}{$regioncode};
+
+    if(defined $language)
+    {
+        debug(2,"DEBUG: found language '",$language,"'",
+              " (language code ",$languagecode,",",
+              " region code ",$regioncode,")");
+    }
+    else
+    {
+        debug(1,"DEBUG: language code ",$languagecode,
+              ", region code ",$regioncode," not known",
+              " -- ignoring region code");
+        $language = $mobilangcode{$languagecode}{0};
+        if(!$language)
+        {
+            carp("WARNING: language code ",$languagecode,
+                 " not recognized!\n");
+        }
+        else
+        {
+            debug(1,"DEBUG: found downgraded language '",$language,"'",
+                  " (language code ",$languagecode,",",
+                  " region code 0)");
+        }                        
+    } # if($language) / else
+    return $language;
+}
+
+
+=head2 C<unpack_mobi_language($data)>
+
+Takes as an argument 4 bytes of data.  If less data is provided, the
+sub croaks.  If more, a debug warning is provided, but the sub
+continues.
+
+In scalar context returns a language string mostly (but not entirely)
+conformant to the IANA language subtag registry codes.
+
+In list context, returns the language string, an unknown code integer,
+a region code integer, and a language code integer, with the last
+three being directly unpacked values.
+
+See C<%mobilangcodes> for an exact map of values.  Note that the
+bottom two bits of the region code appear to be unused (i.e. the
+values are all multiples of 4).  The unknown code integer appears to
+be unused, and is generally zero.
+
+=cut
+
+sub unpack_mobi_language
+{
+    my $data = shift;
+
+    my $subname = ( caller(0) )[3];
+    debug(2,"DEBUG[",$subname,"]");
+
+    croak($subname,"(): no language data provided")
+        unless($data);
+
+    croak($subname,"(): language data is too short (only ",length($data),
+          " bytes, need 4\n")
+        if(length($data) < 4);
+
+    debug(1,$subname,"(): expected 4 bytes of data, but received ",
+          length($data))
+        if(length($data) > 4);
+
+    my ($unknowncode,$regioncode,$languagecode) = unpack('nCC',$data);
+    my $language = parse_mobi_language($languagecode,$regioncode);
+
+    my @returnlist = ($language,$unknowncode,$regioncode,$languagecode);
+    if(wantarray) { return @returnlist; }
+    else { return $returnlist[0]; }
+}
+
+
 ########## END CODE ##########
 
 =head1 BUGS/TODO
 
 =over
 
-=item *
+=item * Mobipocket HuffDic encoding (used mostly on dictionaries)
+isn't supported yet.
+
+=item * Not all Mobipocket data is understood, so a conversion from
+OPF to Mobipocket .prc back to OPF will not result in all data being
+retained.  Patches welcome.
+
+=item * Mobipocket EXTH subjectcode records may not end up attached to
+the correct subject element if the number of subject records differs
+from the number of subjectcode records.  This is because the
+Mobipocket format leaves the EXTH subjectcode records completely
+unlinked from the subject records, and there is no way to detect if a
+subject with no associated subjectcode comes before a subject with an
+associated subjectcode.
+
+Fortunately, this should rarely be a problem with real data, as
+Mobipocket Creator only allows a single subject to be set, and the
+only other way to have a subjectcode attached to a subject is to
+manually edit the OPF file and insert an additional dc:Subject element
+with a BASICCode attribute.
+
+Mobipocket has indicated that they may move data currently in their
+custom elements and attributes to the standard <meta> elements in a
+future release, so this problem may become moot then.
 
 =back
 

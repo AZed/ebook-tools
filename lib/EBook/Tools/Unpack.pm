@@ -35,28 +35,10 @@ or, more simply:
  my $unpacker = EBook::Tools::Unpack->new('file' => 'mybook.prc');
  $unpacker->unpack;
 
-
-=head1 DEPENDENCIES
-
-=head2 Perl Modules
-
-=over
-
-=item * C<HTML::Tree>
-
-=item * C<Image::Size>
-
-=item * C<List::MoreUtils>
-
-=item * C<P5-Palm>
-
-=back
-
 =cut
 
 
 use Carp;
-use Compress::Zlib;
 use EBook::Tools qw(debug hexstring split_metadata system_tidy_xhtml);
 use EBook::Tools::EReader qw(cp1252_to_pml pml_to_html);
 use EBook::Tools::Mobipocket;
@@ -65,180 +47,19 @@ use Encode;
 use Fcntl qw(SEEK_CUR SEEK_SET);
 use File::Basename qw(dirname fileparse);
 use File::Path;     # Exports 'mkpath' and 'rmtree'
-use Image::Size;
-use Palm::PDB;
+
+my $drmsupport = 0;
+eval
+{
+    require EBook::Tools::DRM;
+    EBook::Tools::DRM->import();
+}; # Trailing semicolon is required here
+unless($@){ $drmsupport = 1; }
+
 
 our @EXPORT_OK;
 @EXPORT_OK = qw (
     );
-
-our %mobilangcode;
-$mobilangcode{0}{0}   = undef;
-$mobilangcode{54}{0}  = 'af'; # Afrikaans
-$mobilangcode{28}{0}  = 'sq'; # Albanian
-$mobilangcode{1}{0}   = 'ar'; # Arabic
-$mobilangcode{1}{20}  = 'ar-dz'; # Arabic (Algeria)
-$mobilangcode{1}{60}  = 'ar-bh'; # Arabic (Bahrain)
-$mobilangcode{1}{12}  = 'ar-eg'; # Arabic (Egypt)
-#$mobilangcode{1}{??} = 'ar-iq'; # Arabic (Iraq) -- Mobipocket broken
-$mobilangcode{1}{44}  = 'ar-jo'; # Arabic (Jordan)
-$mobilangcode{1}{52}  = 'ar-kw'; # Arabic (Kuwait)
-$mobilangcode{1}{48}  = 'ar-lb'; # Arabic (Lebanon)
-#$mobilangcode{1}{??} = 'ar-ly'; # Arabic (Libya) -- Mobipocket broken
-$mobilangcode{1}{24}  = 'ar-ma'; # Arabic (Morocco)
-$mobilangcode{1}{32}  = 'ar-om'; # Arabic (Oman)
-$mobilangcode{1}{64}  = 'ar-qa'; # Arabic (Qatar)
-$mobilangcode{1}{4}   = 'ar-sa'; # Arabic (Saudi Arabia)
-$mobilangcode{1}{40}  = 'ar-sy'; # Arabic (Syria)
-$mobilangcode{1}{28}  = 'ar-tn'; # Arabic (Tunisia)
-$mobilangcode{1}{56}  = 'ar-ae'; # Arabic (United Arab Emirates)
-$mobilangcode{1}{36}  = 'ar-ye'; # Arabic (Yemen)
-$mobilangcode{43}{0}  = 'hy'; # Armenian
-$mobilangcode{77}{0}  = 'as'; # Assamese
-$mobilangcode{44}{0}  = 'az'; # "Azeri (IANA: Azerbaijani)
-#$mobilangcode{44}{??} = 'az-cyrl'; # "Azeri (Cyrillic)" -- Mobipocket broken
-#$mobilangcode{44}{??} = 'az-latn'; # "Azeri (Latin)" -- Mobipocket broken
-$mobilangcode{45}{0}  = 'eu'; # Basque
-$mobilangcode{35}{0}  = 'be'; # Belarusian
-$mobilangcode{69}{0}  = 'bn'; # Bengali
-$mobilangcode{2}{0}   = 'bg'; # Bulgarian
-$mobilangcode{3}{0}   = 'ca'; # Catalan
-$mobilangcode{4}{0}   = 'zh'; # Chinese
-$mobilangcode{4}{12}  = 'zh-hk'; # Chinese (Hong Kong)
-$mobilangcode{4}{8}   = 'zh-cn'; # Chinese (PRC)
-$mobilangcode{4}{16}  = 'zh-sg'; # Chinese (Singapore)
-$mobilangcode{4}{4}   = 'zh-tw'; # Chinese (Taiwan)
-$mobilangcode{26}{0}  = 'hr'; # Croatian
-$mobilangcode{5}{0}   = 'cs'; # Czech
-$mobilangcode{6}{0}   = 'da'; # Danish
-$mobilangcode{19}{0}  = 'nl'; # Dutch / Flemish
-$mobilangcode{19}{8}  = 'nl-be'; # Dutch (Belgium)
-$mobilangcode{9}{0}   = 'en'; # English
-$mobilangcode{9}{12}  = 'en-au'; # English (Australia)
-$mobilangcode{9}{40}  = 'en-bz'; # English (Belize)
-$mobilangcode{9}{16}  = 'en-ca'; # English (Canada)
-$mobilangcode{9}{24}  = 'en-ie'; # English (Ireland)
-$mobilangcode{9}{32}  = 'en-jm'; # English (Jamaica)
-$mobilangcode{9}{20}  = 'en-nz'; # English (New Zealand)
-$mobilangcode{9}{52}  = 'en-ph'; # English (Philippines)
-$mobilangcode{9}{28}  = 'en-za'; # English (South Africa)
-$mobilangcode{9}{44}  = 'en-tt'; # English (Trinidad)
-$mobilangcode{9}{8}   = 'en-gb'; # English (United Kingdom)
-$mobilangcode{9}{4}   = 'en-us'; # English (United States)
-$mobilangcode{9}{48}  = 'en-zw'; # English (Zimbabwe)
-$mobilangcode{37}{0}  = 'et'; # Estonian
-$mobilangcode{56}{0}  = 'fo'; # Faroese
-$mobilangcode{41}{0}  = 'fa'; # Farsi / Persian
-$mobilangcode{11}{0}  = 'fi'; # Finnish
-$mobilangcode{12}{0}  = 'fr'; # French
-$mobilangcode{12}{4}  = 'fr'; # French (Mobipocket bug?)
-$mobilangcode{12}{8}  = 'fr-be'; # French (Belgium)
-$mobilangcode{12}{12} = 'fr-ca'; # French (Canada)
-$mobilangcode{12}{20} = 'fr-lu'; # French (Luxembourg)
-$mobilangcode{12}{24} = 'fr-mc'; # French (Monaco)
-$mobilangcode{12}{16} = 'fr-ch'; # French (Switzerland)
-$mobilangcode{55}{0}  = 'ka'; # Georgian
-$mobilangcode{7}{0}   = 'de'; # German
-$mobilangcode{7}{12}  = 'de-at'; # German (Austria)
-$mobilangcode{7}{20}  = 'de-li'; # German (Liechtenstein)
-$mobilangcode{7}{16}  = 'de-lu'; # German (Luxembourg)
-$mobilangcode{7}{8}   = 'de-ch'; # German (Switzerland)
-$mobilangcode{8}{0}   = 'el'; # Greek, Modern (1453-)
-$mobilangcode{71}{0}  = 'gu'; # Gujarati
-$mobilangcode{13}{0}  = 'he'; # Hebrew (also code 'iw'?)
-$mobilangcode{57}{0}  = 'hi'; # Hindi
-$mobilangcode{14}{0}  = 'hu'; # Hungarian
-$mobilangcode{15}{0}  = 'is'; # Icelandic
-$mobilangcode{33}{0}  = 'id'; # Indonesian
-$mobilangcode{16}{0}  = 'it'; # Italian
-$mobilangcode{16}{4}  = 'it'; # Italian (Mobipocket bug?)
-$mobilangcode{16}{8}  = 'it-ch'; # Italian (Switzerland)
-$mobilangcode{17}{0}  = 'ja'; # Japanese
-$mobilangcode{75}{0}  = 'kn'; # Kannada
-$mobilangcode{63}{0}  = 'kk'; # Kazakh
-$mobilangcode{87}{0}  = 'x-kok'; # Konkani (real language code is 'kok'?)
-$mobilangcode{18}{0}  = 'ko'; # Korean
-$mobilangcode{38}{0}  = 'lv'; # Latvian
-$mobilangcode{39}{0}  = 'lt'; # Lithuanian
-$mobilangcode{47}{0}  = 'mk'; # Macedonian
-$mobilangcode{62}{0}  = 'ms'; # Malay
-#$mobilangcode{62}{??}  = 'ms-bn'; # Malay (Brunei Darussalam) -- not supported
-#$mobilangcode{62}{??}  = 'ms-my'; # Malay (Malaysia) -- Mobipocket bug
-$mobilangcode{76}{0}  = 'ml'; # Malayalam
-$mobilangcode{58}{0}  = 'mt'; # Maltese
-$mobilangcode{78}{0}  = 'mr'; # Marathi
-$mobilangcode{97}{0}  = 'ne'; # Nepali
-$mobilangcode{20}{0}  = 'no'; # Norwegian
-#$mobilangcode{??}{??} = 'nb'; # Norwegian Bokmål (Mobipocket not supported)
-#$mobilangcode{??}{??} = 'nn'; # Norwegian Nynorsk (Mobipocket not supported)
-$mobilangcode{72}{0}  = 'or'; # Oriya
-$mobilangcode{21}{0}  = 'pl'; # Polish
-$mobilangcode{22}{0}  = 'pt'; # Portuguese
-$mobilangcode{22}{8}  = 'pt'; # Portuguese (Mobipocket bug?)
-$mobilangcode{22}{4}  = 'pt-br'; # Portuguese (Brazil)
-$mobilangcode{70}{0}  = 'pa'; # Punjabi
-$mobilangcode{23}{0}  = 'rm'; # "Rhaeto-Romanic" (IANA: Romansh)
-$mobilangcode{24}{0}  = 'ro'; # Romanian
-#$mobilangcode{24}{??}  = 'ro-mo'; # Romanian (Moldova) (Mobipocket output is 0)
-$mobilangcode{25}{0}  = 'ru'; # Russian
-#$mobilangcode{25}{??}  = 'ru-mo'; # Russian (Moldova) (Mobipocket output is 0)
-$mobilangcode{59}{0}  = 'sz'; # "Sami (Lappish)" (not an IANA language code)
-                              # IANA code for "Northern Sami" is 'se'
-                              # 'SZ' is the IANA region code for Swaziland
-$mobilangcode{79}{0}  = 'sa'; # Sanskrit
-$mobilangcode{26}{12} = 'sr'; # Serbian -- Mobipocket Cyrillic/Latin distinction broken
-#$mobilangcode{26}{12} = 'sr-cyrl'; # Serbian (Cyrillic) (Mobipocket bug)
-#$mobilangcode{26}{12} = 'sr-latn'; # Serbian (Latin) (Mobipocket bug)
-$mobilangcode{27}{0}  = 'sk'; # Slovak
-$mobilangcode{36}{0}  = 'sl'; # Slovenian
-$mobilangcode{46}{0}  = 'sb'; # "Sorbian" (not an IANA language code)
-                              # 'SB' is IANA region code for 'Solomon Islands'
-                              # Lower Sorbian = 'dsb'
-                              # Upper Sorbian = 'hsb'
-                              # Sorbian Languages = 'wen'
-$mobilangcode{10}{0}  = 'es'; # Spanish
-$mobilangcode{10}{4}  = 'es'; # Spanish (Mobipocket bug?)
-$mobilangcode{10}{44} = 'es-ar'; # Spanish (Argentina)
-$mobilangcode{10}{64} = 'es-bo'; # Spanish (Bolivia)
-$mobilangcode{10}{52} = 'es-cl'; # Spanish (Chile)
-$mobilangcode{10}{36} = 'es-co'; # Spanish (Colombia)
-$mobilangcode{10}{20} = 'es-cr'; # Spanish (Costa Rica)
-$mobilangcode{10}{28} = 'es-do'; # Spanish (Dominican Republic)
-$mobilangcode{10}{48} = 'es-ec'; # Spanish (Ecuador)
-$mobilangcode{10}{68} = 'es-sv'; # Spanish (El Salvador)
-$mobilangcode{10}{16} = 'es-gt'; # Spanish (Guatemala)
-$mobilangcode{10}{72} = 'es-hn'; # Spanish (Honduras)
-$mobilangcode{10}{8}  = 'es-mx'; # Spanish (Mexico)
-$mobilangcode{10}{76} = 'es-ni'; # Spanish (Nicaragua)
-$mobilangcode{10}{24} = 'es-pa'; # Spanish (Panama)
-$mobilangcode{10}{60} = 'es-py'; # Spanish (Paraguay)
-$mobilangcode{10}{40} = 'es-pe'; # Spanish (Peru)
-$mobilangcode{10}{80} = 'es-pr'; # Spanish (Puerto Rico)
-$mobilangcode{10}{56} = 'es-uy'; # Spanish (Uruguay)
-$mobilangcode{10}{32} = 'es-ve'; # Spanish (Venezuela)
-$mobilangcode{48}{0}  = 'sx'; # "Sutu" (not an IANA language code)
-                              # "Sutu" is another name for "Southern Sotho"?
-                              # IANA code for "Southern Sotho" is 'st'
-$mobilangcode{65}{0}  = 'sw'; # Swahili
-$mobilangcode{29}{0}  = 'sv'; # Swedish
-$mobilangcode{29}{8}  = 'sv-fi'; # Swedish (Finland)
-$mobilangcode{73}{0}  = 'ta'; # Tamil
-$mobilangcode{68}{0}  = 'tt'; # Tatar
-$mobilangcode{74}{0}  = 'te'; # Telugu
-$mobilangcode{30}{0}  = 'th'; # Thai
-$mobilangcode{49}{0}  = 'ts'; # Tsonga
-$mobilangcode{50}{0}  = 'tn'; # Tswana
-$mobilangcode{31}{0}  = 'tr'; # Turkish
-$mobilangcode{34}{0}  = 'uk'; # Ukrainian
-$mobilangcode{32}{0}  = 'ur'; # Urdu
-$mobilangcode{67}{0}  = 'uz'; # Uzbek
-$mobilangcode{67}{8}  = 'uz'; # Uzbek (Mobipocket bug?)
-#$mobilangcode{67}{??} = 'uz-cyrl'; # Uzbek (Cyrillic)
-#$mobilangcode{67}{??} = 'uz-latn'; # Uzbek (Latin)
-$mobilangcode{42}{0}  = 'vi'; # Vietnamese
-$mobilangcode{52}{0}  = 'xh'; # Xhosa
-$mobilangcode{53}{0}  = 'zu'; # Zulu
-
 
 our %palmdbcodes = (
     '.pdfADBE' => 'adobereader',
@@ -632,155 +453,24 @@ sub detect_format :method
 }
 
 
-=head2 C<detect_from_mobi_headers()>
+=head2 C<detect_from_mobi_exth()>
 
-Detects metadata values from the MOBI headers retrieved via
-L</unpack_mobi_header()> and L</unpack_mobi_exth()> and places them
-into the C<detected> attribute.
+Detects metadata values from the MOBI EXTH headers retrieved via
+L</unpack_mobi_exth()> and places them into the C<detected> attribute.
 
 =cut
 
-sub detect_from_mobi_headers :method
+sub detect_from_mobi_exth :method
 {
     my $self = shift;
     my $subname = ( caller(0) )[3];
     debug(2,"DEBUG[",$subname,"]");
 
-    my $mobilang = $$self{datahashes}{mobi}{language};
-    my $mobiregion = $$self{datahashes}{mobi}{region};
-    my $mobidilang = $$self{datahashes}{mobi}{dictionaryinlanguage};
-    my $mobidiregion = $$self{datahashes}{mobi}{dictionaryinregion};
-    my $mobidolang = $$self{datahashes}{mobi}{dictionaryoutlanguage};
-    my $mobidoregion = $$self{datahashes}{mobi}{dictionaryoutregion};
     my @mobiexth = @{$$self{datahashes}{mobiexth}};
-    my $language;   # <dc:language>
-    my $dilanguage; # <DictionaryInLanguage>
-    my $dolanguage; # <DictionaryOutLanguage>
     my $data;
     my %exthtypes = %EBook::Tools::Mobipocket::exthtypes;
-
-    my %exth_is_int = (
-        114 => 'versionnumber',
-        115 => 'sample',
-        201 => 'coveroffset',
-        202 => 'thumboffset',
-        203 => 'hasfakecover',
-        204 => '204',
-        205 => '205',
-        206 => '206',
-        207 => '207',
-        300 => '300',
-        401 => 'clippinglimit',
-        403 => '403',
-        );
-
-    my %exth_repeats = (
-        101 => 'publisher',
-        104 => 'isbn',
-        105 => 'subject',
-        108 => 'contributor',
-        110 => 'subjectcode',
-        );
-
-    $$self{encoding} = $$self{datahashes}{mobi}{encoding} unless($$self{encoding});
-
-    # dc:Language
-    if($mobilang)
-    {
-        $language = $mobilangcode{$mobilang}{$mobiregion};
-        if($language)
-        {
-            debug(2,"DEBUG: found language '",$language,"'",
-                  " (language code ",$mobilang,",",
-                  " region code ",$mobiregion,")");
-            $$self{detected}{language} = $language;
-        }
-        else
-        {
-            debug(1,"DEBUG: language code ",$mobilang,
-                  ", region code ",$mobiregion," not known",
-                  " -- ignoring region code");
-            $language = $mobilangcode{$mobilang}{0};
-            if(!$language)
-            {
-                carp("WARNING: language code ",$mobilang,
-                     " not recognized!\n");
-            }
-            else
-            {
-                debug(1,"DEBUG: found downgraded language '",$language,"'",
-                      " (language code ",$mobilang,",",
-                      " region code 0)");
-                $$self{detected}{language} = $language;
-            }                        
-        } # if($language) / else
-    } # if($mobilang)
-
-    # DictionaryInLanguage
-    if($mobidilang)
-    {
-        $dilanguage = $mobilangcode{$mobidilang}{$mobidiregion};
-        if($dilanguage)
-        {
-            debug(2,"DEBUG: found dictionary input language '",$dilanguage,"'",
-                  " (language code ",$mobidilang,",",
-                  " region code ",$mobidiregion,")");
-            $$self{detected}{dictionaryinlanguage} = $dilanguage;
-        }
-        else
-        {
-            debug(1,"DEBUG: dictionary input language code ",$mobidilang,
-                  ", region code ",$mobidiregion," not known",
-                  " -- ignoring region code");
-            $language = $mobilangcode{$mobidilang}{0};
-            if(!$language)
-            {
-                carp("WARNING: dictionary input language code ",$mobidilang,
-                     " not recognized!\n");
-            }
-            else
-            {
-                debug(1,"DEBUG: found downgraded dictionary input language '",
-                      $dilanguage,"'",
-                      " (language code ",$mobidilang,",",
-                      " region code 0)");
-                $$self{detected}{dictionaryinlanguage} = $dilanguage;
-            }                        
-        } # if($dilanguage) / else
-    } # if($mobidilang)
-
-    # DictionaryOutLanguage
-    if($mobidolang)
-    {
-        $dolanguage = $mobilangcode{$mobidolang}{$mobidoregion};
-        if($dolanguage)
-        {
-            debug(2,"DEBUG: found dictionary output language '",$dolanguage,"'",
-                  " (language code ",$mobidolang,",",
-                  " region code ",$mobidoregion,")");
-            $$self{detected}{dictionaryoutlanguage} = $dolanguage;
-        }
-        else
-        {
-            debug(1,"DEBUG: dictionary output language code ",$mobidolang,
-                  ", region code ",$mobidiregion," not known",
-                  " -- ignoring region code");
-            $dolanguage = $mobilangcode{$mobidolang}{0};
-            if(!$language)
-            {
-                carp("WARNING: dictionary output language code ",$mobidolang,
-                     " not recognized!\n");
-            }
-            else
-            {
-                debug(1,"DEBUG: found downgraded dictionary output language '",
-                      $dolanguage,"'",
-                      " (language code ",$mobidolang,",",
-                      " region code 0)");
-                $$self{detected}{dictionaryoutlanguage} = $dolanguage;
-            }                        
-        } # if($dolanguage) / else
-    } # if($mobidolang)
+    my %exth_is_int = %EBook::Tools::Mobipocket::exth_is_int;
+    my %exth_repeats = %EBook::Tools::Mobipocket::exth_repeats;
 
     # EXTH records
     foreach my $exth (@mobiexth)
@@ -800,9 +490,9 @@ sub detect_from_mobi_headers :method
             $data = $$exth{data};
         }
         
-        debug(2,"DEBUG: EXTH ",$type," = '",$data,"'");
         if($exth_repeats{$$exth{type}})
         {
+            debug(2,"DEBUG: Repeating EXTH ",$type," = '",$data,"'");
             my @extharray = ();
             my $oldexth = $$self{detected}{$type};
             if(ref $oldexth eq 'ARRAY') { @extharray = @$oldexth; }
@@ -812,6 +502,7 @@ sub detect_from_mobi_headers :method
         }
         else
         {
+            debug(2,"DEBUG: Single EXTH ",$type," = '",$data,"'");
             $$self{detected}{$type} = $data;
         }
     }
@@ -976,6 +667,7 @@ sub gen_opf :method
     $detected = $$self{detected}{subject};
     if( $detected && (ref($detected) eq 'ARRAY') )
     {
+        debug(2,"Multiple dc:Subject entries");
         $index = 0;
         foreach my $text (@$detected)
         {
@@ -987,6 +679,7 @@ sub gen_opf :method
     }
     elsif($detected)
     {
+        debug(2,"Single dc:Subject entry");
         $code = $$self{detected}{subjectcode};
         $ebook->add_subject(text => $$self{detected}{subject},
                             basiccode => $code)
@@ -1161,8 +854,16 @@ sub unpack_mobi :method
     $$self{datahashes}{palm} = $mobi->{header}{palm};
     $$self{datahashes}{mobi} = $mobi->{header}{mobi};
     $$self{datahashes}{mobiexth} = $mobi->{header}{exth};
+    $$self{encoding}
+    = $$self{datahashes}{mobi}{encoding} unless($$self{encoding});
     $$self{detected}{title} = $mobi->{title};
-    $self->detect_from_mobi_headers();
+    $$self{detected}{language} = $mobi->{header}{mobi}{language};
+    $$self{detected}{dictionaryinlanguage}
+    = $mobi->{header}{mobi}{dilanguage};
+    $$self{detected}{dictionaryoutlanguage}
+    = $mobi->{header}{mobi}{dolanguage};
+
+    $self->detect_from_mobi_exth();
     
     if($$self{raw} && !$$self{nosave})
     {
@@ -1301,31 +1002,6 @@ Consider these to be private subroutines and use at your own risk.
 external plug-in module may eventually be built, but it will never
 become part of the main module for legal reasons.
 
-=item * Mobipocket HuffDic encoding (used mostly on dictionaries)
-isn't supported yet.
-
-=item * Not all Mobipocket data is understood, so a conversion from
-OPF to Mobipocket .prc back to OPF will not result in all data being
-retained.  Patches welcome.
-
-=item * Mobipocket EXTH subjectcode records may not end up attached to
-the correct subject element if the number of subject records differs
-from the number of subjectcode records.  This is because the
-Mobipocket format leaves the EXTH subjectcode records completely
-unlinked from the subject records, and there is no way to detect if a
-subject with no associated subjectcode comes before a subject with an
-associated subjectcode.
-
-Fortunately, this should rarely be a problem with real data, as
-Mobipocket Creator only allows a single subject to be set, and the
-only other way to have a subjectcode attached to a subject is to
-manually edit the OPF file and insert an additional dc:Subject element
-with a BASICCode attribute.
-
-Mobipocket has indicated that they may move data currently in their
-custom elements and attributes to the standard <meta> elements in a
-future release, so this problem may become moot then.
-
 =item * Unit tests are incomplete
 
 =item * Documentation is incomplete.  Accessors in particular could
@@ -1333,14 +1009,9 @@ use some cleaning up.
 
 =item * Need to implement setter methods for object attributes
 
-=item * Palm::Doc is currently used for extraction, with a lot of code
-in this module dedicated to extracting information that it can't.  It
-may be better to split out that code into a dedicated module to
-replace Palm::Doc completely.
-
-=item * Import/extraction/unpacking is currently limited to PalmDoc
-and Mobipocket.  Extraction from eReader and Microsoft Reader (.lit)
-is also eventually planned.  Other formats may follow from there.
+=item * Import/extraction/unpacking is currently limited to PalmDoc,
+Mobipocket, and eReader.  Extraction from Microsoft Reader (.lit) and
+ePub is also eventually planned.  Other formats may follow from there.
 
 =back
 
