@@ -875,10 +875,10 @@ sub write_images :method
         debug(1,"Writing image '",$image,"' [",
               length(${$imagedata{$image}})," bytes]");
         open(my $fh,">:raw",$image)
-            or croak("Unable to open '",$image,"' to write raw record\n");
+            or croak("Unable to open '",$image,"' to write image\n");
         print {*$fh} ${$imagedata{$image}};
         close($fh)
-            or croak("Unable to close raw record file '",$image,"'\n");
+            or croak("Unable to close image file '",$image,"'\n");
     }
     return scalar(keys %imagedata);
 }
@@ -916,7 +916,7 @@ sub write_text :method
     print {*$fh} $$self{text};
     close($fh);
     
-    croak($subname,"(): unpack failed to generate any text")
+    croak($subname,"(): failed to generate any text")
         if(-z $filename);
     
     return 1;
