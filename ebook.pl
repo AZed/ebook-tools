@@ -15,7 +15,7 @@ See also L</EXAMPLES>.
 =cut
 
 
-use EBook::Tools qw(split_metadata split_pre 
+use EBook::Tools qw(split_metadata split_pre strip_script
                     system_tidy_xhtml system_tidy_xml);
 use EBook::Tools::Unpack;
 use File::Basename 'fileparse';
@@ -38,6 +38,7 @@ my %opt = (
     'mimetype'    => '',
     'mobi'        => 0,
     'nosave'      => 0,
+    'noscript'    => 0,
     'oeb12'       => 0,
     'opf20'       => 0,
     'opffile'     => '',
@@ -61,6 +62,7 @@ GetOptions(
     'mimetype|mtype=s',
     'mobi|m',
     'nosave',
+    'noscript',
     'raw',
     'oeb12',
     'opf20',
@@ -86,17 +88,18 @@ $EBook::Tools::tidycmd = $opt{tidycmd} if($opt{tidycmd});
 $EBook::Tools::tidysafety = $opt{tidysafety};
 
 my %dispatch = (
-    'adddoc'    => \&adddoc,
-    'additem'   => \&additem,
-    'blank'     => \&blank,
-    'fix'       => \&fix,
-    'genepub'   => \&genepub,
-    'setmeta'   => \&setmeta,
-    'splitmeta' => \&splitmeta,
-    'splitpre'  => \&splitpre,
-    'tidyxhtml' => \&tidyxhtml,
-    'tidyxml'   => \&tidyxml,
-    'unpack'    => \&unpack,
+    'adddoc'      => \&adddoc,
+    'additem'     => \&additem,
+    'blank'       => \&blank,
+    'fix'         => \&fix,
+    'genepub'     => \&genepub,
+    'setmeta'     => \&setmeta,
+    'splitmeta'   => \&splitmeta,
+    'splitpre'    => \&splitpre,
+    'stripscript' => \&stripscript,
+    'tidyxhtml'   => \&tidyxhtml,
+    'tidyxml'     => \&tidyxml,
+    'unpack'      => \&unpack,
     );
 
 my $cmd = shift;
@@ -606,6 +609,10 @@ sub splitmeta
 Split <pre>...</pre> blocks out of an existing HTML file, wrapping
 each one found into a separate HTML file.
 
+The first non-option argument is taken to be the input file.  The
+second non-option argument is taken to be the basename of the output
+files.
+
 =cut
 
 sub splitpre
@@ -616,6 +623,44 @@ sub splitpre
     exit(0);
 }
 
+
+=head2 C<stripscript>
+
+Strips <script>...</script> blocks out of a HTML file.
+
+The first non-option argument is taken to be the input file.  The
+second non-option argument is taken to be the output file.  If the
+latter is not specified, the input file will be overwritten.
+
+=head3 Options
+
+=over
+
+=item * C<--noscript>
+
+Strips <noscript>...</noscript> blocks as well.
+
+=back
+
+=cut
+
+sub stripscript
+{
+    my ($infile,$outfile) = @_;
+
+    if(!$infile)
+    {
+        print "You must specify an input file.\n";
+        exit(10);
+    }
+    my %args;
+    $args{infile} = $infile;
+    $args{outfile} = $outfile;
+    $args{noscript} = $opt{noscript};
+
+    strip_script(%args);
+    exit(0);
+}
 
 =head2 C<tidyxhtml>
 
