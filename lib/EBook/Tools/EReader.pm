@@ -1,24 +1,15 @@
 package EBook::Tools::EReader;
 use warnings; use strict; use utf8;
 use 5.010; # Needed for smart-match operator
-# $Revision $ $Date $
-use version; our $VERSION = qv("0.1.1");
+use version; our $VERSION = qv("0.2.0");
+# $Revision$ $Date$
+# $Id$
 
-require Exporter;
-use base qw(Exporter Palm::Raw);
-
-our @EXPORT_OK;
-@EXPORT_OK = qw (
-    &cp1252_to_pml
-    &pml_to_html
-    );
-
-sub import
-{
-    &Palm::PDB::RegisterPDBHandlers( __PACKAGE__, [ "PPrs", "PNRd" ], );
-    &Palm::PDB::RegisterPRCHandlers( __PACKAGE__, [ "PPrs", "PNRd" ], );
-    EBook::Tools::EReader->export_to_level(1, @_);
-}
+# Double-sigils are needed for lexical variables in clear print statements
+## no critic (Double-sigil dereference)
+# Mixed case subs and the variable %record are inherited from Palm::PDB
+## no critic (ProhibitAmbiguousNames)
+## no critic (ProhibitMixedCaseSubs)
 
 =head1 NAME
 
@@ -50,6 +41,23 @@ Fictionwise/PeanutPress eReader format.
 =cut
 
 
+require Exporter;
+use base qw(Exporter Palm::Raw);
+
+our @EXPORT_OK;
+@EXPORT_OK = qw (
+    &cp1252_to_pml
+    &pml_to_html
+    );
+
+sub import   ## no critic (Always unpack @_ first)
+{
+    &Palm::PDB::RegisterPDBHandlers( __PACKAGE__, [ "PPrs", "PNRd" ], );
+    &Palm::PDB::RegisterPRCHandlers( __PACKAGE__, [ "PPrs", "PNRd" ], );
+    EBook::Tools::EReader->export_to_level(1, @_);
+    return;
+}
+
 use Carp;
 use Compress::Zlib;
 use EBook::Tools qw(debug split_metadata system_tidy_xhtml);
@@ -66,11 +74,6 @@ use Palm::PDB;
 use Palm::Raw();
 use Tie::IxHash;
 
-our %pdbencoding = (
-    '1252' => 'Windows-1252',
-    '65001' => 'UTF-8',
-    );
-
 
 #################################
 ########## CONSTRUCTOR ##########
@@ -84,7 +87,7 @@ Instantiates a new Ebook::Tools::EReader object.
 
 =cut
 
-sub new
+sub new   ## no critic (Always unpack @_ first)
 {
     my $class = shift;
     my $self = $class->SUPER::new(@_);
@@ -408,9 +411,11 @@ sub write_html :method
 
     debug(1,"DEBUG: writing HTML text to '",$filename,"'");
 
-    open(my $fh,">:utf8",$filename);
+    open(my $fh,">:utf8",$filename)
+        or croak($subname,"(): unable to open '",$filename,"' for writing!\n");
     print {*$fh} $self->html;
-    close($fh);
+    close($fh)
+        or croak($subname,"(): unable to close '",$filename,"'!\n");
     
     croak($subname,"(): failed to generate any text")
         if(-z $filename);
@@ -476,9 +481,11 @@ sub write_pml :method
 
     debug(1,"DEBUG: writing PML text to '",$filename,"'");
 
-    open(my $fh,">:raw",$filename);
+    open(my $fh,">:raw",$filename)
+        or croak($subname,"(): unable to open '",$filename,"' for writing!\n");
     print {*$fh} $self->pml;
-    close($fh);
+    close($fh)
+        or croak($subname,"(): unable to close '",$filename,"'!\n");
     
     croak($subname,"(): failed to generate any text")
         if(-z $filename);
@@ -550,8 +557,10 @@ called automatically on every database record during C<Load()>.
 
 =cut
 
-sub ParseRecord :method
+sub ParseRecord :method   ## no critic (Always unpack @_ first)
 {
+    ## The long if-elsif chain is the best logic for record number handling
+    ## no critic (Cascading if-elsif chain)
     my $self = shift;
     my %record = @_;
     my $subname = ( caller(0) )[3];
@@ -593,7 +602,7 @@ sub ParseRecord :method
     if($currentrecord < $self->{header}->{nontextoffset})
     {
         $recordtext = $uncompress->($record{data});
-        $recordtext =~ s/\0//;
+        $recordtext =~ s/\0//x;
         if($recordtext)
         {
             $self->{text} .= $recordtext;
@@ -815,7 +824,6 @@ sub ParseRecord0 :method
                      # 10 - Inflate Compression
                      # >255 - data is in Record 1
     my $headerdata;  # used for holding temporary data segments
-    my $headersize;  # size of variable-length header data
     my $offset;
     my %header;
     my @list;
@@ -1053,7 +1061,7 @@ sub pml_to_html
 
 ########## END CODE ##########
 
-=head1 BUGS/TODO
+=head1 BUGS AND LIMITATIONS
 
 =over
 
@@ -1071,7 +1079,7 @@ heed to whether those linebreaks occur inside of some other element.
 
 Zed Pobre <zed@debian.org>
 
-=head1 COPYRIGHT
+=head1 LICENSE AND COPYRIGHT
 
 Copyright 2008 Zed Pobre
 

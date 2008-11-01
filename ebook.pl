@@ -1,5 +1,8 @@
 #!/usr/bin/perl
 use warnings; use strict;
+use version; our $VERSION = qv("0.2.0");
+# $Revision$ $Date$
+# $Id$
 
 
 =head1 NAME
