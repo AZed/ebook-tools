@@ -47,6 +47,7 @@ use Encode;
 use Fcntl qw(SEEK_CUR SEEK_SET);
 use File::Basename qw(dirname fileparse);
 use File::Path;     # Exports 'mkpath' and 'rmtree'
+binmode(STDERR,":utf8");
 
 my $drmsupport = 0;
 eval
@@ -758,38 +759,30 @@ sub unpack_ereader :method
     $pdb->Load($$self{file});
 
     $$self{datahashes}{ereader} = $pdb->{header};
-    $$self{detected}{title}     = $pdb->{title};
-    $$self{detected}{author}    = $pdb->{author};
-    $$self{detected}{rights}    = $pdb->{rights};
-    $$self{detected}{publisher} = $pdb->{publisher};
-    $$self{detected}{isbn}      = $pdb->{isbn};
+    $$self{detected}{title}     = decode('Windows-1252',$pdb->{title});
+    $$self{detected}{author}    = decode('Windows-1252',$pdb->{author});
+    $$self{detected}{rights}    = decode('Windows-1252',$pdb->{rights});
+    $$self{detected}{publisher} = decode('Windows-1252',$pdb->{publisher});
+    $$self{detected}{isbn}      = decode('Windows-1252',$pdb->{isbn});
     debug(1,"DEBUG: PDB title: '",$$self{detected}{title},"'");
     debug(1,"DEBUG: PDB author: '",$$self{detected}{author},"'");
     debug(1,"DEBUG: PDB copyright: '",$$self{detected}{rights},"'");
     debug(1,"DEBUG: PDB publisher: '",$$self{detected}{publisher},"'");
     debug(1,"DEBUG: PDB ISBN: '",$$self{detected}{isbn},"'");
 
-    if($$self{htmlconvert}) { $textname = $self->filebase . ".html"; }
-    else { $textname = $self->filebase . ".pml"; }
     unless($$self{nosave})
     {
         $self->usedir;
+        
         if($$self{htmlconvert})
         {
-            open($fh_text,'>:utf8',$textname)
-                or croak($subname,"(): unable to open '",$textname,
-                         "' for writing!\n");
-            print {*$fh_text} $pdb->html;
+            $pdb->write_html();
         }
         else
         {
-            open($fh_text,'>:raw',$textname)
-                or croak($subname,"(): unable to open '",$textname,
-                         "' for writing!\n");
-            print {*$fh_text} $pdb->pml;
+            $pdb->write_pml();
         }
-        close($fh_text)
-            or croak($subname,"(): unable to close '",$textname,"'!\n");
+        $pdb->write_images;
         $pdb->write_unknown_records if($$self{raw});
         $self->gen_opf(textfile => $textname);
     }

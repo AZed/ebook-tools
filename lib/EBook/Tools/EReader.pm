@@ -117,6 +117,21 @@ sub new
 
 =head1 ACCESSOR METHODS
 
+=head2 C<filebase>
+
+In scalar context, this is the basename of the object attribute
+C<filename>.  In list context, it actually returns the basename,
+directory, and extension as per C<fileparse> from L<File::Basename>.
+
+=cut
+
+sub filebase
+{
+    my $self = shift;
+    return fileparse($$self{filename},'\.\w+$');
+}
+
+
 =head2 C<footnotes()>
 
 Returns a hash containing all of the footnotes found in the file,
@@ -216,7 +231,7 @@ sub footnotes_html
         $text .= '<dd>' . $footnotehash{$footnoteid} . "</dd>\n";
     }
     $text .= "</dl>\n";
-    $text = pml_to_html($text);
+    $text = pml_to_html($text,$self->filebase);
     return $text;
 }
 
@@ -261,7 +276,7 @@ sub html
     my $footer = "</body>\n</html>\n";
 
     return 
-        $header . pml_to_html($self->{text})
+        $header . pml_to_html($self->{text},$self->filebase)
         . $self->sidebars_html . $self->footnotes_html . $footer;
 }
 
@@ -364,8 +379,111 @@ sub sidebars_html
         $text .= '<dd>' . $sidebarhash{$sidebarid} . "</dd>\n";
     }
     $text .= "</dl>\n";
-    $text = pml_to_html($text);
+    $text = pml_to_html($text,$self->filebase);
     return $text;
+}
+
+
+=head2 C<write_html($filename)>
+
+Writes the raw book text to disk in PML form (including all sidebars
+and footnotes) with the given filename.
+
+If C<$filename> is not specified, writes to C<$self->filebase> with
+a ".html" extension.
+
+Returns 1 on success, or undef if there was no text to write.
+
+=cut
+
+sub write_html :method
+{
+    my $self = shift;
+    my $filename = shift;
+    my $subname = ( caller(0) )[3];
+    debug(3,"DEBUG[",$subname,"]");
+
+    $filename = $self->filebase . ".html" unless($filename);
+    return unless($$self{text});
+
+    debug(1,"DEBUG: writing HTML text to '",$filename,"'");
+
+    open(my $fh,">:utf8",$filename);
+    print {*$fh} $self->html;
+    close($fh);
+    
+    croak($subname,"(): failed to generate any text")
+        if(-z $filename);
+    
+    return 1;
+}
+
+
+=head2 C<write_images()>
+
+Writes each image record to the disk.
+
+Returns the number of images written.
+
+=cut
+
+sub write_images :method
+{
+    my $self = shift;
+    my $subname = ( caller(0) )[3];
+    debug(3,"DEBUG[",$subname,"]");
+
+    my %imagedata = %{$self->{imagedata}};
+    my $imagedir = $self->filebase . "_img";
+
+    mkpath($imagedir);
+
+    foreach my $image (sort keys %imagedata)
+    {
+        debug(1,"Writing image '",$imagedir,"/",$image,"' [",
+              length(${$imagedata{$image}})," bytes]");
+        open(my $fh,">:raw","$imagedir/$image")
+            or croak("Unable to open '$imagedir/$image' to write image\n");
+        print {*$fh} ${$imagedata{$image}};
+        close($fh)
+            or croak("Unable to close image file '$imagedir/$image'\n");
+    }
+    return scalar(keys %imagedata);
+}
+
+
+=head2 C<write_pml($filename)>
+
+Writes the raw book text to disk in PML form (including all sidebars
+and footnotes) with the given filename.
+
+If C<$filename> is not specified, writes to C<$self->filebase> with
+a ".pml" extension.
+
+Returns 1 on success, or undef if there was no text to write.
+
+=cut
+
+sub write_pml :method
+{
+    my $self = shift;
+    my $filename = shift;
+    my $subname = ( caller(0) )[3];
+    debug(3,"DEBUG[",$subname,"]");
+
+    $filename = $self->filebase . ".pml" unless($filename);
+    return unless($$self{text});
+
+    debug(1,"DEBUG: writing PML text to '",$filename,"'");
+
+    open(my $fh,">:raw",$filename);
+    print {*$fh} $self->pml;
+    close($fh);
+    
+    croak($subname,"(): failed to generate any text")
+        if(-z $filename);
+    
+    return 1;
 }
 
 
@@ -406,6 +524,24 @@ sub write_unknown_records :method
 ######################################
 
 =head1 MODIFIER METHODS
+
+=head2 C<Load($filename)>
+
+Sets C<$self->{filename}> and then loads and parses the file specified
+by C<$filename>, calling L</ParseRecord(%record)> on every record
+found.
+
+=cut
+
+sub Load :method
+{
+    my $self = shift;
+    my $filename = shift;
+    
+    $self->{filename} = $filename;
+    return $self->SUPER::Load($filename);
+}
+
 
 =head2 C<ParseRecord(%record)>
 
@@ -474,6 +610,7 @@ sub ParseRecord :method
     elsif($currentrecord >= $self->{header}->{nontextoffset}
           && $currentrecord < $self->{header}->{bookmarkoffset})
     {
+        debug(1,"###DEBUG: unknown");
         $recordtext = uncompress($record{data});
         $recordtext = uncompress_palmdoc($record{data}) unless($recordtext);
         if($recordtext)
@@ -490,7 +627,7 @@ sub ParseRecord :method
         }
     }
     elsif($currentrecord >= $self->{header}->{bookmarkoffset}
-          && $currentrecord < $self->{header}->{metadataoffset})
+          && $currentrecord < $self->{header}->{imagedataoffset})
     {
         my @list = unpack('nn',$record{data});
         $recordtext = substr($record{data},4);
@@ -500,8 +637,20 @@ sub ParseRecord :method
               $recordtext,
               "' [",sprintf("unk=0x%04x offset=0x%04x",@list),"]");
     }
+    elsif($currentrecord >= $self->{header}->{imagedataoffset}
+          && $currentrecord < $self->{header}->{metadataoffset})
+    {
+        my $pngoffset = index($record{data},"\x{89}PNG",5);
+        my $imagedata = substr($record{data},$pngoffset);
+        my ($imagetype,$imagename) = $record{data} =~ m/^ (\w+) \s (.*?)\0/x;
+        debug(1,"DEBUG: record ",$currentrecord," is ",$imagetype,
+              " image at offset ",$pngoffset,": '",$imagename,"'");
+        $$self{imagedata}{$imagename} = \$imagedata;
+    }
     elsif($currentrecord == $self->{header}->{metadataoffset})
     {
+        debug(1,"DEBUG: record ",$currentrecord," contains ",
+              length($record{data})," bytes of metadata");
         # The metadata record consists of five null-terminated
         # strings
         my @list = $record{data} =~ m/(.*?)\0/gx;
@@ -694,18 +843,18 @@ sub ParseRecord0 :method
 
     $headerdata = substr($data,32,24);
     @list = unpack('nnnnnnnnnnnn',$headerdata);
-    $header{bookmarkoffset}  = $list[0];
-    $header{unknown34}       = $list[1];
-    $header{nontextoffset3}  = $list[2];
-    $header{unknown38}       = $list[3];
-    $header{metadataoffset}  = $list[4];
-    $header{metadataoffset2} = $list[5];
-    $header{metadataoffset3} = $list[6];
-    $header{metadataoffset4} = $list[7];
-    $header{footnoteoffset}  = $list[8];
-    $header{sidebaroffset}   = $list[9];
-    $header{lastdataoffset}  = $list[10];
-    $header{unknown54}       = $list[11];
+    $header{bookmarkoffset}   = $list[0];
+    $header{unknown34}        = $list[1];
+    $header{nontextoffset3}   = $list[2];
+    $header{unknown38}        = $list[3];
+    $header{imagedataoffset}  = $list[4];
+    $header{imagedataoffset2} = $list[5];
+    $header{metadataoffset}   = $list[6];
+    $header{metadataoffset2}  = $list[7];
+    $header{footnoteoffset}   = $list[8];
+    $header{sidebaroffset}    = $list[9];
+    $header{lastdataoffset}   = $list[10];
+    $header{unknown54}        = $list[11];
 
     # If the footnoteoffset and sidebarrec are the same, only one or the
     # other exists, and there's no way to tell which.
@@ -766,17 +915,22 @@ sub cp1252_to_pml
 }
 
 
-=head2 C<pml_to_html()>
+=head2 C<pml_to_html($text,$filebase)>
 
 Takes as input a text string in Windows-1252 encoding containing PML
 markup codes and returns a string with those codes converted to UTF-8
 HTML.
+
+Requires a second argument C<$filebase> to specify the basename of the
+file (or specifically, the basename of the file to which output text
+will be written) so that image links can be generated correctly.
 
 =cut
 
 sub pml_to_html
 {
     my $text = shift;
+    my $filebase = shift;
     my $subname = ( caller(0) )[3];
     debug(2,"DEBUG[",$subname,"]");
     
@@ -814,7 +968,6 @@ sub pml_to_html
         '\k' => [ '<div style="font-size: smaller; text-transform: uppercase;">',
                   '</div>' ],
         "\\\\" => "\\",
-        '\m=' => '',
         '\-' => '',
         '\I' => [ '<div class="refindex">','</div>' ],
         );
@@ -879,6 +1032,10 @@ sub pml_to_html
     $text =~ s!\\w="(.*?)"
               !<hr width="$1" />!gsx;
 
+    # Images
+    $text =~ s!\\m="(.*?)"
+              !<img src="${filebase}_img/$1">!gsx;
+
     # Anchors and references
     $text =~ s!\\q="(.*?)"(.*?)\\q
               !<a href="#$1">$2</a>!gsx;
@@ -900,10 +1057,13 @@ sub pml_to_html
 
 =over
 
-=item * Images aren't handled.
-
 =item * HTML conversion doesn't handle handle the \T command used to
         indent.
+
+=item * HTML conversion may be suboptimal in many ways.
+
+Most notably, all linebreaks are handled as <br />, and without any
+heed to whether those linebreaks occur inside of some other element.
 
 =back
 
