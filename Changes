@@ -1,15 +1,18 @@
-RELEASES
+Release Notes
+=============
 
 0.2.0
 
 New Features:
  * eReader unpacking support
  * New unpacking option --htmlconvert
- * format-specific code is now in separate modules
+ * ebook stripscript command to remove <script> and <noscript> blocks
+   from HTML
 
 Library Changes:
  * parse_mobi_header() hash keys relating to language have been
    changed
+ * format-specific code is now in separate modules
 
 Bug Fixes:
  * ISBN is no longer added twice in unpacked OPF files

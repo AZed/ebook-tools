@@ -1,8 +1,17 @@
 package EBook::Tools::Mobipocket;
 use warnings; use strict; use utf8;
 use 5.010; # Needed for smart-match operator
-# $Revision $ $Date $
-use version; our $VERSION = qv("0.1.1");
+use version; our $VERSION = qv("0.2.0");
+# $Revision$ $Date$
+# $Id$
+
+# Perl Critic overrides:
+## no critic (Package variable)
+# Double-sigils are needed for lexical variables in clear print statements
+## no critic (Double-sigil dereference)
+# Mixed case subs and the variable %record are inherited from Palm::PDB
+## no critic (ProhibitAmbiguousNames)
+## no critic (ProhibitMixedCaseSubs)
 
 require Exporter;
 use base qw(Exporter Palm::Raw);
@@ -15,11 +24,12 @@ our @EXPORT_OK;
     &unpack_mobi_language
     );
 
-sub import
+sub import   ## no critic (Always unpack @_ first)
 {
     &Palm::PDB::RegisterPDBHandlers( __PACKAGE__, [ "MOBI", "BOOK" ], );
     &Palm::PDB::RegisterPRCHandlers( __PACKAGE__, [ "MOBI", "BOOK" ], );
     EBook::Tools::EReader->export_to_level(1, @_);
+    return;
 }
 
 =head1 NAME
@@ -318,7 +328,7 @@ Instantiates a new Ebook::Tools::Mobipocket object.
 
 =cut
 
-sub new
+sub new   ## no critic (Always unpack @_ first)
 {
     my $class = shift;
     my $self = $class->SUPER::new(@_);
@@ -393,8 +403,10 @@ called automatically on every database record during C<Load()>.
 
 =cut
 
-sub ParseRecord :method
+sub ParseRecord :method   ## no critic (Always unpack @_ first)
 {
+    ## The long if-elsif chain is the best logic for record number handling
+    ## no critic (Cascading if-elsif chain)
     my $self = shift;
     my %record = @_;
     my $subname = ( caller(0) )[3];
@@ -673,7 +685,7 @@ anyway.
 
 =cut
 
-sub fix_html
+sub fix_html :method   ## no critic (Always unpack @_ first)
 {
     my $self = shift;
     my (%args) = @_;
@@ -704,65 +716,7 @@ sub fix_html
     # filepos references and generate anchors at the referenced
     # positions.  This must be done first because any other
     # modifications to the text will invalidate those positions.
-    my @filepos = ($$self{text} =~ /filepos="?([0-9]+)/gix);
-    my $length = length($$self{text});
-    my $atpos;
-
-    debug(1,"DEBUG: creating filepos anchors");
-    foreach my $pos (uniq reverse sort @filepos)
-    {
-        # First, see if we're pointing to a position outside the text
-        if($pos >= $length-4)
-        {
-            debug(1,"DEBUG: filepos ",$pos," outside text, skipping");
-            next;
-        }
-
-        # Second, figure out what we're dealing with at the filepos
-        # offset indicated
-        $atpos = substr($$self{text},$pos,5);
-        
-        if($atpos =~ /^<mbp/)
-        {
-            # Mobipocket-specific element
-            # Insert a whole new <a id> here
-            debug(2,"DEBUG: filepos ",$pos," points to '<mbp',",
-                  " creating new anchor");
-            substring($$self{text},$pos,4,'<a id="' . $pos . '"></a><mbp');
-        }
-        elsif($atpos =~ /^<(a|p)[ >]/ix)
-        {
-            # 1-character block-level elements
-            debug(2,"DEBUG: filepos ",$pos," points to '",$1,"', updating id");
-            substr($$self{text},$pos,2,"<$1 id=\"fp" . $pos . '"');
-        }
-        elsif($atpos =~ /^<(h\d)[ >]/)
-        {
-            # 2-character block-level elements
-            debug(2,"DEBUG: filepos ",$pos," points to '",$1,"', updating id");
-            substr($$self{text},$pos,3,"<$1 id=\"fp" . $pos . '"');
-        }
-        elsif($atpos =~ /^<(div)[ >]/)
-        {
-            # 3-character block-level elements
-            debug(2,"DEBUG: filepos ",$pos," points to '",$1,"', updating id");
-            substr($$self{text},$pos,4,"<$1 id=\"fp" . $pos . '"');
-        }
-        elsif($atpos =~ /^</)
-        {
-            # All other elements
-            debug(2,"DEBUG: filepos ",$pos," points to '",$atpos,
-                  "', creating new anchor");
-            substr($$self{text},$pos,1,'<a id="' . $pos . '"></a><');
-        }
-        else
-        {
-            # Not an element
-            carp("WARNING: filepos ",$pos," pointing to '",$atpos,
-                 "' not handled!");
-        }
-    }
-
+    $self->fix_html_filepos();
 
     # Convert or remove the Mobipocket-specific tags
     $$self{text} =~ s#<mbp:pagebreak [\s\n]*
@@ -806,7 +760,7 @@ sub fix_html
 
     # Replace filepos attributes with href attributes
     debug(2,"DEBUG: converting filepos attributes");
-    @elements = $tree->look_down('filepos',qr/.*/);
+    @elements = $tree->look_down('filepos',qr/.*/x);
     foreach my $el (@elements)
     {
         $link = $el->attr('filepos');
@@ -849,6 +803,89 @@ sub fix_html
                          #\n<$1$2#gix;
         $$self{text} =~ s#</p>\s*
                          #</p>\n#gix;
+    }
+    return 1;
+}
+
+
+=head2 C<fix_html_filepos()>
+
+Takes the raw HTML text of the object and replaces the filepos
+anchors.  This has to be called before any other action that modifies
+the text, or the filepos positions will not be valid.
+
+Returns 1 if successful, undef if there was no text to fix.
+
+This is called automatically by L</fix_html()>.
+
+=cut
+
+sub fix_html_filepos :method
+{
+    # There doesn't appear to be any clearer way of handling this
+    # than the if-elsif chain.
+    ## no critic (Cascading if-elsif chain)
+    my $self = shift;
+    my $subname = ( caller(0) )[3];
+    debug(2,"DEBUG[",$subname,"]");
+
+    my @filepos = ($$self{text} =~ /filepos="?([0-9]+)/gix);
+    my $length = length($$self{text});
+    return unless($length);
+    my $atpos;
+
+    debug(1,"DEBUG: creating filepos anchors");
+    foreach my $pos (uniq reverse sort @filepos)
+    {
+        # First, see if we're pointing to a position outside the text
+        if($pos >= $length-4)
+        {
+            debug(1,"DEBUG: filepos ",$pos," outside text, skipping");
+            next;
+        }
+
+        # Second, figure out what we're dealing with at the filepos
+        # offset indicated
+            $atpos = substr($$self{text},$pos,5);
+        if($atpos =~ /^<mbp/ix)
+        {
+            # Mobipocket-specific element
+            # Insert a whole new <a id> here
+            debug(2,"DEBUG: filepos ",$pos," points to '<mbp',",
+                  " creating new anchor");
+            substring($$self{text},$pos,4,'<a id="' . $pos . '"></a><mbp');
+        }
+        elsif($atpos =~ /^<(a|p)[ >]/ix)
+        {
+            # 1-character block-level elements
+            debug(2,"DEBUG: filepos ",$pos," points to '",$1,"', updating id");
+            substr($$self{text},$pos,2,"<$1 id=\"fp" . $pos . '"');
+        }
+        elsif($atpos =~ /^<(h\d)[ >]/ix)
+        {
+            # 2-character block-level elements
+            debug(2,"DEBUG: filepos ",$pos," points to '",$1,"', updating id");
+            substr($$self{text},$pos,3,"<$1 id=\"fp" . $pos . '"');
+        }
+        elsif($atpos =~ /^<(div)[ >]/ix)
+        {
+            # 3-character block-level elements
+            debug(2,"DEBUG: filepos ",$pos," points to '",$1,"', updating id");
+            substr($$self{text},$pos,4,"<$1 id=\"fp" . $pos . '"');
+        }
+        elsif($atpos =~ /^</ix)
+        {
+            # All other elements
+            debug(2,"DEBUG: filepos ",$pos," points to '",$atpos,
+                  "', creating new anchor");
+            substr($$self{text},$pos,1,'<a id="' . $pos . '"></a><');
+        }
+        else
+        {
+            # Not an element
+            carp("WARNING: filepos ",$pos," pointing to '",$atpos,
+                 "' not handled!");
+        }
     }
     return 1;
 }
@@ -910,11 +947,13 @@ sub write_text :method
     debug(1,"DEBUG: writing text to '",$filename,
           "', encoding ",$pdbencoding{$$self{encoding}});
 
-    open(my $fh,">",$filename);
+    open(my $fh,">",$filename)
+        or croak($subname,"(): unable to open '",$filename,"' for writing!\n");
     if($$self{encoding} == 65001) { binmode($fh,":utf8"); }
     else { binmode($fh); }
     print {*$fh} $$self{text};
-    close($fh);
+    close($fh)
+        or croak($subname,"(): unable to close '",$filename,"'!\n");
     
     croak($subname,"(): failed to generate any text")
         if(-z $filename);
@@ -1014,7 +1053,7 @@ sub parse_mobi_exth
 
     $chunk = substr($headerdata,0,12);
     @list = unpack("a4NN",$chunk);
-    unless($list[0] eq 'EXTH')
+    if($list[0] ne 'EXTH')
     {
         debug(1,"(): Unrecognized Mobipocket EXTH ID '",$list[0],
              "' (expected 'EXTH')");
@@ -1023,14 +1062,14 @@ sub parse_mobi_exth
     # The EXTH data never seems to be as long as remaining data after
     # the Mobipocket main header, so only check to see if it is
     # shorter, not equal
-    unless($list[1] < $length)
+    if($length < $list[1])
     {
         debug(1,"EXTH header specified length ",$list[1]," but found ",
              $length," bytes.\n");
     }
 
-    $recordcnt= $list[2];
-    unless($recordcnt > 0)
+    $recordcnt = $list[2];
+    unless($recordcnt)
     {
         debug(1,"EXTH flag set, but no EXTH records present");
         return @exthrecords;
@@ -1352,8 +1391,10 @@ information is found.
 
 =cut
 
-sub parse_mobi_header
+sub parse_mobi_header   ## no critic (ProhibitExcessComplexity)
 {
+    # There's no way to refactor this without breaking up chunks into
+    # separate subroutines, which is a bad idea.
     my ($headerdata) = @_;
     my $subname = ( caller(0) )[3];
     debug(2,"DEBUG[",$subname,"]");
@@ -1369,7 +1410,7 @@ sub parse_mobi_header
     my $hexstring; # hexadecimal debugging output string
 
     croak($subname,"(): header data is too short! (only ",$length," bytes)")
-        unless($length >= 116);
+        if($length < 116);
 
     # The Mobipocket header data is large enough that it's easier to
     # deal with when handled in smaller chunks
@@ -1377,14 +1418,18 @@ sub parse_mobi_header
     # First chunk is 24 bytes before reserved block
     $chunk = substr($headerdata,0,24);
     @list = unpack("a4NNNNN",$chunk);
-    croak($subname,
-          "(): Unrecognized Mobipocket header ID '",$list[0],
-          "' (expected 'MOBI')")
-        unless($list[0] eq 'MOBI');
-    croak($subname,
-          "(): header specified length ",$list[1]," but found ",
-          $length," bytes.")
-        unless($list[1] == $length);
+    if($list[0] ne 'MOBI')
+    {
+        croak($subname,
+              "(): Unrecognized Mobipocket header ID '",$list[0],
+              "' (expected 'MOBI')");
+    }
+    if($list[1] != $length)
+    {
+        croak($subname,
+              "(): header specified length ",$list[1]," but found ",
+              $length," bytes.");
+    }
 
     $header{identifier}   = $list[0];
     $header{headerlength} = $list[1];
@@ -1622,7 +1667,7 @@ sub unpack_mobi_language
 
 ########## END CODE ##########
 
-=head1 BUGS/TODO
+=head1 BUGS AND LIMITATIONS
 
 =over
 
@@ -1657,7 +1702,7 @@ future release, so this problem may become moot then.
 
 Zed Pobre <zed@debian.org>
 
-=head1 COPYRIGHT
+=head1 LICENSE AND COPYRIGHT
 
 Copyright 2008 Zed Pobre
 

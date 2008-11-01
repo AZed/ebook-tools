@@ -3,9 +3,18 @@ use warnings; use strict; use utf8;
 use 5.010; # Needed for smart-match operator
 require Exporter;
 use base qw(Exporter);
-use version; our $VERSION = qv("0.1.1");
-# $Revision $ $Date $
+use version; our $VERSION = qv("0.2.0");
+# $Revision$ $Date$
+# $Id$
 
+# Perl Critic overrides:
+## no critic (Package variable)
+# RequireBriefOpen seems to be way too brief to be useful
+## no critic (RequireBriefOpen)
+# Builtin homonyms are methods and flagged as such
+## no critic (ProhibitBuiltinHomonyms)
+# Double-sigils are needed for lexical filehandles in clear print statements
+## no critic (Double-sigil dereference)
 
 =head1 NAME
 
@@ -320,73 +329,73 @@ This returns a hash containing the autodetected metadata, if any.
 
 =cut
 
-sub author
+sub author :method
 {
     my $self = shift;
     return $$self{author};
 }
 
-sub dir
+sub dir :method
 {
     my $self = shift;
     return $$self{dir};
 }
 
-sub file
+sub file :method
 {
     my $self = shift;
     return $$self{file};
 }
 
-sub filebase
+sub filebase :method
 {
     my $self = shift;
     return fileparse($$self{file},'\.\w+$');
 }
 
-sub format
+sub format :method
 {
     my $self = shift;
     return $$self{format};
 }
 
-sub key
+sub key :method
 {
     my $self = shift;
     return $$self{key};
 }
 
-sub keyfile
+sub keyfile :method
 {
     my $self = shift;
     return $$self{keyfile};
 }
 
-sub language
+sub language :method
 {
     my $self = shift;
     return $$self{language};
 }
 
-sub opffile
+sub opffile :method
 {
     my $self = shift;
     return $$self{opffile};
 }
 
-sub raw
+sub raw :method
 {
     my $self = shift;
     return $$self{raw};
 }
 
-sub title
+sub title :method
 {
     my $self = shift;
     return $$self{opffile};
 }
 
-sub detected
+sub detected :method
 {
     my $self = shift;
     return $$self{detected};
@@ -547,7 +556,7 @@ remains to the manifest of the OPF.
 
 =cut
 
-sub gen_opf :method
+sub gen_opf :method   ## no critic (Always unpack @_ first)
 {
     my $self = shift;
     my (%args) = @_;
@@ -753,8 +762,6 @@ sub unpack_ereader :method
 
     my $pdb = EBook::Tools::EReader->new();
     my $textname;
-    my $fh_text;
-    my $fh_data;
 
     $pdb->Load($$self{file});
 
@@ -806,19 +813,13 @@ sub unpack_mobi :method
     my @records;
     my $data;
     my $opffile;
-    my @list;    # Generic temporary list storage
 
     # Used for extracting images
-    my ($imagex,$imagey,$imagetype);
     my $imageid = 0;
-    my $imagename;
     my $firstimagerec = 0;
 
     # Used for file output
-    my ($fh_html,$fh_image,$fh_raw);
     my $htmlname = $self->filebase . ".html";
-    my $rawname;
-    my $text_record_count;
 
     my $reccount = 0; # The Record ID cannot be reliably used to identify 
                       # the first record.  This increments as each
@@ -972,20 +973,12 @@ sub usedir :method
 
 ########## PROCEDURES ##########
 
-=head1 PROCEDURES
-
-No procedures are exported by default, and in fact since the final
-module location for some of these procedures has not yet been
-finalized, none are even exportable.
-
-Consider these to be private subroutines and use at your own risk.
-
-=cut
+# No procedures
 
 
 ########## END CODE ##########
 
-=head1 BUGS/TODO
+=head1 BUGS AND LIMITATIONS
 
 =over
 
@@ -1010,7 +1003,7 @@ ePub is also eventually planned.  Other formats may follow from there.
 
 Zed Pobre <zed@debian.org>
 
-=head1 COPYRIGHT
+=head1 LICENSE AND COPYRIGHT
 
 Copyright 2008 Zed Pobre
 
@@ -1019,3 +1012,5 @@ Licensed to the public under the terms of the GNU GPL, version 2
 =cut
 
 1;
+__END__
+

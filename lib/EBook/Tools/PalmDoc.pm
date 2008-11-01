@@ -1,6 +1,12 @@
 package EBook::Tools::PalmDoc;
 use warnings; use strict; use utf8;
-# $Revision $ $Date $
+use version; our $VERSION = qv("0.2.0");
+# $Revision$ $Date$
+# $Id$
+
+# Mixed case subs and the variable %record are inherited from Palm::PDB
+## no critic (ProhibitAmbiguousNames)
+## no critic (ProhibitMixedCaseSubs)
 
 =head1 NAME
 
@@ -47,19 +53,20 @@ our @EXPORT_OK;
     &uncompress_palmdoc
     );
 
+sub import   ## no critic (Always unpack @_ first)
+{
+    &Palm::PDB::RegisterPDBHandlers( __PACKAGE__, [ "REAd", "TEXt" ], );
+    &Palm::PDB::RegisterPRCHandlers( __PACKAGE__, [ "REAd", "TEXt" ], );
+    EBook::Tools::PalmDoc->export_to_level(1, @_);
+    return;
+}
+
 use Carp;
 use EBook::Tools qw(debug);
 use File::Basename qw(fileparse);
 use HTML::TextToHTML;
 use Palm::PDB;
 use Palm::Raw();
-
-sub import
-{
-    &Palm::PDB::RegisterPDBHandlers( __PACKAGE__, [ "REAd", "TEXt" ], );
-    &Palm::PDB::RegisterPRCHandlers( __PACKAGE__, [ "REAd", "TEXt" ], );
-    EBook::Tools::PalmDoc->export_to_level(1, @_);
-}
 
 
 #################################
@@ -81,7 +88,7 @@ cause it to become a resource database.
 
 =cut
 
-sub new
+sub new   ## no critic (Always unpack @_ first)
 {
 	my $class = shift;
 	my $self = $class->SUPER::new(@_);
@@ -199,7 +206,7 @@ C<Load()>.
 
 =cut
 
-sub ParseRecord :method
+sub ParseRecord :method   ## no critic (Always unpack @_ first)
 {
     my $self = shift;
     my %record = @_;
@@ -235,7 +242,7 @@ C<Load()>.
 
 =cut
 
-sub ParseResource :method
+sub ParseResource :method    ## no critic (Always unpack @_ first)
 {
     my $self = shift;
     my %resource = @_;
@@ -274,7 +281,7 @@ automatically by L<ParseRecord()> and L<ParseResource()> as needed.
 
 =cut
 
-sub ParseRecordBookmark :method
+sub ParseRecordBookmark :method   ## no critic (Always unpack @_ first)
 {
     my $self = shift;
     my ($data,$currentrecord) = @_;
@@ -285,12 +292,16 @@ sub ParseRecordBookmark :method
     my $bookmark;
     my $offset;
 
-    croak($subname,"(): bookmark record ",$currentrecord,
-          " is only ",length($data)," bytes (need 20)\n")
-        unless(length($data) >= 20);
-    debug(1,"bookmark record ",$currentrecord," is ",
-          length($data)," bytes (expected 20)")
-        unless(length($data) == 20);
+    if(length($data) < 20)
+    {
+        croak($subname,"(): bookmark record ",$currentrecord,
+              " is only ",length($data)," bytes (need 20)\n");
+    }
+    elsif(length($data) == 20)
+    {
+        debug(1,"bookmark record ",$currentrecord," is ",
+              length($data)," bytes (expected 20)");
+    }
     
     $bookmark = substr($data,0,18);
     $bookmark =~ s/\0+//gx;
@@ -344,7 +355,7 @@ Uses the contents of C<@text> (concatenated) as the text of the PDB.
 
 =cut
 
-sub set_text
+sub set_text   ## no critic (Always unpack @_ first)
 {
     my $self = shift;
     my $text = join('',@_);
@@ -403,7 +414,7 @@ name of the PDB to the basename of the file.
 
 =cut
 
-sub import_textfile
+sub import_textfile :method
 {
     my $self = shift;
     my $filename = shift;
@@ -418,6 +429,7 @@ sub import_textfile
         or croak($subname,"(): unable to close '",$filename,"' [",@!,"]");
     
     $self->{'name'} = fileparse($filename,'\.\w+$');
+    return 1;
 }
 
 
@@ -473,17 +485,18 @@ sub compress_palmdoc
             my $preamble = substr( $text, 0, $offset );
             for( my $j = 10; $j >= 3; $j -- )
             {
-                $chunk = substr( $text, $offset, $j );	# grab next $j characters
-                $match = rindex( $preamble, $chunk );	# in the output?
+                $chunk = substr($text,$offset,$j);  # grab next $j characters
+                $match = rindex($preamble,$chunk);  # in the output?
 
-                # type B code has a 2047 byte sliding window, so matches have to be
-                # within that range to be useful
+                # type B code has a 2047 byte sliding window, so
+                # matches have to be within that range to be useful
                 last if $match >= 0 and ($offset - $match) <= 2047;
                 $match = -1;
             }
 
             my $n = length $chunk;
-            if( $match >= 0 and $n <= 10 and $n >= 3 ) {
+            if( $match >= 0 and $n <= 10 and $n >= 3 )
+            {
                 my $m = $offset - $match;
 
                 # first 2 bits are 10, next 11 are offset, next 3 are length-3
@@ -521,19 +534,23 @@ sub compress_palmdoc
         } 
         else 
         {
-            # type A code. This is essentially an 'escape' like '\\' in strings.
-            # For efficiency, it's best to encode as long a sequence as
-            # possible with one copy. This might seem like it would cause us to miss
-            # out on a type B sequence, but in actuality keeping long binary strings
-            # together improves the likelyhood of a later type B sequence than 
-            # interspersing them with x01's.
+            # Type A code. This is essentially an 'escape' like '\\'
+            # in strings.  For efficiency, it's best to encode as long
+            # a sequence as possible with one copy.
+            #
+            # This might seem like it would cause us to miss out on a
+            # type B sequence, but in actuality keeping long binary
+            # strings together improves the likelyhood of a later type
+            # B sequence than interspersing them with x01's.
 
             my $next = substr($text,$offset - 1);
-            if( $next =~ /([\x01-\x08\x80-\xff]{1,8})/o ) {
+            if( $next =~ /([\x01-\x08\x80-\xff]{1,8})/o )
+            {
                 my $binseq = $1;
                 $compressed .= chr(length $binseq);
                 $compressed .= $binseq;
-                $offset += length( $binseq ) - 1;	# first char, $ch, is already counted
+                # first char, $ch, is already counted
+                $offset += length( $binseq ) - 1;
             }
         }
     }
@@ -729,6 +746,8 @@ sub uncompress_palmdoc
         $char = substr($data,$offset++,1);
         $ord = ord($char);
         
+        # The long if-elsif chain is the best logic for $ord handling
+        ## no critic (Cascading if-elsif chain)
         if($ord == 0)
         {
             # Nulls are literal
@@ -797,8 +816,13 @@ sub uncompress_palmdoc
     return $text;
 }
 
-
+1;
 __END__
+
+
+##############################
+########## END CODE ##########
+##############################
 
 =head1 BUGS
 
@@ -852,4 +876,3 @@ L</compress_palmdoc()>.
 
 =cut
 
-1;
