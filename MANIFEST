@@ -4,12 +4,16 @@ MANIFEST
 README
 Changes
 lib/EBook/Tools.pm
+lib/EBook/Tools/EReader.pm
+lib/EBook/Tools/Mobipocket.pm
+lib/EBook/Tools/PalmDoc.pm
 lib/EBook/Tools/Unpack.pm
 t/00-errorhandling.t
 t/01-init_and_accessors.t
 t/02-fix_methods.t
 t/10-fix_datestring.t
 t/15-misc_procedures.t
+t/20-unpack.t
 t/50-user_scripts.t
 t/99-pod_coverage.t
 t/parts.css
@@ -19,6 +23,9 @@ t/test-containsmetadata.html
 t/testopf-emptyuid.xml
 t/testopf-missingfwid.xml
 t/toobusy.jpg
+t/ereader/ertest.pdb
+t/ereader/ertest.pml
+t/ereader/ertest_img/resonance.png
 t/mobi/langtest-af.prc
 t/mobi/langtest-ar-ae.prc
 t/mobi/langtest-ar-bh.prc
