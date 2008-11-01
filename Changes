@@ -1,3 +1,19 @@
 RELEASES
 
+0.2.0
+
+New Features:
+ * eReader unpacking support
+ * New unpacking option --htmlconvert
+ * format-specific code is now in separate modules
+
+Library Changes:
+ * parse_mobi_header() hash keys relating to language have been
+   changed
+
+Bug Fixes:
+ * ISBN is no longer added twice in unpacked OPF files
+
+----------
+
 0.1.0 - Original release
