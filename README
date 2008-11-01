@@ -1,5 +1,5 @@
-EBook-Tools version 0.1.0
-========================
+EBook-Tools
+===========
 
 EBook-Tools contains a library and a command-line tool for unpacking,
 creating, correcting, and repacking electronic books.
@@ -25,6 +25,7 @@ This module requires these other modules and libraries:
 
  Perl 5.10.0 or higher
  Archive::Zip
+ Compress::Zlib
  Date::Manip
  File::MimeInfo
  HTML::Parser

@@ -6,6 +6,7 @@ my $build = Module::Build->new
      requires => {
          'perl'              => '5.10.0',
          'Archive::Zip'      => 1.16,
+         'Compress::Zlib'    => 1,
          'Data::UUID'        => 1,
 	 'Date::Manip'       => 5.44,
 	 'File::MimeInfo'    => 0.13,
