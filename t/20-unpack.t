@@ -1,17 +1,22 @@
 use strict; use warnings; use utf8;
 use 5.010; # Needed for smart-match operator
 use Cwd qw(chdir getcwd);
+use Digest::MD5 qw(md5_base64);
 use EBook::Tools;
 use File::Basename qw(basename);
 use File::Copy;
 use File::Path;    # Exports 'mkpath' and 'rmtree'
-use Test::More tests => 23;
+use Test::More tests => 35;
 BEGIN { use_ok('EBook::Tools::Unpack') };
 
 my $cwd;
 my $ebook = EBook::Tools->new();
 my $unpacker;
 my @list;
+
+my %md5sums = (
+    'resonance.png' => 'TZBbdiIcLHpgkxsK0Dp18Q',
+    );
 
 my $mobitest_description =
     '<P>Description line 1 — <EM>emphasized</EM> </P> <P>Description line 2 — <STRONG>a bold move </STRONG></P>';
@@ -21,10 +26,12 @@ my $mobitest_description =
 ok( (basename(getcwd()) eq 't') || chdir('t/'), "Working in 't/" ) or die;
 $cwd = getcwd();
 
+
+##### MOBIPOCKET #####
 ok($unpacker = EBook::Tools::Unpack->new(
        'file' => 'mobi/mobitest.prc'),
-   'new(file) returns successfully');
-ok($unpacker->unpack,'unpack() returns successfully');
+   'new(file => mobi/mobitest.prc) returns successfully');
+ok($unpacker->unpack,'unpack(mobi) returns successfully');
 chdir($cwd);
 ok(-d 'mobitest','unpack() created mobitest/');
 ok(-f 'mobitest/mobitest.opf','unpack() created mobitest/mobitest.opf');
@@ -69,6 +76,31 @@ is_deeply(\@list, ['mobitest.html'],
 is_deeply(\@list, ['text-main'],
           'mobitest.opf has correct spine');
 
+
+##### EREADER#####
+ok($unpacker = EBook::Tools::Unpack->new(
+       'file' => 'ereader/ertest.pdb'),
+   'new(file => ereader/ertest.pdb) returns successfully');
+ok($unpacker->unpack,'unpack(ereader) returns successfully');
+chdir($cwd);
+ok(-d 'ertest','unpack() created ertest/');
+ok(-f 'ertest/ertest.opf','created ertest/ertest.opf');
+ok(-f 'ertest/ertest.pml','created ertest/ertest.pml');
+ok(-d 'ertest/ertest_img','unpack() created ertest/ertest_img');
+is(md5_base64('ertest/ertest_img/resonance.png'),$md5sums{'resonance.png'},
+   'unpack() created ertest/ertest_img/resonance.png with correct checksum');
+ok($ebook->init('ertest/ertest.opf'),'ertest.opf parses');
+is($ebook->title,'eReader Test',
+   'ertest.opf title is correct');
+is($ebook->primary_author,'Zed Pobre',
+   'ertest.opf author is correct');
+@list = $ebook->publishers;
+is_deeply(\@list, ['CPAN'],
+          'ertest.opf has correct publishers');
+is($ebook->rights,"Copyright \x{a9} 2008 Zed Pobre",
+   'ertest.opf has correct rights (in UTF-8)');
+
 ########## CLEANUP ##########
 
-#rmtree('mobitest');
+rmtree('ertest');
+rmtree('mobitest');
