@@ -131,6 +131,7 @@ our @EXPORT_OK;
     &print_memory
     &split_metadata
     &split_pre
+    &strip_script
     &system_tidy_xml
     &system_tidy_xhtml
     &trim
@@ -6360,9 +6361,9 @@ END
     $outfilebase = "$filebase-pre" if(!$outfilebase);
     $htmloutfile = "$filebase-nopre.html";
 
-    open($fh_html,"<:utf8",$htmlfile)
+    open($fh_html,"<:raw",$htmlfile)
 	or croak($subname,"(): Failed to open '",$htmlfile,"' for reading!");
-    open($fh_htmlout,">:utf8",$htmloutfile)
+    open($fh_htmlout,">:raw",$htmloutfile)
         or croak($subname,"(): Failed to open '",$htmloutfile,"' for writing!");
 
     local $/;
@@ -6382,7 +6383,7 @@ END
                     or croak("Unable to rename '",$prefile,
                              "' to '",$prefile,".backup'");
             }
-            open($fh_pre,">:utf8",$prefile)
+            open($fh_pre,">:raw",$prefile)
                 or croak("Unable to open '",$prefile,"' for writing!");
             print {*$fh_pre} $utf8xmldec;
             print {*$fh_pre} $htmlheader,"\n";
@@ -6400,6 +6401,80 @@ END
                      $htmlfile,"'!");
     }
     return @prefiles;
+}
+
+
+=head2 C<strip_script(%args)>
+
+Strips any <script>...</script> blocks out of a HTML file.
+
+=head3 Arguments
+
+=over
+
+=item C<infile>
+
+Specifies the input file.  If not specified, the sub croaks.
+
+=item C<outfile>
+
+Specifies the output file.  If not specified, it defaults to C<infile>
+(i.e. the input file is overwritten).
+
+=item C<noscript>
+
+If set to true, the sub will strip <noscript>...</noscript> blocks as
+well.
+
+=back
+
+=cut
+
+sub strip_script
+{
+    my %args = @_;
+    my $subname = ( caller(0) )[3];
+    debug(2,"DEBUG[",$subname,"]");
+
+    croak($subname,"(): no input file specified")
+        if(!$args{infile});
+
+    my %valid_args = (
+        'infile'  => 1,
+        'outfile' => 1,
+        'noscript' => 1,
+        );
+    foreach my $arg (keys %args)
+    {
+        croak($subname,"(): invalid argument '",$arg,"'")
+            if(!$valid_args{$arg});
+    }
+
+    my $infile = $args{infile};
+    my $outfile = $args{outfile};
+    $outfile = $infile unless($outfile);
+
+    my ($fh_in,$fh_out);
+    my $html;
+    local $/;
+
+    open($fh_in,"<:raw",$infile)
+	or croak($subname,"(): Failed to open '",$infile,"' for reading!\n");
+    $html = <$fh_in>;
+    close($fh_in)
+	or croak($subname,"(): Failed to close '",$infile,"'!\n");
+    
+    $html =~ s#<script>.*?</script>\n?##gix;
+    $html =~ s#<noscript>.*?</noscript>\n?##gix
+        if($args{noscript});
+
+    open($fh_out,">:raw",$outfile)
+	or croak($subname,"(): Failed to open '",$outfile,"' for writing!\n");
+    print {*$fh_out} $html;
+    close($fh_out)
+	or croak($subname,"(): Failed to close '",$outfile,"'!\n");
+
+    return 1;
 }
 
 
