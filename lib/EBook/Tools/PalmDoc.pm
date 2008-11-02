@@ -787,6 +787,11 @@ sub uncompress_palmdoc
             
             # Remaining 11 bits are offset
             $lz77offset = $lz77 >> 3;
+            if($lz77offset < 1)
+            {
+                debug(1,"WARNING: LZ77 decompression offset is invalid!");
+                return;
+            }
 
             # Getting text from the offset is a little tricky, because
             # in theory you can be referring to characters you haven't
@@ -796,7 +801,7 @@ sub uncompress_palmdoc
             for($lz77pos = 0; $lz77pos < $lz77length; $lz77pos++)
             {
                 $textpos = $textlength - $lz77offset;
-                if($textlength - $lz77offset < 0)
+                if($textpos < 0)
                 {
                     debug(1,"WARNING: LZ77 decompression reference is before",
                           " beginning of text!");
