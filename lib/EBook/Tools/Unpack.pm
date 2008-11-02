@@ -406,11 +406,17 @@ sub detected :method
 
 =head2 C<detect_format()>
 
-Attempts to automatically detect the format of the input file.  Croaks
-if it can't.  This both sets the object internal values and returns a
-two-scalar list, where the first scalar is the detected format and the
-second is a string that may contain additional detected information
-(such as a title or version).
+Attempts to automatically detect the format of the input file and set
+the internal object attributes C<$self->{format}> and
+C<$self->{formatinfo}>, where the former is a one-word string used by
+the dispatcher to select the correct unpacking method and the latter
+may contain additional detected information (such as a title or
+version).
+
+Croaks if detection fails.
+
+In scalar context, returns C<$self->{format}>.  In list context,
+returns the two element list C<($self->{format},$self->{formatinfo}>
 
 This is automatically called by L</new()> if the C<format> argument is
 not specified.
@@ -423,24 +429,25 @@ sub detect_format :method
     my $subname = ( caller(0) )[3];
     my $filename = $$self{file};
     my $fh;
+    my $headerdata;
     my $ident;
     my $info;
     my $index;
     debug(2,"DEBUG[",$subname,"]");
 
     open($fh,"<",$filename)
-        or croak($subname,"(): failed to open '",$filename,"' for reading");
- 
-    # Check for PalmDB identifiers
-    sysseek($fh,60,SEEK_SET);
-    sysread($fh,$ident,8);
+        or croak($subname,"(): failed to open '",$filename,"' for reading!\n");
+    sysread($fh,$headerdata,68);
+    close($fh)
+        or croak($subname,"(): failed to close '",$filename,"'!\n");
 
-    debug(3,"DEBUG: $ident");
+    # Check for PalmDB identifiers
+    $ident = substr($headerdata,60,8);
+    debug(3,"DEBUG: PalmDB ident = '$ident'");
     if($palmdbcodes{$ident})
     {
         $$self{format} = $palmdbcodes{$ident};
-        sysseek($fh,0,SEEK_SET);
-        read($fh,$info,32);
+        $info = substr($headerdata,0,32);
         $index = index($info,"\0");
         if($index < 0)
         {
@@ -457,9 +464,44 @@ sub detect_format :method
         # The info here is always the title, but there may be better
         # ways of extracting it later.
         $$self{detected}{title} = $info;
-        return ($ident,$info)
     }
-    croak($subname,"(): unable to determine book format");
+
+    # Check for Microsoft Reader
+    $ident = substr($headerdata,0,8);
+    if($ident eq 'ITOLITLS')
+    {
+        $$self{format} = 'msreader';
+        $$self{formatinfo} = unpack("c",substr($headerdata,8,1));
+        debug(1,"DEBUG: Autodetected book format '",$$self{format},
+              "', version ",$$self{formatinfo});
+    }
+    
+    # Check for ePub
+    $ident = substr($headerdata,30,28);
+    $info = substr($headerdata,0,2);
+    if($ident eq 'mimetypeapplication/epub+zip'
+       && $info eq 'PK')
+    {
+        $$self{format} = 'epub';
+        $$self{formatinfo} = '';
+        debug(1,"DEBUG: autodetected book format '",$$self{format},"'");
+    }
+
+    # Check for miscellaneous zip archive (OEBZip?)
+    $ident = substr($headerdata,0,4);
+    if($ident eq "PK\x{03}\x{04}")
+    {
+        $$self{format} = 'ziparchive';
+        $$self{formatinfo} = unpack('c',substr($headerdata,4,1)) / 10;
+        debug(1,"DEBUG: autodetected book format '",$$self{format},
+              "', version ",$$self{formatinfo});
+    }
+
+    croak($subname,"(): unable to determine book format")
+        unless($$self{format});
+
+    if(wantarray) { return ($$self{format},$$self{formatinfo}); }
+    else { return $$self{format}; }
 }
 
 
