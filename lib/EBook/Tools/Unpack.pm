@@ -3,7 +3,7 @@ use warnings; use strict; use utf8;
 use 5.010; # Needed for smart-match operator
 require Exporter;
 use base qw(Exporter);
-use version; our $VERSION = qv("0.2.0");
+use version; our $VERSION = qv("0.2.1");
 # $Revision$ $Date$
 # $Id$
 
@@ -783,11 +783,11 @@ sub unpack_ereader :method
         
         if($$self{htmlconvert})
         {
-            $pdb->write_html();
+            $textname = $pdb->write_html();
         }
         else
         {
-            $pdb->write_pml();
+            $textname = $pdb->write_pml();
         }
         $pdb->write_images;
         $pdb->write_unknown_records if($$self{raw});

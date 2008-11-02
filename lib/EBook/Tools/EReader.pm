@@ -1,7 +1,7 @@
 package EBook::Tools::EReader;
 use warnings; use strict; use utf8;
 use 5.010; # Needed for smart-match operator
-use version; our $VERSION = qv("0.2.0");
+use version; our $VERSION = qv("0.2.1");
 # $Revision$ $Date$
 # $Id$
 
@@ -195,7 +195,7 @@ sub footnotes_pml
     debug(2,"DEBUG[",$subname,"]");
 
     my %footnotehash = $self->footnotes;
-    my $text;
+    my $text = '';
 
     foreach my $footnoteid (sort keys %footnotehash)
     {
@@ -343,7 +343,7 @@ sub sidebars_pml
     debug(2,"DEBUG[",$subname,"]");
 
     my %sidebarhash = $self->sidebars;
-    my $text;
+    my $text = '';
 
     foreach my $sidebarid (sort keys %sidebarhash)
     {
@@ -395,7 +395,8 @@ and footnotes) with the given filename.
 If C<$filename> is not specified, writes to C<$self->filebase> with
 a ".html" extension.
 
-Returns 1 on success, or undef if there was no text to write.
+Returns the filename used on success, or undef if there was no text to
+write.
 
 =cut
 
@@ -420,7 +421,7 @@ sub write_html :method
     croak($subname,"(): failed to generate any text")
         if(-z $filename);
     
-    return 1;
+    return $filename;
 }
 
 
@@ -428,7 +429,8 @@ sub write_html :method
 
 Writes each image record to the disk.
 
-Returns the number of images written.
+Returns a list containing the filenames of all images written, or
+undef if none were found.
 
 =cut
 
@@ -438,6 +440,7 @@ sub write_images :method
     my $subname = ( caller(0) )[3];
     debug(3,"DEBUG[",$subname,"]");
 
+    return unless($self->{imagedata});
     my %imagedata = %{$self->{imagedata}};
     my $imagedir = $self->filebase . "_img";
 
@@ -453,7 +456,7 @@ sub write_images :method
         close($fh)
             or croak("Unable to close image file '$imagedir/$image'\n");
     }
-    return scalar(keys %imagedata);
+    return keys %imagedata;
 }
 
 
@@ -465,7 +468,8 @@ and footnotes) with the given filename.
 If C<$filename> is not specified, writes to C<$self->filebase> with
 a ".pml" extension.
 
-Returns 1 on success, or undef if there was no text to write.
+Returns the filename used on success, or undef if there was no text to
+write.
 
 =cut
 
@@ -490,7 +494,7 @@ sub write_pml :method
     croak($subname,"(): failed to generate any text")
         if(-z $filename);
     
-    return 1;
+    return $filename;
 }
 
 
@@ -619,7 +623,6 @@ sub ParseRecord :method   ## no critic (Always unpack @_ first)
     elsif($currentrecord >= $self->{header}->{nontextoffset}
           && $currentrecord < $self->{header}->{bookmarkoffset})
     {
-        debug(1,"###DEBUG: unknown");
         $recordtext = uncompress($record{data});
         $recordtext = uncompress_palmdoc($record{data}) unless($recordtext);
         if($recordtext)
