@@ -310,6 +310,9 @@ $mobilangcode{42}{0}  = 'vi'; # Vietnamese
 $mobilangcode{52}{0}  = 'xh'; # Xhosa
 $mobilangcode{53}{0}  = 'zu'; # Zulu
 
+our $mobigen_cmd = '';
+our $mobidedrm_cmd = '';
+
 our %pdbencoding = (
     '1252' => 'Windows-1252',
     '65001' => 'UTF-8',
