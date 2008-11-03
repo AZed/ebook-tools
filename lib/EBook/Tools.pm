@@ -1,9 +1,8 @@
 package EBook::Tools;
 use warnings; use strict; use utf8;
 use 5.010; # Needed for smart-match operator
-require Exporter;
-use base qw(Exporter);
-use version; our $VERSION = qv("0.2.0");
+use English qw( -no_match_vars );
+use version; our $VERSION = qv("0.2.1");
 # $Revision$ $Date$
 # $Id$
 
@@ -98,6 +97,34 @@ L</system_tidy_xhtml()> will be nonfunctional.
 =cut
 
 
+require Exporter;
+use base qw(Exporter);
+
+our @EXPORT_OK;
+@EXPORT_OK = qw (
+    &create_epub_container
+    &create_epub_mimetype
+    &debug
+    &fix_datestring
+    &find_links
+    &hexstring
+    &get_container_rootfile
+    &print_memory
+    &split_metadata
+    &split_pre
+    &strip_script
+    &system_tidy_xml
+    &system_tidy_xhtml
+    &trim
+    &twigelt_create_uuid
+    &twigelt_fix_oeb12_atts
+    &twigelt_fix_opf20_atts
+    &twigelt_is_author
+    &userconfigdir
+    &ymd_validate
+    );
+
+
 # OSSP::UUID will provide Data::UUID on systems such as Debian that do
 # not distribute the original Data::UUID.
 use Data::UUID;
@@ -122,30 +149,6 @@ use Tie::IxHash;
 use Time::Local;
 use XML::Twig;
 use Palm::Doc();
-
-our @EXPORT_OK;
-@EXPORT_OK = qw (
-    &create_epub_container
-    &create_epub_mimetype
-    &debug
-    &fix_datestring
-    &find_links
-    &hexstring
-    &get_container_rootfile
-    &print_memory
-    &split_metadata
-    &split_pre
-    &strip_script
-    &system_tidy_xml
-    &system_tidy_xhtml
-    &trim
-    &twigelt_create_uuid
-    &twigelt_fix_oeb12_atts
-    &twigelt_fix_opf20_atts
-    &twigelt_is_author
-    &ymd_validate
-    );
-
 
 =head1 CONFIGURABLE PACKAGE VARIABLES
 
@@ -7025,6 +7028,37 @@ sub twigelt_is_isbn
     $scheme = $element->att('scheme') || '';
     return 1 if($scheme =~ /^e?-?isbn/ix);
     return;
+}
+
+
+=head2 C<userconfigdir()>
+
+Returns the directory in which user configuration files and helper
+programs are expected to be found.  Normally, this is the same as
+C<"$ENV{HOME}/.ebooktools">, but on MSWin32 systems if that directory
+does not already exist,
+C<"$ENV{USERPROFILE}/Application Data/EBook-Tools"> is returned
+instead.
+
+If C<$ENV{HOME}> (and C<$ENV{USERPROFILE} on MSWin32) are not set, the
+sub returns undef.
+
+=cut
+
+sub userconfigdir
+{
+    my $dir;
+    $dir = $ENV{HOME} . '/.ebooktools' if($ENV{HOME});
+    if($OSNAME eq 'MSWin32')
+    {
+        if(! -d $dir)
+        {
+            $dir = $ENV{USERPROFILE} . '\Application Data\EBook-Tools'
+                if($ENV{USERPROFILE});
+        }
+    }
+    if($dir) { return $dir; }
+    else { return; }
 }
 
 
