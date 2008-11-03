@@ -1,8 +1,7 @@
 package EBook::Tools::Unpack;
 use warnings; use strict; use utf8;
 use 5.010; # Needed for smart-match operator
-require Exporter;
-use base qw(Exporter);
+use English qw( -no_match_vars );
 use version; our $VERSION = qv("0.2.1");
 # $Revision$ $Date$
 # $Id$
@@ -18,7 +17,7 @@ use version; our $VERSION = qv("0.2.1");
 
 =head1 NAME
 
-EBook::Tools::Unpack - An object class for unpacking E-book files into
+EBook::Tools::Unpack - An object class for unpacking e-book files into
 their component parts and metadata
 
 =head1 SYNOPSIS
@@ -46,11 +45,19 @@ or, more simply:
 
 =cut
 
+require Exporter;
+use base qw(Exporter);
+
+our @EXPORT_OK;
+@EXPORT_OK = qw (
+    );
 
 use Carp;
 use EBook::Tools qw(debug hexstring split_metadata system_tidy_xhtml);
 use EBook::Tools::EReader qw(cp1252_to_pml pml_to_html);
 use EBook::Tools::Mobipocket;
+use EBook::Tools::MSReader qw(find_convertlit find_convertlit_keys 
+                              system_convertlit);
 use EBook::Tools::PalmDoc qw(uncompress_palmdoc);
 use Encode;
 use Fcntl qw(SEEK_CUR SEEK_SET);
@@ -66,10 +73,6 @@ eval
 }; # Trailing semicolon is required here
 unless($@){ $drmsupport = 1; }
 
-
-our @EXPORT_OK;
-@EXPORT_OK = qw (
-    );
 
 our %palmdbcodes = (
     '.pdfADBE' => 'adobereader',
@@ -111,11 +114,10 @@ our %pdbcompression = (
 our %unpack_dispatch = (
     'ereader'    => \&unpack_ereader,
     'mobipocket' => \&unpack_mobi,
+    'msreader'   => \&unpack_msreader,
     'palmdoc'    => \&unpack_palmdoc,
     'aportisdoc' => \&unpack_palmdoc,
     );
-
-my %record_links;
 
 
 #################################
@@ -913,7 +915,29 @@ sub unpack_mobi :method
 }
 
 
-=head2 unpack_palmdoc()
+=head2 C<unpack_msreader()>
+
+Unpacks Microsoft Reader (.lit) files
+
+=cut
+
+sub unpack_msreader :method
+{
+    my $self = shift;
+    my $subname = ( caller(0) )[3];
+    debug(2,"DEBUG[",$subname,"]");
+
+    my $convertlit = find_convertlit();
+    my $keys = find_convertlit_keys($$self{file});
+
+    my $retval = system_convertlit(infile => $$self{file},
+                                   keyfile => $keys,
+                                   dir => $$self{dir});
+    return $retval;
+}
+
+
+=head2 C<unpack_palmdoc()>
 
 Unpacks PalmDoc / AportisDoc (.pdb) files
 
