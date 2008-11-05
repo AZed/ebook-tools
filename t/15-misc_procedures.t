@@ -14,10 +14,14 @@ ok( (basename(getcwd()) eq 't') || chdir('t/'), "Working in 't/" ) or die;
 copy('testopf-emptyuid.xml','emptyuid.opf') or die("Could not copy: $!");
 copy('testopf-missingfwid.xml','missingfwid.opf') or die("Could not copy: $!");
 
-is(system_tidy_xml('emptyuid.opf','emptyuid-tidy.opf'),0,
-   'system_tidy_xml: emptyuid.opf');
-is(system_tidy_xml('missingfwid.opf','missingfwid-tidy.opf'),0,
-   'system_tidy_xml: missingfwid.opf');
+SKIP:
+{
+    skip('Tidy not available',2) unless(-x '/usr/bin/tidy');
+    is(system_tidy_xml('emptyuid.opf','emptyuid-tidy.opf'),0,
+       'system_tidy_xml: emptyuid.opf');
+    is(system_tidy_xml('missingfwid.opf','missingfwid-tidy.opf'),0,
+       'system_tidy_xml: missingfwid.opf');
+}
 
 SKIP: 
 {
