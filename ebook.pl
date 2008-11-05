@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 use warnings; use strict;
-use version; our $VERSION = qv("0.2.0");
+use version; our $VERSION = qv("0.2.1");
 # $Revision$ $Date$
 # $Id$
 
@@ -20,6 +20,7 @@ See also L</EXAMPLES>.
 
 use EBook::Tools qw(split_metadata split_pre strip_script
                     system_tidy_xhtml system_tidy_xml);
+use EBook::Tools::Mobipocket qw(pid_is_valid);
 use EBook::Tools::Unpack;
 use File::Basename 'fileparse';
 use File::Path;    # Exports 'mkpath' and 'rmtree'
@@ -38,6 +39,7 @@ my %opt = (
     'help'        => 0,
     'htmlconvert' => 0,
     'id'          => '',
+    'key'         => '',
     'mimetype'    => '',
     'mobi'        => 0,
     'nosave'      => 0,
@@ -62,6 +64,7 @@ GetOptions(
     'help|h|?',
     'htmlconvert',
     'id=s',
+    'key|pid=s',
     'mimetype|mtype=s',
     'mobi|m',
     'nosave',
@@ -848,6 +851,12 @@ sub unpack
     {
         print {*STDERR} "Could not find '",$filename,"' to unpack!\n";
         exit(21);
+    }
+
+    if( $opt{key} && ! pid_is_valid($opt{key}) )
+    {
+        print {*STDERR} "Invalid PID '",$opt{key},"'\n";
+        exit(22);
     }
 
     my $unpacker = EBook::Tools::Unpack->new(
