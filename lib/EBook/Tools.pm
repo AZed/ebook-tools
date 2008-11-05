@@ -5837,7 +5837,7 @@ sub hexstring
 {
     my $data = shift;
     my $subname = ( caller(0) )[3];
-    debug(3,"DEBUG[",$subname,"]");
+    debug(4,"DEBUG[",$subname,"]");
 
     croak($subname,"(): no data provided")
         unless($data);
