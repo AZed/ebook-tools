@@ -1,4 +1,4 @@
-package EBook::Tools::Mobipocket;
+ï»¿package EBook::Tools::Mobipocket;
 use warnings; use strict; use utf8;
 use 5.010; # Needed for smart-match operator
 use version; our $VERSION = qv("0.2.0");
@@ -21,6 +21,8 @@ our @EXPORT_OK;
     &parse_mobi_exth
     &parse_mobi_header
     &parse_mobi_language
+    &pid_append_checksum
+    &pid_is_valid
     &unpack_mobi_language
     );
 
@@ -28,7 +30,7 @@ sub import   ## no critic (Always unpack @_ first)
 {
     &Palm::PDB::RegisterPDBHandlers( __PACKAGE__, [ "MOBI", "BOOK" ], );
     &Palm::PDB::RegisterPRCHandlers( __PACKAGE__, [ "MOBI", "BOOK" ], );
-    EBook::Tools::EReader->export_to_level(1, @_);
+    EBook::Tools::Mobipocket->export_to_level(1, @_);
     return;
 }
 
@@ -53,6 +55,8 @@ Mobipocket format.
 
 =item * C<P5-Palm>
 
+=item * C<String::CRC32>
+
 =back
 
 =cut
@@ -72,6 +76,7 @@ use List::Util qw(min);
 use List::MoreUtils qw(uniq);
 use Palm::PDB;
 use Palm::Raw();
+use String::CRC32;
 
 
 our %exthtypes = (
@@ -240,7 +245,7 @@ $mobilangcode{58}{0}  = 'mt'; # Maltese
 $mobilangcode{78}{0}  = 'mr'; # Marathi
 $mobilangcode{97}{0}  = 'ne'; # Nepali
 $mobilangcode{20}{0}  = 'no'; # Norwegian
-#$mobilangcode{??}{??} = 'nb'; # Norwegian Bokmål (Mobipocket not supported)
+#$mobilangcode{??}{??} = 'nb'; # Norwegian Bokml (Mobipocket not supported)
 #$mobilangcode{??}{??} = 'nn'; # Norwegian Nynorsk (Mobipocket not supported)
 $mobilangcode{72}{0}  = 'or'; # Oriya
 $mobilangcode{21}{0}  = 'pl'; # Polish
@@ -368,6 +373,24 @@ sub new   ## no critic (Always unpack @_ first)
 
 =head1 ACCESSOR METHODS
 
+=head2 C<drm()>
+
+Returns 1 if the C<drmoffset> header value is neither C<0> nor
+C<0xffffffff>.  Returns undef if C<drmoffset> is undefined. Returns 0
+otherwise.
+
+=cut
+
+sub drm :method
+{
+    my $self = shift;
+    my $drmoffset = $self->{header}{mobi}{drmoffset};
+    return unless(defined $drmoffset);
+    return 1 if( $drmoffset && ($drmoffset != hex("0xffffffff")) );
+    return 0;
+}
+
+
 =head2 C<text()>
 
 Returns the text of the file
@@ -436,7 +459,15 @@ sub ParseRecord :method   ## no critic (Always unpack @_ first)
     {
         # Text records come immediately after the header record
         # Raw record data is deleted to save memory
-        $self->ParseRecordText(\$data);
+        if($self->drm)
+        {
+            debug(2,"DEBUG: record ",$currentrecord,
+                  " is DRM-protected text, skipping");
+        }
+        else
+        {
+            $self->ParseRecordText(\$data);
+        }
     }
     elsif($currentrecord >= $$self{header}{mobi}{firstimagerecord}
           && $currentrecord <= $$self{header}{mobi}{lastimagerecord})
@@ -544,7 +575,8 @@ sub ParseRecord0 :method
     
     if($headermobi{exthflags} & 0x040) # If bit 6 is set, EXTH exists
     {
-        debug(2,"DEBUG: Unpacking EXTH data");
+        debug(2,"DEBUG: Unpacking EXTH data at record 0 offset ",
+              $headersize+16);
         $headerdata = substr($data,$headersize+16);
         $$self{header}{exth} = parse_mobi_exth($headerdata);
     }
@@ -557,13 +589,6 @@ sub ParseRecord0 :method
             substr($data,$headermobi{titleoffset},$headermobi{titlelength});
         debug(1,"DEBUG: Extracted title '",$$self{title},"'");
     }
-
-
-    croak($subname,"(): DRM code ",
-          sprintf("0x%08x",$headermobi{drmcode}),
-          " found, but DRM is not supported.\n")
-        if($headermobi{drmcode}
-           && ($headermobi{drmcode} != hex("0xffffffff")) );
 
     return 1;
 }    
@@ -1109,12 +1134,15 @@ sub parse_mobi_exth
             last;
         }
         $exthrecord{data} = substr($headerdata,$offset,$exthrecord{length});
-        debug(3,"DEBUG: EXTH record ",$recordpos," [",$exthtypes{$exthrecord{type}},
-              "] has ",$exthrecord{length}, " bytes");
+        debug(3,"DEBUG: EXTH record ",$recordpos," [",
+              $exthtypes{$exthrecord{type}},"] has ", 
+              $exthrecord{length}, " bytes");
         push(@exthrecords,\%exthrecord);
         $offset += $exthrecord{length};
     }
     debug(1,"DEBUG: Found ",$#exthrecords+1," EXTH records");
+    debug(1,"DEBUG: Found ",$length - $offset,
+          " remaining bytes of data at EXTH offset ",$offset);
     return \@exthrecords;
 }
 
@@ -1289,6 +1317,7 @@ information is found.
 A 32-bit bitfield related to the Mobipocket EXTH data.  If bit 6
 (0x40) is set, then there is at least one EXTH record.
 
+
 =item C<unknown116>
 
 36 bytes of unknown data at offset 116.  This value will be undefined
@@ -1297,19 +1326,56 @@ if the header data was not long enough to contain it.
 Use with caution.  This key may be renamed in the future if more
 information is found.
 
-=item C<drmcode>
 
-A number thought to be related to DRM.  If present and no DRM is set,
-contains either the value 0xFFFFFFFF (normal books) or 0x00000000
-(samples).  This value will be undefined if the header data was not
-long enough to contain it.
+=item C<drmoffset>
+
+A number thought to be the byte offset inside of the record 0 data in
+which DRM data can be found.  If present and no DRM is set, contains
+either the value 0xFFFFFFFF (normal books) or 0x00000000 (samples).
+This value will be undefined if the header data was not long enough to
+contain it.
 
 Use with caution.  This key may be renamed in the future if more
 information is found.
 
-=item C<unknown156>
 
-20 bytes of unknown data at offset 156, usually zeroes.  This value
+=item C<drmcount>
+
+A number thought to be related to DRM.
+
+This value will be undefined if the header data was not long enough to
+contain it.
+
+Use with caution.  This key may be renamed in the future if more
+information is found.
+
+
+=item C<drmsize>
+
+A number thought to be the size of the data in bytes after
+C<drmoffset> containing DRM keys.
+
+This value will be undefined if the header data was not long enough to
+contain it.
+
+Use with caution.  This key may be renamed in the future if more
+information is found.
+
+
+=item C<drmflags>
+
+A number thought to be related to DRM.
+
+This value will be undefined if the header data was not long enough to
+contain it.
+
+Use with caution.  This key may be renamed in the future if more
+information is found.
+
+
+=item C<unknown168>
+
+8 bytes of unknown data at offset 156, usually zeroes.  This value
 will be undefined if the header data was not long enough to contain
 it.
 
@@ -1434,8 +1500,8 @@ sub parse_mobi_header   ## no critic (ProhibitExcessComplexity)
               $length," bytes.");
     }
 
-    $header{identifier}   = $list[0];
-    $header{headerlength} = $list[1];
+    $header{identifier}   = $list[0]; # Bytes 00-04 (16-20)
+    $header{headerlength} = $list[1]; # Bytes 04-08 (20-24)
     $header{type}         = $list[2];
     $header{encoding}     = $list[3];
     $header{uniqueid}     = $list[4];
@@ -1508,23 +1574,32 @@ sub parse_mobi_header   ## no critic (ProhibitExcessComplexity)
     # Remaining chunks are only parsed if the header is long enough
 
     # Eighth chunk is 36 bytes of unknown data
-    $header{unknown116} = substr($headerdata,116,36) if($length >= 152);
-
-    # Ninth chunk is 32 bits of DRM-related data
-    if($length >= 156)
+    if($length >= 152)
     {
-        $chunk = substr($headerdata,152,4);
-        $header{drmcode} = unpack("N",$chunk);
-        debug(1,"DEBUG: Found DRM code ",sprintf("0x%08x",$header{drmcode}));
+        $header{unknown116} = substr($headerdata,116,32);
+        $header{unknown148} = unpack('N',substr($headerdata,148,4));
     }
 
-    # Tenth chunk is 20 bytes of unknown data, usually zeroes
+    # Ninth chunk is 16 bytes of DRM-related data
+    if($length >= 168)
+    {
+        $chunk = substr($headerdata,152,16);
+        @list = unpack("NNNN",$chunk);
+        $header{drmoffset} = $list[0]; # Offset 152 - 155
+        $header{drmcount}  = $list[1]; # Offset 156 - 159
+        $header{drmsize}   = $list[2]; # Offset 160 - 163
+        $header{drmflags}  = $list[3]; # Offset 164 - 167
+        debug(1,"DEBUG: Found DRM offset ",
+              sprintf("0x%08x",$header{drmoffset}));
+    }
+
+    # Tenth chunk is 8 bytes of unknown data, usually zeroes
     if($length >= 176)
     {
-        $header{unknown156} = substr($headerdata,156,20);
-        $hexstring = hexstring($header{unknown156});
-        debug(2,"DEBUG: unknown data at offset 156: 0x",$hexstring)
-            if($hexstring ne ('00' x 20))
+        $chunk = substr($headerdata,168,8);
+        @list = unpack('NN',$chunk);
+        $header{unknown168} = $list[0];
+        $header{unknown172} = $list[1];
     }
 
     # Eleventh chunk is 2 16-bit values and 5 32-bit values, usually nonzero
@@ -1553,9 +1628,24 @@ sub parse_mobi_header   ## no critic (ProhibitExcessComplexity)
 
     foreach my $key (sort keys %header)
     {
-        my $value = (length $header{$key} > 10)?
-            ( '0x' . hexstring($header{$key}) )
-            : $header{$key};
+        no warnings;
+        my $value;
+        if(length($header{$key}) <= 4)
+        {
+            $value = $header{$key};
+        }
+        elsif(length($header{$key}) > 10)
+        {
+            $value = '0x' . hexstring($header{$key});
+        }
+        elsif(int($header{$key}) > 0x04ff)
+        {
+            $value = sprintf("0x%08x",$header{$key});
+        }
+        else
+        {
+            $value = $header{$key};
+        }
         debug(2,'DEBUG: mobi{',$key,'}=',$value);
     }
     return \%header;
@@ -1618,6 +1708,62 @@ sub parse_mobi_language
         }                        
     } # if($language) / else
     return $language;
+}
+
+
+=head2 C<pid_append_checksum($pid)>
+
+Computes the Mobipocket PID checksum used as the final two bytes of
+the PID and appends them to C<$pid>, returning the merged string.
+
+Used by L</pid_is_valid($pid)>.
+
+=cut
+
+sub pid_append_checksum
+{
+    my $pid = shift;
+    my $retval = $pid;
+    my $crc;
+    my $byte;
+    my $pos;
+
+    my $letters = "ABCDEFGHIJKLMNPQRSTUVWXYZ123456789";
+    my $length = length($letters);
+    $crc = ~ crc32($pid,-1);
+    $crc = $crc & 0xffffffff;
+    $crc = $crc ^ ($crc >> 16);
+    for(0 .. 1)
+    {
+        $byte = $crc & 0xff;
+        $pos = (int($byte / $length)) ^ ($byte % $length);
+        $retval .= substr($letters,$pos % $length,1);
+        $crc >>= 8;
+    }
+    return $retval;
+}
+
+
+=head2 C<pid_is_valid($pid)>
+
+Returns 1 if the PID is a valid Mobipocket/Kindle PID and 0 otherwise.
+
+This is determined by first ensuring that C<$pid> is exactly ten bytes
+long, and then stripping the final two bytes normally used as a
+checksum and recomputing them, returning 1 only if they are recomputed
+correctly.
+
+=cut
+
+sub pid_is_valid
+{
+    my $pid = shift;
+    my $pid2 = pid_append_checksum(substr($pid,0,-2));
+
+    return 0 unless(length($pid) == 10);
+
+    if($pid eq $pid2) { return 1; }
+    else { return 0; }
 }
 
 

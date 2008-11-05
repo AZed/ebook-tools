@@ -64,9 +64,16 @@ sub import   ## no critic (Always unpack @_ first)
 use Carp;
 use EBook::Tools qw(debug);
 use File::Basename qw(fileparse);
-use HTML::TextToHTML;
 use Palm::PDB;
 use Palm::Raw();
+
+my $htmlsupport = 0;
+eval
+{
+    require HTML::TextToHTML;
+    EBook::Tools::DRM->import();
+}; # Trailing semicolon is required here
+unless($@){ $htmlsupport = 1; }
 
 
 #################################
@@ -177,6 +184,9 @@ sub html :method
     my $subname = ( caller(0) )[3];
     debug(2,"DEBUG[",$subname,"]");
 
+    croak("HTML support requires that HTML::TextToHTML be installed!\n")
+        unless($htmlsupport);
+
     my $conv = HTML::TextToHTML->new();
     my $header = "<html>\n<head>\n  <title>" . $self->{name} . "</title>\n";
     $header   .= "</head>\n<body>\n";
@@ -184,6 +194,7 @@ sub html :method
 
     return $header . $conv->process_chunk($self->{text}) . $footer;
 }
+
 
 ######################################
 ########## MODIFIER METHODS ##########
@@ -234,7 +245,7 @@ sub ParseRecord :method   ## no critic (Always unpack @_ first)
 }
 
 
-=head2 ParseResource(%resource)
+=head2 C<ParseResource(%resource)>
 
 Parses PDB resources, updating object attributes.  This is called
 automatically on every database resource (in .prc files) during
@@ -588,11 +599,10 @@ Possible values:
 
 =item 2 - PalmDoc compression
 
-=item ?? - HuffDic?
-
 =item 128 - iSilo3?
 
-=item 17480 - Mobipocket DRM?
+=item 17480 (the characters 'DH') - Mobipocket 'Dictionary Huffman'
+compression (aka HuffDic aka Huff/CDIC)
 
 =back
 
@@ -638,7 +648,7 @@ sub parse_palmdoc_header
         1 => 'no compression',
         2 => 'PalmDoc compression',
         128 => 'iSilo3 compression',
-        17480 => 'Mobipocket DRM',
+        17480 => 'Dictionary Huffman compression',
         );
 
     # We're expecting 16 bytes of data exactly.  We won't croak on
@@ -654,12 +664,12 @@ sub parse_palmdoc_header
     my @compression_keys = keys(%pdbcompression);
     my %header;
 
-    $header{compression} = $list[0];
-    $header{spare}       = $list[1];
-    $header{textlength}  = $list[2];
-    $header{textrecords} = $list[3];
-    $header{recordsize}  = $list[4];
-    $header{unknown12}   = $list[5];
+    $header{compression} = $list[0]; # Bytes 00-01
+    $header{spare}       = $list[1]; # Bytes 01-02
+    $header{textlength}  = $list[2]; # Bytes 03-07
+    $header{textrecords} = $list[3]; # Bytes 08-09
+    $header{recordsize}  = $list[4]; # Bytes 10-11
+    $header{unknown12}   = $list[5]; # Bytes 12-15
 
     carp($subname,"(): value ",$header{spare},
          " found in header 'spare' (expected 0)")
