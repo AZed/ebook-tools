@@ -355,9 +355,9 @@ sub sidebars_pml
 }
 
 
-=head2 C<footnotes_html()>
+=head2 C<sidebars_html()>
 
-Returns a string containing all of the footnotes in a form suitable to
+Returns a string containing all of the sidebars in a form suitable to
 append to the end of HTML text output.  This is called as part of
 L</html()>.
 
