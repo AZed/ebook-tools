@@ -470,7 +470,6 @@ sub compress_palmdoc
     debug(3,"DEBUG[",$subname,"]");
 
     my $textlength = length($text);
-    my $data = '';
     my $compressed = '';
 
     debug(1,"WARNING: input text is longer than 4096 bytes (",$textlength,
@@ -787,6 +786,11 @@ sub uncompress_palmdoc
             # of such a two-byte sequence."
 
             $offset++;
+            if($offset > length($data))
+            {
+                debug(1,"WARNING: offset to LZ77 bits is outside of the data");
+                return;
+            }
             $lz77 = unpack('n',substr($data,$offset-2,2));
 
             # Leftmost two bits are ID bits and need to be dropped
