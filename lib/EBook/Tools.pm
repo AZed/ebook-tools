@@ -105,6 +105,7 @@ our @EXPORT_OK;
     &create_epub_container
     &create_epub_mimetype
     &debug
+    &excerpt_line
     &fix_datestring
     &find_links
     &hexstring
@@ -5825,7 +5826,32 @@ sub debug
 }
 
 
-=head2 hexstring($bindata)
+=head2 C<excerpt_line($text)>
+
+Takes as an argument a list of text pieces that will be joined.  If
+the joined length is less than 70, all of the joined text is returned.
+
+If the joined length is greater than 70, the return string is the
+first 30 characters followed by C<' [...] '> followed by the last 30
+characters.
+
+=cut
+
+sub excerpt_line
+{
+    my @parts = @_;
+    my $subname = ( caller(0) )[3];
+    my $text = join('',@parts);
+    if(length($text) > 70)
+    {
+        $text =~ /^ (.{30}) .*? (.{30}) $/x;
+        return ($1 . ' [...] ' . $2);
+    }
+    else { return $text; }
+}
+
+
+=head2 C<hexstring($bindata)>
 
 Takes as an argument a scalar containing a sequence of binary bytes.
 Returns a string converting each octet of the data to its two-digit
@@ -5891,7 +5917,7 @@ sub find_links
     my %linkhash;
     my @links;
 
-    open($fh,'<:utf8',$filename)
+    open($fh,'<:raw',$filename)
         or croak($subname,"(): unable to open '",$filename,"'\n");
     
     while(<$fh>)
