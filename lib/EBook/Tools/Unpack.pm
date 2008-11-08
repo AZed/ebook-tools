@@ -618,7 +618,10 @@ sub gen_opf :method   ## no critic (Always unpack @_ first)
     my $ebook = EBook::Tools->new();
     my $textfile = $args{textfile};
     my $opffile = $args{htmlfile} || $$self{opffile};
-    $opffile = split_metadata($textfile,$opffile) if($textfile);
+    unless($self->{raw})
+    {
+        $opffile = split_metadata($textfile,$opffile) if($textfile);
+    }
     my $detected;
     my $code;
     my $index;
