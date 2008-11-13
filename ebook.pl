@@ -29,6 +29,14 @@ use File::Path;              # Exports 'mkpath' and 'rmtree'
 use File::Slurp qw(slurp);   # Also exports 'read_file' and 'write_file'
 use Getopt::Long qw(:config bundling);
 
+# Exit values
+use constant EXIT_SUCCESS    => 0;      # Success
+use constant EXIT_BADCOMMAND => 1;      # Invalid main command
+use constant EXIT_BADOPTION  => 2;      # Invalid subcommand or option
+use constant EXIT_BADINPUT   => 10;     # Bad input data
+use constant EXIT_BADOUTPUT  => 11;     # Bad/unexpected output data
+use constant EXIT_TOOLSERROR => 20;     # Internal EBook::Tools error
+
 
 ########################################
 ########## CONFIGURATION FILE ##########
@@ -61,6 +69,7 @@ my %opt = (
     'key'         => '',
     'mimetype'    => '',
     'mobi'        => 0,
+    'mobigencmd'  => $config->val('helpers','mobigen'),
     'nosave'      => 0,
     'noscript'    => 0,
     'oeb12'       => 0,
@@ -86,6 +95,7 @@ GetOptions(
     'key|pid=s',
     'mimetype|mtype=s',
     'mobi|m',
+    'mobigencmd|mobigen=s',
     'nosave',
     'noscript',
     'raw',
@@ -102,7 +112,7 @@ GetOptions(
 if($opt{oeb12} && $opt{opf20})
 {
     print "Options --oeb12 and --opf20 are mutually exclusive.\n";
-    exit(1);
+    exit(EXIT_BADOPTION);
 }
 
 # Default to OEB12 if neither format is specified
@@ -139,13 +149,13 @@ if(!$cmd)
 {
     print "No command specified.\n";
     print "Valid commands are: ",join(" ",sort keys %dispatch),"\n";
-    exit(1);
+    exit(EXIT_BADCOMMAND);
 }    
 if(!$dispatch{$cmd})
 {
     print "Invalid command '",$cmd,"'\n";
     print "Valid commands are: ",join(" ",sort keys %dispatch),"\n";
-    exit(1);
+    exit(EXIT_BADCOMMAND);
 }
 
 $dispatch{$cmd}(@ARGV);
@@ -210,7 +220,7 @@ sub adddoc
     }
     $ebook->save;
     $ebook->print_warnings;
-    exit(0);
+    exit(EXIT_SUCCESS);
 }
 
 
@@ -263,7 +273,7 @@ sub additem
     if(!$id)
     {
         print {*STDERR} "You must specify an ID when adding a document!\n";
-        exit(21);
+        exit(EXIT_BADOPTION);
     }
 
     my $ebook = EBook::Tools->new();
@@ -273,13 +283,11 @@ sub additem
     {
         print {*STDERR} "Unrecoverable errors found.  Aborting.\n";
         $ebook->print_errors;
+        exit(EXIT_TOOLSERROR);
     }
     $ebook->save;
     $ebook->print_warnings;
-    exit(0);
-    
-    print "STUB!\n";
-    exit(255);
+    exit(EXIT_SUCCESS);
 }
 
 
@@ -343,7 +351,7 @@ sub blank
         useoptdir();
         $ebook->save;
     }
-    exit(0);
+    exit(EXIT_SUCCESS);
 }
 
 
@@ -423,7 +431,7 @@ sub config
         {
             print {*STDERR} "  config ",$subcom,"\n";
         }
-        exit(11);
+        exit(EXIT_BADCOMMAND);
     }
     if(!$valid_subcommands{$subcommand})
     {
@@ -433,7 +441,7 @@ sub config
         {
             print {*STDERR} "  config ",$subcom,"\n";
         }
-        exit(11);
+        exit(EXIT_BADCOMMAND);
     }
 
     if($subcommand eq 'default')
@@ -453,7 +461,7 @@ sub config
         if(not defined $value)
         {
             say {*STDERR} "You must specify a debugging level.";
-            exit(11);
+            exit(EXIT_BADOPTION);
         }            
         $config->setval('config','debug',$value);
         $config->RewriteConfig;
@@ -463,22 +471,32 @@ sub config
         if(not defined $value)
         {
             say {*STDERR} "You must specify a tidy safety level.";
-            exit(11);
+            exit(EXIT_BADOPTION);
         }            
         $config->setval('config','tidysafety',$value);
         $config->RewriteConfig;
     }
     elsif($subcommand eq 'mobipids')
     {
-        if(not defined $value)
+        my @pids;
+        if(!$value)
         {
             say {*STDERR} "You must specify at least one PID.";
-            exit(11);
+            exit(EXIT_BADOPTION);
+        }
+        @pids = split(/,/,$value);
+        foreach my $pid (@pids)
+        {
+            if(!pid_is_valid($pid))
+            {
+                say {*STDERR} "PID '",$pid,"' is not valid!  Aborting!";
+                exit(EXIT_BADOPTION);
+            }
         }
         $config->setval('drm','mobipids',$value);
         $config->RewriteConfig;
     }
-    exit(0);
+    exit(EXIT_SUCCESS);
 }
 
 
@@ -551,11 +569,11 @@ sub fix
     {
         $ebook->print_errors;
         print "Unrecoverable errors while fixing '",$opffile,"'!\n";
-        exit(11);
+        exit(EXIT_TOOLSERROR);
     }
     
     $ebook->print_warnings if($ebook->warnings);
-    exit(0);
+    exit(EXIT_SUCCESS);
 }
 
 
@@ -620,10 +638,10 @@ sub genepub
         print {*STDERR} "Failed to generate .epub file!\n";
         $ebook->print_errors;
         $ebook->print_warnings;
-        exit(12);
+        exit(EXIT_BADOUTPUT);
     }
     $ebook->print_warnings if($ebook->warnings);
-    exit(0);
+    exit(EXIT_SUCCESS);
 }
 
 
@@ -682,12 +700,13 @@ sub setmeta
     {
         print "You must specify which element to set.\n";
         print "Example: ebook setmeta title 'My Great Title'\n";
-        exit(21);
+        exit(EXIT_BADOPTION);
     }
     unless($value)
     {
         print "You muts specify the value to set.\n";
         print "Example: ebook setmeta title 'My Great Title'\n";
+        exit(EXIT_BADOPTION);
     }
 
     my $opffile = $opt{opffile};
@@ -721,7 +740,7 @@ sub setmeta
     $ebook->save;
     $ebook->print_errors;
     $ebook->print_warnings;
-    exit(0);
+    exit(EXIT_SUCCESS);
 }
 
 
@@ -745,7 +764,7 @@ sub splitmeta
     if(!$opffile)
     {
         print {*STDERR} "No metadata block was found in '",$infile,"'\n";
-        exit(20);
+        exit(EXIT_BADINPUT);
     }
 
     $ebook = EBook::Tools->new($opffile);
@@ -763,10 +782,10 @@ sub splitmeta
     {
         $ebook->print_errors;
         $ebook->print_warnings if($ebook->warnings);
-        exit(21);
+        exit(EXIT_TOOLSERROR);
     }
     $ebook->print_warnings if($ebook->warnings);
-    exit(0);
+    exit(EXIT_SUCCESS);
 }
 
 
@@ -784,9 +803,13 @@ files.
 sub splitpre
 {
     my ($infile,$outfilebase) = @_;
-    if(!$infile) { die("You must specify a file to parse.\n"); }
+    if(!$infile)
+    { 
+        say {*STDERR} "You must specify a file to parse.";
+        exit(EXIT_BADOPTION);
+    }
     split_pre($infile,$outfilebase);
-    exit(0);
+    exit(EXIT_SUCCESS);
 }
 
 
@@ -817,7 +840,7 @@ sub stripscript
     if(!$infile)
     {
         print "You must specify an input file.\n";
-        exit(10);
+        exit(EXIT_BADOPTION);
     }
     my %args;
     $args{infile} = $infile;
@@ -825,7 +848,7 @@ sub stripscript
     $args{noscript} = $opt{noscript};
 
     strip_script(%args);
-    exit(0);
+    exit(EXIT_SUCCESS);
 }
 
 =head2 C<tidyxhtml>
@@ -843,7 +866,7 @@ sub tidyxhtml
     if(!$inputfile)
     {
         print "You must specify an input file to tidy.\n";
-        exit(10);
+        exit(EXIT_BADOPTION);
     }
 
     if($tidyfile) { $retval = system_tidy_xhtml($inputfile,$tidyfile); }
@@ -866,7 +889,7 @@ sub tidyxml
     if(!$inputfile)
     {
         print "You must specify an input file to tidy.\n";
-        exit(10);
+        exit(EXIT_BADOPTION);
     }
 
     if($tidyfile) { $retval = system_tidy_xml($inputfile,$tidyfile); }
@@ -1004,19 +1027,19 @@ sub unpack
     unless($filename)
     {
         print {*STDERR} "You must specify a file to unpack!\n";
-        exit(20);
+        exit(EXIT_BADOPTION);
     }
 
     unless(-f $filename)
     {
         print {*STDERR} "Could not find '",$filename,"' to unpack!\n";
-        exit(21);
+        exit(EXIT_BADINPUT);
     }
 
     if( $opt{key} && ! pid_is_valid($opt{key}) )
     {
         print {*STDERR} "Invalid PID '",$opt{key},"'\n";
-        exit(22);
+        exit(EXIT_BADOPTION);
     }
 
     my $unpacker = EBook::Tools::Unpack->new(
@@ -1034,7 +1057,7 @@ sub unpack
 
     $unpacker->unpack;
 
-    exit(0);
+    exit(EXIT_SUCCESS);
 }
 
 ########## PRIVATE PROCEDURES ##########
