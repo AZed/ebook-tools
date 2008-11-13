@@ -7060,11 +7060,11 @@ sub twigelt_is_isbn
 =head2 C<userconfigdir()>
 
 Returns the directory in which user configuration files and helper
-programs are expected to be found.  Normally, this is the same as
-C<"$ENV{HOME}/.ebooktools">, but on MSWin32 systems if that directory
-does not already exist,
-C<"$ENV{USERPROFILE}/Application Data/EBook-Tools"> is returned
-instead.
+programs are expected to be found, creating that directory if it does
+not exist.  Typically, this directory is C<"$ENV{HOME}/.ebooktools">,
+but on MSWin32 systems if that directory does not already exist,
+C<"$ENV{USERPROFILE}/Application Data/EBook-Tools"> is returned (and
+potentially created) instead.
 
 If C<$ENV{HOME}> (and C<$ENV{USERPROFILE} on MSWin32) are not set, the
 sub returns undef.
@@ -7073,6 +7073,9 @@ sub returns undef.
 
 sub userconfigdir
 {
+    my $subname = ( caller(0) )[3];
+    debug(3,"DEBUG[",$subname,"]");
+
     my $dir;
     $dir = $ENV{HOME} . '/.ebooktools' if($ENV{HOME});
     if($OSNAME eq 'MSWin32')
@@ -7083,7 +7086,17 @@ sub userconfigdir
                 if($ENV{USERPROFILE});
         }
     }
-    if($dir) { return $dir; }
+    if($dir)
+    { 
+        if(! -d $dir)
+        {
+            mkpath($dir)
+                or croak($subname,
+                         "(): unable to create configuration directory '",
+                         $dir,"'!\n");
+        }
+        return $dir;
+    }
     else { return; }
 }
 
