@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 use warnings; use strict;
+use 5.010;
 use version; our $VERSION = qv("0.2.1");
 # $Revision$ $Date$
 # $Id$
@@ -18,13 +19,31 @@ See also L</EXAMPLES>.
 =cut
 
 
-use EBook::Tools qw(split_metadata split_pre strip_script
-                    system_tidy_xhtml system_tidy_xml);
+use Config::IniFiles;
+use EBook::Tools qw(debug split_metadata split_pre strip_script
+                    system_tidy_xhtml system_tidy_xml userconfigdir);
 use EBook::Tools::Mobipocket qw(pid_is_valid);
 use EBook::Tools::Unpack;
 use File::Basename 'fileparse';
-use File::Path;    # Exports 'mkpath' and 'rmtree'
+use File::Path;              # Exports 'mkpath' and 'rmtree'
+use File::Slurp qw(slurp);   # Also exports 'read_file' and 'write_file'
 use Getopt::Long qw(:config bundling);
+
+
+########################################
+########## CONFIGURATION FILE ##########
+########################################
+
+my $defaultconfig = slurp(\*DATA);
+my $configdir = userconfigdir();
+my $configfile = $configdir . '/config.ini';
+my $config = Config::IniFiles->new( -file => $configfile );
+$config = Config::IniFiles->new() unless($config);
+#$config->read($configfile);
+
+# Tidysafety requires special handling, since 0 is a valid value
+my $tidysafety = $config->val('config','tidysafety');
+undef($tidysafety) if($tidysafety eq '');
 
 
 #####################################
@@ -49,10 +68,10 @@ my %opt = (
     'opffile'     => '',
     'raw'         => 0,
     'tidy'        => 0,
-    'tidycmd'     => '',
-    'tidysafety'  => 1,
+    'tidycmd'     => $config->val('helpers','tidy'),
+    'tidysafety'  => $tidysafety,
     'title'       => '',
-    'verbose'     => 0,
+    'verbose'     => $config->val('config','debug') || 0,
     );
 
 GetOptions(
@@ -91,12 +110,18 @@ if(!$opt{oeb12} && !$opt{opf20}) { $opt{oeb12} = 1; }
 
 $EBook::Tools::debug = $opt{verbose};
 $EBook::Tools::tidycmd = $opt{tidycmd} if($opt{tidycmd});
-$EBook::Tools::tidysafety = $opt{tidysafety};
+$EBook::Tools::tidysafety = $opt{tidysafety} if(defined $opt{tidysafety});
+
+
+######################################
+########## COMMAND HANDLING ##########
+######################################
 
 my %dispatch = (
     'adddoc'      => \&adddoc,
     'additem'     => \&additem,
     'blank'       => \&blank,
+    'config'      => \&config,
     'fix'         => \&fix,
     'genepub'     => \&genepub,
     'setmeta'     => \&setmeta,
@@ -317,6 +342,141 @@ sub blank
     {
         useoptdir();
         $ebook->save;
+    }
+    exit(0);
+}
+
+
+=head2 C<config>
+
+Make changes to the EBook::Tools configuration file.
+
+The configuration file itself is located as either
+C<$ENV{HOME}/.ebooktools/config.ini> or as
+C<$ENV{USERPROFILE}\Application Data\EBook-Tools>, depending on
+platform and which directory is found first.  See
+L<EBook::Tools/userconfigdir()> for details.
+
+=head3 Arguments / Subcommands
+
+Configuration is always handled in the format of:
+
+ ebook config subcommand value
+
+=over
+
+=item * C<default>
+
+Replace any existing configuration file with a default template.  This
+creates the file if it does not exist.  This should be done once
+before any other configuration manipulation is done, unless a
+configuration file has been manually created ahead of time.
+
+=item * C<debug>
+
+Sets the default debugging level when no verbosity is specified.  Note
+that verbosity can only be increased, not decreased, with the C<-v>
+option.
+
+=item * C<tidysafety>
+
+Sets the default safety level when tidy is used.  Valid values are
+from 0-4.  See L</unpack> for details on what each value means.
+
+=item * C<mobipids>
+
+A comma-separated list of Mobipocket PIDs to try to use to decrypt
+e-books.  This value is only used if the appropriate plug-in modules
+or helper applications are available, as DRM is not supported natively
+by EBook::Tools.  Note that if the PID includes a $ character, the
+entire PID string has to be enclosed in single quotes.
+
+=back
+
+=head3 Examples
+
+ ebook config default
+ ebook config debug 2
+ ebook config mobipids '1234567890,2345678$90'
+
+=cut
+
+sub config
+{
+    my $subcommand = shift;
+    my $value = shift;
+    my $subname = ( caller(0) )[3];
+    
+    my %valid_subcommands = (
+        'default' => 1,
+        'debug' => 1,
+        'tidysafety' => 1,
+        'mobipids' => 1,
+        );
+
+    if(!$subcommand)
+    {
+        print {*STDERR} ("You must specify what configuration change you",
+                         " want to make.\n");
+        print {*STDERR} "Valid config commands are:\n";
+        foreach my $subcom (keys %valid_subcommands)
+        {
+            print {*STDERR} "  config ",$subcom,"\n";
+        }
+        exit(11);
+    }
+    if(!$valid_subcommands{$subcommand})
+    {
+        print {*STDERR} "Invalid command 'config ",$subcommand,"'\n";
+        print {*STDERR} "Valid config commands are:\n";
+        foreach my $subcom (keys %valid_subcommands)
+        {
+            print {*STDERR} "  config ",$subcom,"\n";
+        }
+        exit(11);
+    }
+
+    if($subcommand eq 'default')
+    {
+        my $fh_config;
+        local $/;
+        
+        say "Creating new configuration file '",$configfile,"'";
+        open($fh_config,'>',$configfile)
+            or die("Unable to open config file '",$configfile,"' for writing!\n");
+        print {*$fh_config} $defaultconfig;
+        close($fh_config)
+            or die("Unable to close config file '",$configfile,"'!\n");
+    }
+    elsif($subcommand eq 'debug')
+    {
+        if(not defined $value)
+        {
+            say {*STDERR} "You must specify a debugging level.";
+            exit(11);
+        }            
+        $config->setval('config','debug',$value);
+        $config->RewriteConfig;
+    }
+    elsif($subcommand eq 'tidysafety')
+    {
+        if(not defined $value)
+        {
+            say {*STDERR} "You must specify a tidy safety level.";
+            exit(11);
+        }            
+        $config->setval('config','tidysafety',$value);
+        $config->RewriteConfig;
+    }
+    elsif($subcommand eq 'mobipids')
+    {
+        if(not defined $value)
+        {
+            say {*STDERR} "You must specify at least one PID.";
+            exit(11);
+        }
+        $config->setval('drm','mobipids',$value);
+        $config->RewriteConfig;
     }
     exit(0);
 }
@@ -879,7 +1039,7 @@ sub unpack
 
 ########## PRIVATE PROCEDURES ##########
 
-sub useoptdir ()
+sub useoptdir
 {
     if($opt{dir})
     {
@@ -923,7 +1083,9 @@ sub useoptdir ()
 another.  This will wait until more formats are supported by the
 underlying modules, however.
 
-=item * documentation is incomplete
+=item * Documentation is incomplete
+
+=item * Not all configuration file options are actually used
 
 =back
 
@@ -941,3 +1103,55 @@ Licensed to the public under the terms of the GNU GPL, version 2.
 ########## DATA ##########
 
 __DATA__
+#
+# config.ini
+#
+# Configuration file for EBook-Tools
+#
+#
+
+# The [config] section holds general configuration values for
+# EBook::Tools.
+[config]
+#
+# debug sets the default debugging level if no verbosity is specified
+# Note that this can only be raised, not lowered, from the command line.
+debug=0
+#
+# tidysafety sets the safety level when running system_tidy_xhtml or
+# system_tidy_xml.  See the EBook::Tools documentation for possible
+# values and what they mean.
+tidysafety=1
+
+# The [drm] section holds user-specific information needed to decrypt,
+# encrypt, or inscribe protected e-books.  Additional plug-in modules
+# or helper applications may be needed for some of these values to
+# have any effect.
+[drm]
+#
+# ereaderkeys is a comma-separated list of EReader decryption keys to
+# try, in the order that they will be tried.
+ereaderkeys=
+#
+# litkeyfile marks the full path and filename to the keys.txt file
+# needed by convertlit to downconvert or unpack MS Reader files.  If
+# not specified, a keys.txt file will be searched for in the
+# configuration directory and the current working directory.
+litkeyfile=
+#
+# mobpids is a comma-separated list of Mobipocket/Kindle PIDs to try,
+# in the order that they will be tried.
+mobipids=
+#
+# username is the full name that will be used when decrypting EReader
+# books and when inscribing MS Reader .lit files
+username=
+
+# The [helpers] section holds the locations of helper files, including
+# the complete path.  If not specified here, they will be searched
+# for in the configuration directory and other likely locations.
+[helpers]
+convertlit=
+mobidedrm=
+mobigen=
+tidy=
