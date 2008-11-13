@@ -17,8 +17,7 @@ use version; our $VERSION = qv("0.2.1");
 
 =head1 NAME
 
-EBook::Tools::Unpack - An object class for unpacking e-book files into
-their component parts and metadata
+EBook::Tools::Unpack - An object class for unpacking e-book files into their component parts and metadata
 
 =head1 SYNOPSIS
 
