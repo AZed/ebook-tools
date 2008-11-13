@@ -229,7 +229,8 @@ file into the specified directory.
 
 The location of the C<keys.txt> file containing the encryption keys,
 if available.  This is only required if the C<.lit> file is
-DRM-protected.
+DRM-protected and package variable C<$convertlit_keys> does not point
+to the correct file.
 
 =back
 
@@ -262,7 +263,7 @@ sub system_convertlit
 
     my @convertlit = ($convertlit_cmd);
     my $retval;
-    my $keyfile = $args{keyfile};
+    my $keyfile = $args{keyfile} || $convertlit_keys;
     my $outfile = $args{outfile};
     my $dir = $args{dir};
     
