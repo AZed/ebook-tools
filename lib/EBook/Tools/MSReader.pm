@@ -134,8 +134,10 @@ sub find_convertlit
     {
         no warnings 'exec';
         `$guess`;
-        if($? != -1)
+        # MS Windows may use 256 for a not-found code instead of -1
+        if($? != -1 && $? != 256)
         {
+            debug(2,'DEBUG: `',$guess,'` returned ',$?);
             $convertlit_cmd = $guess;
             last;
         }
