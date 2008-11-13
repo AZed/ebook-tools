@@ -204,6 +204,8 @@ sub find_convertlit_keys
 =head2 C<system_convertlit(%args)>
 
 Runs C<convertlit> to extract or downconvert a MS Reader .lit file.
+The procedures L<find_convertlit()> and L<find_convertlit_keys()> are
+both called to locate necessary helper files.
 
 =head3 Arguments
 
@@ -258,6 +260,9 @@ sub system_convertlit
         unless($args{infile});
     croak($subname,"(): input file '",$args{infile},"' not found!\n")
         unless(-f $args{infile});
+
+    find_convertlit();
+    find_convertlit_keys();
     croak($subname,"(): convertlit command not specified!\n")
         unless($convertlit_cmd);
 
