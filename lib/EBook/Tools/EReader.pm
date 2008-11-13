@@ -807,7 +807,7 @@ sub ParseRecord :method   ## no critic (Always unpack @_ first)
 =head2 C<ParseRecord0($data)>
 
 Parses the header record and places the parsed values into the hashref
-C<$self->{header}>.
+C<< $self->{header} >>.
 
 Returns the hash (not the hashref).
 
