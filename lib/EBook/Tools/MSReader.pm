@@ -201,6 +201,40 @@ sub find_convertlit_keys
 }
 
 
+=head2 C<system_convertlit(%args)>
+
+Runs C<convertlit> to extract or downconvert a MS Reader .lit file.
+
+=head3 Arguments
+
+=over
+
+=item * C<infile>
+
+The input filename.  If not specified or invalid, the procedure croaks.
+
+=item * C<outfile>
+
+The output filename.  If this is specified convertlit will perform a
+downconversion.
+
+=item * C<dir>
+
+The output directory.  If this is specified, and C<outfile> is not,
+convertlit will perform an extraction.  If both this and C<outfile>
+are specified, convertlit will downconvert and place the downconverted
+file into the specified directory.
+
+=item * C<keyfile>
+
+The location of the C<keys.txt> file containing the encryption keys,
+if available.  This is only required if the C<.lit> file is
+DRM-protected.
+
+=back
+
+=cut
+
 sub system_convertlit
 {
     my %args = @_;
@@ -223,6 +257,8 @@ sub system_convertlit
         unless($args{infile});
     croak($subname,"(): input file '",$args{infile},"' not found!\n")
         unless(-f $args{infile});
+    croak($subname,"(): convertlit command not specified!\n")
+        unless($convertlit_cmd);
 
     my @convertlit = ($convertlit_cmd);
     my $retval;
