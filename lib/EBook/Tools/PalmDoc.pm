@@ -10,8 +10,7 @@ use version; our $VERSION = qv("0.2.0");
 
 =head1 NAME
 
-EBook::Tools::PalmDoc - Components related to the
-PalmDoc/PilotDoc/AportisDoc format
+EBook::Tools::PalmDoc - Components related to the PalmDoc/PilotDoc/AportisDoc format
 
 =head1 SYNOPSIS
 

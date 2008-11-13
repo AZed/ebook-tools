@@ -13,8 +13,7 @@ use version; our $VERSION = qv("0.2.1");
 
 =head1 NAME
 
-EBook::Tools::EReader - Components related to the
-Fictionwise/PeanutPress eReader format.
+EBook::Tools::EReader - Components related to the Fictionwise/PeanutPress eReader format.
 
 =head1 SYNOPSIS
 
