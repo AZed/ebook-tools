@@ -26,6 +26,7 @@ our @EXPORT_OK;
     &parse_mobi_language
     &pid_append_checksum
     &pid_is_valid
+    &pukall_cipher_1
     &system_mobigen
     &unpack_mobi_language
     );
@@ -2350,6 +2351,112 @@ sub pid_is_valid
 }
 
 
+=head2 C<pukall_cipher_1(%args)>
+
+This is a COMPLETELY UNTESTED implementation of the Pukall Cipher 1
+algorithm used for encryption and decryption in Mobipocket files.  It
+is a 128-bit stream cipher.  For more information and alternate
+implementations, see L<http://membres.lycos.fr/pc1/>.
+
+Use at your own risk.  Bug reports appreciated.
+
+=head3 Arguments
+
+=over
+
+=item * C<key>
+
+16-byte encryption key.  This must be provided, and must be exactly 16
+bytes, or the procedure will croak.
+
+=item * C<input>
+
+Input data to be either encrypted or decrypted.  If this is not
+provided, the procedure croaks.
+
+=item * C<encrypt> (optional)
+
+If set to true, the cipher will be used to encrypt the input data.  If
+not set, or set to false, the cipher will be used to decrypt the input
+data.
+
+=back
+
+=cut
+
+sub pukall_cipher_1
+{
+    my %args = @_;
+    my $subname = ( caller(0) )[3];
+    debug(2,"DEBUG[",$subname,"]");
+
+    my %valid_args = (
+        'key' => 1,
+        'input' => 1,
+        'encrypt' => 1,
+        );
+    foreach my $arg (keys %args)
+    {
+        croak($subname,"(): invalid argument '",$arg,"'")
+            if(!$valid_args{$arg});
+    }
+
+    croak($subname,"(): no key provided!\n")
+        unless(defined $args{key});
+    croak($subname,"(): no input provided!\n")
+        unless(defined $args{input});
+
+    my $key = $args{key};
+    my $keylength = length($key);
+    my $encrypt = $args{encrypt} || 0;
+    my $input = $args{input};
+    my $output = '';
+
+    croak($subname,"(): Invalid key length (expected 16, got ",
+          $keylength,")!\n")
+        unless($keylength == 16);
+
+    my @keyarray;
+    my $key_xor = 0;
+    my $sum1 = 0;
+    my $sum2 = 0;
+    my $byte;
+    my $byte_xor;
+    my $temp_xor;
+
+    foreach my $pos (0 .. 7)
+    {
+        $byte = ord(substr($key,$pos*2,1) << 8) | ord(substr($key,$pos*2+1,1));
+        $keyarray[$pos] = $byte;
+    }
+
+    foreach my $offset ( 0 .. length($input) )
+    {
+        $temp_xor = 0;
+        $byte_xor = 0;
+        foreach my $keypos (0 .. 7)
+        {
+            $temp_xor ^= $keyarray[$keypos];
+            $sum2 = ($sum2 + $keypos) * 20021 + $sum1;
+            $sum1 = ($temp_xor * 346) & 0xFFFF;
+            $sum2 = ($sum1 + $sum2) & 0xFFFF;
+            $temp_xor = ($temp_xor * 20021 + 1) & 0xFFFF;
+            $byte_xor ^= $temp_xor ^ $sum2;
+        }
+        $byte = ord(substr($input,$offset,1));
+        if($encrypt) { $key_xor = $byte * 257; }
+        $byte = (($byte ^ ($byte_xor >> 8)) ^ $byte_xor) & 0xFF;
+        if(!$encrypt) { $key_xor = $byte * 257; };
+        foreach my $keypos (0 .. 7)
+        {
+            $keyarray[$keypos] ^= $key_xor;
+        }
+        $output .= chr($byte);
+    }
+    return $output;
+}
+
+
 =head2 C<system_mobigen(%args)>
 
 Runs C<mobigen> to convert OPF, HTML, or ePub input into a Mobipocket
@@ -2719,6 +2826,10 @@ See C<%mobilangcodes> for an exact map of values.  Note that the
 bottom two bits of the region code appear to be unused (i.e. the
 values are all multiples of 4).  The unknown code integer appears to
 be unused, and is generally zero.
+
+The original implementation by Mobipocket may have been via
+Microsoft's .NET CultureInfo class.  See:
+L<http://msdn.microsoft.com/en-us/library/system.globalization.cultureinfo(VS.71).aspx>
 
 =cut
 
