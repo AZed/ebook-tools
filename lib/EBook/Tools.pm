@@ -3013,24 +3013,45 @@ sub fix_guide :method
 }
 
 
-=head2 C<fix_languages()>
+=head2 C<fix_languages(%args)>
 
 Checks through the <dc:language> elements (case-insensitive) and
-removes any duplicates.
+removes any duplicates.  If no <dc:language> elements are found, one
+is created.
 
 TODO: Also convert language names to IANA language and region codes.
+
+=head3 Arguments
+
+=over
+
+=item * C<default>
+
+The default language string to use when creating a new language
+element.  If not specified, defaults to 'en'.
 
 =cut
 
 sub fix_languages :method
 {
     my $self = shift;
+    my %args = @_;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
     $self->twigcheck();
 
+    my %valid_args = (
+        'default' => 1,
+        );
+    foreach my $arg (keys %args)
+    {
+        croak($subname,"(): invalid argument '",$arg,"'")
+            if(!$valid_args{$arg});
+    }
+
     my $twigroot = $$self{twigroot};
+    my $defaultlang = $args{default} || 'en';
     my $langel;
     my @elements = $twigroot->descendants(qr/dc:language/ix);
     while($langel = shift(@elements) )
@@ -3039,6 +3060,12 @@ sub fix_languages :method
         {
             $el->delete if(twigelt_detect_duplicate($el,$langel) );
         }
+    }
+
+    @elements = $self->languages;
+    if(!@elements)
+    {
+        $self->set_language(text => $defaultlang);
     }
     return 1;
 }
