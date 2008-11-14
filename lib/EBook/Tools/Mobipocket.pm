@@ -2,6 +2,7 @@
 use warnings; use strict; use utf8;
 #use warnings::unused;
 use 5.010; # Needed for smart-match operator
+use English qw( -no_match_vars );
 use version; our $VERSION = qv("0.2.0");
 # $Revision$ $Date$
 # $Id$
@@ -19,11 +20,13 @@ use base qw(Exporter Palm::Raw);
 
 our @EXPORT_OK;
 @EXPORT_OK = qw (
+    &find_mobigen
     &parse_mobi_exth
     &parse_mobi_header
     &parse_mobi_language
     &pid_append_checksum
     &pid_is_valid
+    &system_mobigen
     &unpack_mobi_language
     );
 
@@ -37,8 +40,7 @@ sub import   ## no critic (Always unpack @_ first)
 
 =head1 NAME
 
-EBook::Tools::Mobipocket - Components related to the
-Mobipocket format.
+EBook::Tools::Mobipocket - Components related to the Mobipocket format.
 
 =head1 SYNOPSIS
 
@@ -68,7 +70,8 @@ Mobipocket format.
 use Bit::Vector;
 use Carp;
 use Compress::Zlib;
-use EBook::Tools qw(debug excerpt_line hexstring split_metadata system_tidy_xhtml);
+use EBook::Tools qw(debug excerpt_line hexstring split_metadata
+                    system_tidy_xhtml userconfigdir);
 use EBook::Tools::PalmDoc qw(parse_palmdoc_header uncompress_palmdoc);
 use Encode;
 use Fcntl qw(SEEK_CUR SEEK_SET);
@@ -1517,7 +1520,87 @@ sub uncompress_dictionaryhuffman_records :method
 ########## PROCEDURES ##########
 ################################
 
-=head2 parse_mobi_exth($headerdata)
+=head1 PROCEDURES
+
+All procedures are exportable, but none are exported by default.
+
+
+=head2 C<find_mobigen()>
+
+Attempts to locate the mobigen executable by making a test execution
+on predicted locations (including just checking PATH) and looking in
+the EBook::Tools user configuration directory (see
+L<EBook::Tools/userconfigdir()>.
+
+Returns the system command used for a successful invocation, or undef
+if nothing worked.
+
+This will use package variable C<$mobigen_cmd> as its first guess, and
+set that variable to the return value as well.
+
+=cut
+
+sub find_mobigen
+{
+    my $subname = ( caller(0) )[3];
+    debug(2,"DEBUG[",$subname,"]");
+
+    my @mobigen_guesses;
+    my $retval;
+    my $confdir = userconfigdir();
+
+    if($OSNAME eq 'MSWin32')
+    {
+        @mobigen_guesses = (
+            'mobigen',
+            'C:\Program Files\Mobipocket.com\mobigen',
+            );
+        if($confdir)
+        {
+            push(@mobigen_guesses,
+                 $confdir . '\mobigen');
+        }
+    }
+    else
+    {
+        @mobigen_guesses = (
+            'mobigen',
+            'mobigen_linux',
+            );
+        if($confdir)
+        {
+            push(@mobigen_guesses,
+                 $confdir . "/mobigen_linux",
+                 $confdir . "/mobigen");
+        }
+    }
+    unshift(@mobigen_guesses,$mobigen_cmd)
+        if($mobigen_cmd);
+    undef($mobigen_cmd);
+
+    foreach my $guess (@mobigen_guesses)
+    {
+        no warnings 'exec';
+        `$guess`;
+        # MS Windows may use 256 for a not-found code instead of -1
+        if($? != -1 && $? != 256)
+        {
+            debug(2,'DEBUG: `',$guess,'` returned ',$?);
+            $mobigen_cmd = $guess;
+            last;
+        }
+    }
+
+    if($mobigen_cmd)
+    {
+        debug(1,"DEBUG: Found mobigen as '",$mobigen_cmd,"'");
+        return $mobigen_cmd;
+    }
+    else { return; }
+}
+
+
+=head2 C<parse_mobi_exth($headerdata)>
 
 Takes as an argument a scalar containing the variable-length
 Mobipocket EXTH data from the first record.  Returns an array of
@@ -2267,6 +2350,126 @@ sub pid_is_valid
 }
 
 
+=head2 C<system_mobigen(%args)>
+
+Runs C<mobigen> to convert OPF, HTML, or ePub input into a Mobipocket
+.prc/.mobi book.  The procedure L<find_mobigen()> is called to locate
+the executable.
+
+=head3 Arguments
+
+=over
+
+=item * C<infile>
+
+The input filename.  If not specified or invalid, the procedure
+croaks.
+
+=item * C<outfile>
+
+The output filename.  The mobigen executable will choose its own
+filename for direct output, but if this argument is specified, the
+output file will be renamed to the specified filename instead.
+
+If not specified, the default output will be left in place.
+
+=item * C<dir>
+
+The directory in which to place the output file.  The mobigen
+executable itself will always place its output into the current
+working directory, but if this argument is specified, the output file
+will be moved into the specified directory, creating that directory if
+necessary.
+
+=item * C<compression>
+
+Compression level from 0-2, where 0 is no compression, 1 is PalmDoc
+compression, and 2 is HUFF/CDIC compression.  If not specified,
+defaults to 1 (PalmDoc compression).
+
+=back
+
+=cut
+
+sub system_mobigen
+{
+    my %args = @_;
+    my $subname = ( caller(0) )[3];
+    debug(2,"DEBUG[",$subname,"]");
+
+    my %valid_args = (
+        'infile' => 1,
+        'outfile' => 1,
+        'dir' => 1,
+        'compression' => 1,
+        );
+    foreach my $arg (keys %args)
+    {
+        croak($subname,"(): invalid argument '",$arg,"'")
+            if(!$valid_args{$arg});
+    }
+
+    croak($subname,"(): no input file specified!\n")
+        unless($args{infile});
+    croak($subname,"(): input file '",$args{infile},"' not found!\n")
+        unless(-f $args{infile});
+
+    find_mobigen();
+    croak($subname,"(): mobigen command not specified!\n")
+        unless($mobigen_cmd);
+
+    my @mobigen = ($mobigen_cmd);
+    my $mobigenoutput = fileparse($args{infile},'\.\w+$') . '.mobi';
+    my $outfile = $args{outfile} || $mobigenoutput;
+    my $compression = $args{compression};
+    my $retval;
+
+    if(defined $compression)
+    {
+        unless($compression >= 0 and $compression <= 2)
+        {
+            croak($subname,"(): invalid compression level ",
+                  $compression,"!\n");
+        }
+    }
+    else { $compression = 1; }
+
+    push(@mobigen,"-c$compression",$args{infile});
+    debug(2,"DEBUG: Compiling '",$args{infile},"' into '",$mobigenoutput,
+          "' using compression level ",$compression);
+
+    $retval = system(@mobigen);
+    if($retval)
+    {
+        debug(1,"WARNING: mobigen exited ",$retval);
+    }
+    if(! -f $mobigenoutput)
+    {
+        carp($subname,"(): expected output file '",$mobigenoutput,
+              "' not found!\n");
+    }
+    if($args{outfile})
+    {
+        rename($mobigenoutput,$args{outfile})
+            or carp($subname,"(): unable to rename '",$mobigenoutput,"' to '",
+                    $args{outfile},"'!\n");
+    }
+    if($args{dir})
+    {
+        if(! -d $args{dir})
+        {
+            mkpath($args{dir})
+                or carp($subname,"(): unable to create directory '",
+                        $args{dir},"'!\n");
+        }
+        rename($outfile,"$args{dir}/$outfile")
+            or carp($subname,"(): unable to move '",$outfile,"' into '",
+                    $args{dir},"'!\n");
+    }
+    return $retval;
+}
+
+
 =head2 C<uncompress_dictionaryhuffman(%args)>
 
 Uncompresses text compressed with the DictionaryHuffman compression
@@ -2371,7 +2574,8 @@ sub uncompress_dictionaryhuffman
     do
     {
         $bitoffset = $bitsize-$bitpos;
-#        debug(4,"\nDEBUG: DEPTH ",$depth," BITPOS ",$bitpos," [bitoffset=",$bitoffset,"]");
+#        debug(4,"\nDEBUG: DEPTH ",$depth," BITPOS ",$bitpos,
+#              " [bitoffset=",$bitoffset,"]");
         $nextbits = min(8,$bitoffset);
         $cacheoffset = $bitvector->Chunk_Read($nextbits,$bitoffset-$nextbits);
         if($cacheoffset > $#{$huffref->{cache}})
@@ -2551,7 +2755,7 @@ sub unpack_mobi_language
 
 =over
 
-=item * Mobipocket HuffDic decoding (used mostly on dictionaries)
+=item * Mobipocket HUFF/CDIC decoding (used mostly on dictionaries)
 isn't well documented.
 
 =item * Not all Mobipocket data is understood, so a conversion from
