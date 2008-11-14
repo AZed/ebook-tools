@@ -1426,7 +1426,7 @@ sub fix_html_filepos :method
 
         # Second, figure out what we're dealing with at the filepos
         # offset indicated
-            $atpos = substr($$self{text},$pos,5);
+        $atpos = substr($$self{text},$pos,5);
         if($atpos =~ /^<mbp/ix)
         {
             # Mobipocket-specific element
