@@ -2866,6 +2866,11 @@ sub unpack_mobi_language
 
 =over
 
+=item * Unpacking DRM-protected text isn't supported.  Although
+infrastructure may be added later to make use of external helpers and
+plugins, direct DRM support will never be added to the main code for
+legal reasons.
+
 =item * Mobipocket HUFF/CDIC decoding (used mostly on dictionaries)
 isn't well documented.
 
