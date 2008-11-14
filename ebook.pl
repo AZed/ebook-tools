@@ -20,9 +20,9 @@ See also L</EXAMPLES>.
 
 
 use Config::IniFiles;
-use EBook::Tools qw(debug split_metadata split_pre strip_script
+use EBook::Tools qw(debug find_opffile split_metadata split_pre strip_script
                     system_tidy_xhtml system_tidy_xml userconfigdir);
-use EBook::Tools::Mobipocket qw(pid_is_valid);
+use EBook::Tools::Mobipocket qw(find_mobigen pid_is_valid system_mobigen);
 use EBook::Tools::Unpack;
 use File::Basename 'fileparse';
 use File::Path;              # Exports 'mkpath' and 'rmtree'
@@ -30,12 +30,14 @@ use File::Slurp qw(slurp);   # Also exports 'read_file' and 'write_file'
 use Getopt::Long qw(:config bundling);
 
 # Exit values
-use constant EXIT_SUCCESS    => 0;      # Success
-use constant EXIT_BADCOMMAND => 1;      # Invalid main command
-use constant EXIT_BADOPTION  => 2;      # Invalid subcommand or option
-use constant EXIT_BADINPUT   => 10;     # Bad input data
-use constant EXIT_BADOUTPUT  => 11;     # Bad/unexpected output data
-use constant EXIT_TOOLSERROR => 20;     # Internal EBook::Tools error
+use constant EXIT_SUCCESS       => 0;   # Success
+use constant EXIT_BADCOMMAND    => 1;   # Invalid main command
+use constant EXIT_BADOPTION     => 2;   # Invalid subcommand or option
+use constant EXIT_BADINPUT      => 10;  # Bad input data
+use constant EXIT_BADOUTPUT     => 11;  # Bad/unexpected output data
+use constant EXIT_TOOLSERROR    => 20;  # Internal EBook::Tools error
+use constant EXIT_MISSINGHELPER => 30;  # Required helper file not found
+use constant EXIT_HELPERERROR   => 31;  # Helper command exited improperly
 
 
 ########################################
@@ -60,12 +62,14 @@ undef($tidysafety) if($tidysafety eq '');
 
 my %opt = (
     'author'      => '',
+    'compression' => undef,
     'dir'         => '',
     'fileas'      => '',
     'filename'    => '',
     'help'        => 0,
     'htmlconvert' => 0,
     'id'          => '',
+    'inputfile'   => '',
     'key'         => '',
     'mimetype'    => '',
     'mobi'        => 0,
@@ -86,12 +90,14 @@ my %opt = (
 GetOptions(
     \%opt,
     'author=s',
+    'compression|c=i',
     'dir|d=s',
     'fileas=s',
     'filename|file|f=s',
     'help|h|?',
     'htmlconvert',
     'id=s',
+    'inputfile|infile=s',
     'key|pid=s',
     'mimetype|mtype=s',
     'mobi|m',
@@ -134,6 +140,7 @@ my %dispatch = (
     'config'      => \&config,
     'fix'         => \&fix,
     'genepub'     => \&genepub,
+    'genmobi'     => \&genmobi,
     'setmeta'     => \&setmeta,
     'splitmeta'   => \&splitmeta,
     'splitpre'    => \&splitpre,
@@ -585,6 +592,10 @@ Generate a .epub book from existing OPF data.
 
 =over
 
+=item C<--inputfile filename.opf>
+
+=item C<--infile filename.opf>
+
 =item C<--opffile filename.opf>
 
 =item C<--opf filename.opf>
@@ -627,8 +638,9 @@ sub genepub
     my ($opffile) = @_;
     my $ebook;
     
+    $opffile = $opt{inputfile} if(!$opffile);
     $opffile = $opt{opffile} if(!$opffile);
-
+    
     if($opffile) { $ebook = EBook::Tools->new($opffile); }
     else {$ebook = EBook::Tools->new(); $ebook->init(); }
 
@@ -641,6 +653,110 @@ sub genepub
         exit(EXIT_BADOUTPUT);
     }
     $ebook->print_warnings if($ebook->warnings);
+    exit(EXIT_SUCCESS);
+}
+
+
+=head2 C<genmobi>
+
+Generate a Mobipocket .mobi/.prc book from OPF, HTML, or ePub input.
+
+=head3 Options
+
+=over
+
+=item C<--inputfile filename>
+
+=item C<--infile filename>
+
+=item C<--opffile filename.opf>
+
+=item C<--opf filename.opf>
+
+Use the specified file for input.  Valid formats are OPF, HTML, and
+ePub.  This can also be specified as the first non-option argument,
+which will override this option if it exists.  If no file is
+specified, an OPF file in the current directory will be searched for.
+
+=item C<--filename bookname.epub>
+
+=item C<--file bookname.epub>
+
+=item C<-f bookname.epub>
+
+Use the specified name for the final output file.  If not specified,
+the book will have the same filename as the input file, with the
+extension changed to C<.mobi> (this file is always created by
+C<mobigen>, specifying a different filename only causes it to be
+renamed afterwards).
+
+This can also be specified as the second non-option argument, which
+will override this option if it exists.
+
+=item C<--dir directory>
+
+=item C<-d directory>
+
+Output the final book into the specified directory.  The default is to
+use the current working directory, which is where C<mobigen> will
+always place it initially; if specified this only forces the file to
+be moved after generation.
+
+=item C<--compression x>
+
+=item C<-c x>
+
+Use the specified compression level C<x>, where 0 is no compression, 1
+is PalmDoc compression, and 2 is HUFF/CDIC compression.  If not
+specified, defaults to 1 (PalmDoc compression).
+
+=back
+
+=head3 Example
+
+ ebook genmobi mybook.opf -f my_special_book.prc -d ../mobibooks
+ ebook genmobi mybook.html mybook.prc -c2
+
+or in the simplest case:
+
+ ebook genmobi
+
+=cut
+
+sub genmobi
+{
+    my ($infile,$outfile) = @_;
+    my $ebook;
+    my $retval;
+
+    $infile = $opt{inputfile} if(!$infile);
+    $infile = $opt{opffile} if(!$infile);
+    $infile = find_opffile() if(!$infile);
+
+    if(!$infile)
+    {
+        say {*STDERR} "No input file specified or detected!";
+        exit(EXIT_BADOPTION);
+    }
+
+    $outfile = $opt{filename} if(!$outfile);
+
+    if(!find_mobigen())
+    {
+        say {*STDERR} "No mobigen executable available!";
+        exit(EXIT_MISSINGHELPER);
+    }
+
+    $retval = system_mobigen(infile => $infile,
+                             outfile => $outfile,
+                             dir => $opt{dir},
+                             compression => $opt{compression});
+
+    if($retval)
+    {
+        say {*STDERR} "Error during generation: ",$retval;
+        exit(EXIT_HELPERERROR);
+    }
     exit(EXIT_SUCCESS);
 }
 
