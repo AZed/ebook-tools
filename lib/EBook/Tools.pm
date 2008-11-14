@@ -2,7 +2,7 @@ package EBook::Tools;
 use warnings; use strict; use utf8;
 use 5.010; # Needed for smart-match operator
 use English qw( -no_match_vars );
-use version; our $VERSION = qv("0.2.1");
+use version; our $VERSION = qv("0.3.0");
 # $Revision$ $Date$
 # $Id$
 
@@ -7251,10 +7251,16 @@ sub ymd_validate
 
 =over
 
+=item * need to implement fix_primary_author() to convert names to
+standard 'last, first' naming format
+
 =item * fix_links() could be improved to download remote URIs instead
 of ignoring them.
 
 =item * fix_links() needs to check the <reference> links under <guide>
+
+=item * fix_links() needs to be redone with HTML::TreeBuilder to avoid
+the weakness with newlines between attribute names and values
 
 =item * Need to implement fix_tours() that should collect the related
 elements and delete the parent if none are found.  Empty <tours>
