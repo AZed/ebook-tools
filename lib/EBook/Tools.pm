@@ -108,6 +108,7 @@ our @EXPORT_OK;
     &excerpt_line
     &fix_datestring
     &find_links
+    &find_opffile
     &hexstring
     &get_container_rootfile
     &print_memory
@@ -610,36 +611,31 @@ sub init :method    ## no critic (Always unpack @_ first)
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
 
-    if($filename) { $$self{opffile} = $filename; }
+    if($filename) { $self->{opffile} = $filename; }
 
-    if(!$$self{opffile})
-    { 
-        $opfstring = get_container_rootfile();
-        $self->set_opffile($opfstring) if($opfstring);
+    if(!$self->{opffile})
+    {
+        $opfstring = find_opffile();
+        $self->{opffile} = $opfstring if($opfstring);
+    }
+
+    if(!$self->{opffile})
+    {
+	croak($subname,"(): Unable to find an OPF file to work with!\n");
     }
     
-    if(!$$self{opffile})
+    if(! -f $self->{opffile})
     {
-	my @candidates = glob("*.opf");
-	croak("No OPF file specified, and there are multiple files to choose from")
-	    if(scalar(@candidates) > 1);
-	croak("No OPF file specified, and I couldn't find one nearby")
-	    if(scalar(@candidates) < 1);
-	$$self{opffile} = $candidates[0];
-    }
-    
-    if(! -f $$self{opffile})
-    {
-	croak($subname,"(): '",$$self{opffile},
+	croak($subname,"(): '",$self->{opffile},
               "' does not exist or is not a regular file!")
     }
 
-    if(-z $$self{opffile})
+    if(-z $self->{opffile})
     {
-	croak("OPF file '",$$self{opffile},"' has zero size!");
+	croak("OPF file '",$self->{opffile},"' has zero size!");
     }
 
-    debug(2,"DEBUG: init using '",$$self{opffile},"'");
+    debug(2,"DEBUG: init using '",$self->{opffile},"'");
 
     # Initialize the twig before use
     $$self{twig} = XML::Twig->new(
@@ -649,12 +645,13 @@ sub init :method    ## no critic (Always unpack @_ first)
 	);
 
     # Read and decode entities before parsing to avoid parsing errors
-    open($fh_opffile,'<:utf8',$self->opffile)
-        or croak($subname,"(): failed to open '",$self->opffile,"' for reading!");
+    open($fh_opffile,'<:utf8',$self->{opffile})
+        or croak($subname,"(): failed to open '",$self->{opffile},
+                 "' for reading!");
     read($fh_opffile,$opfstring,-s $self->opffile)
-        or croak($subname,"(): failed to read from '",$self->opffile,"'!");
+        or croak($subname,"(): failed to read from '",$self->{opffile},"'!");
     close($fh_opffile)
-        or croak($subname,"(): failed to close '",$self->opffile,"'!");
+        or croak($subname,"(): failed to close '",$self->{opffile},"'!");
 
     # We use _decode_entities and the custom hash to decode, but also
     # see below for the regexp
@@ -5851,37 +5848,6 @@ sub excerpt_line
 }
 
 
-=head2 C<hexstring($bindata)>
-
-Takes as an argument a scalar containing a sequence of binary bytes.
-Returns a string converting each octet of the data to its two-digit
-hexadecimal equivalent.  There is no leading "0x" on the string.
-
-=cut
-
-sub hexstring
-{
-    my $data = shift;
-    my $subname = ( caller(0) )[3];
-    debug(4,"DEBUG[",$subname,"]");
-
-    croak($subname,"(): no data provided")
-        unless($data);
-
-    my $byte;
-    my $retval = '';
-    my $pos = 0;
-
-    while($pos < length($data))
-    {
-        $byte = unpack("C",substr($data,$pos,1));
-        $retval .= sprintf("%02x",$byte);
-        $pos++;
-    }
-    return $retval;
-}
-
-
 =head2 C<find_links($filename)>
 
 Searches through a file for href and src attributes, and returns a
@@ -5935,6 +5901,42 @@ sub find_links
     }
     if(%linkhash) { return keys(%linkhash); }
     else { return; }
+}
+
+
+=head2 C<find_opffile()>
+
+Attempts to locate an OPF file, first by calling
+L</get_container_rootfile()> to check the contents of
+C<META-INF/container.xml>, and then by looking for a single file with
+the extension C<.opf> in the current working directory.
+
+Returns the filename of the OPF file, or undef if nothing was found.
+
+=cut
+
+sub find_opffile
+{
+    my $subname = ( caller(0) )[3];
+    my $opffile = get_container_rootfile();
+
+    if(!$opffile)
+    {
+	my @candidates = glob("*.opf");
+        if(scalar(@candidates) > 1)
+        {
+            debug(1,"DEBUG: Multiple OPF files found, but no container",
+                  " to specify which one to choose!");
+            return;
+        }
+        if(scalar(@candidates) < 1)
+        {
+            debug(1,"DEBUG: No OPF files found!");
+            return;
+        }
+        $opffile = $candidates[0];
+    }
+    return $opffile;
 }
 
 
@@ -6146,6 +6148,37 @@ sub get_container_rootfile
 	$rootfile = $twig->root->first_descendant('rootfile');
 	return unless($rootfile);
 	$retval = $rootfile->att('full-path');
+    }
+    return $retval;
+}
+
+
+=head2 C<hexstring($bindata)>
+
+Takes as an argument a scalar containing a sequence of binary bytes.
+Returns a string converting each octet of the data to its two-digit
+hexadecimal equivalent.  There is no leading "0x" on the string.
+
+=cut
+
+sub hexstring
+{
+    my $data = shift;
+    my $subname = ( caller(0) )[3];
+    debug(4,"DEBUG[",$subname,"]");
+
+    croak($subname,"(): no data provided")
+        unless($data);
+
+    my $byte;
+    my $retval = '';
+    my $pos = 0;
+
+    while($pos < length($data))
+    {
+        $byte = unpack("C",substr($data,$pos,1));
+        $retval .= sprintf("%02x",$byte);
+        $pos++;
     }
     return $retval;
 }
