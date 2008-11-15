@@ -5706,7 +5706,8 @@ sub set_type :method    ## no critic (Always unpack @_ first)
 
 =head1 PROCEDURES
 
-All procedures are exportable, but none are exported by default.
+All procedures are exportable, but none are exported by default.  All
+procedures can be exported by using the ":all" tag.
 
 
 =head2 C<create_epub_container($opffile)>
@@ -5876,13 +5877,15 @@ sub excerpt_line
 }
 
 
-=head2 C<find_in_path($pattern)>
+=head2 C<find_in_path($pattern,@extradirs)>
 
-Searches through $ENV{PATH} for the first regular file matching
-C<$pattern>.  C<$pattern> itself can take two forms: if passed a qr//
-regular expression, that expression is used directly.  If passed any
-other string, that string will be used for a case-insensitive exact
-match (i.e. the final pattern will be C<qr/^ $pattern $/ix>).
+Searches through C<$ENV{PATH}> (and optionally any additional
+directories specified in C<@extradirs>) for the first regular file
+matching C<$pattern>.  C<$pattern> itself can take two forms: if
+passed a C<qr//> regular expression, that expression is used directly.
+If passed any other string, that string will be used for a
+case-insensitive exact match (i.e. the final pattern will be
+C<qr/^ $pattern $/ix>).
 
 Returns the first match found, or undef if there were no matches or if
 no pattern was specified.
@@ -5891,7 +5894,7 @@ no pattern was specified.
 
 sub find_in_path
 {
-    my ($pattern) = @_;
+    my ($pattern,@extradirs) = @_;
     return unless($pattern);
     my $subname = ( caller(0) )[3];
     debug(3,"DEBUG[",$subname,"]");
@@ -5904,15 +5907,16 @@ sub find_in_path
 
     if(ref($pattern) eq 'Regexp') { $regexp = $pattern; }
     else { $regexp = qr/^ $pattern $/ix; }
-
+    
     @dirs = split(/[:;]/,$ENV{PATH});
+    unshift(@dirs,@extradirs) if(@extradirs);
     foreach my $dir (@dirs)
     {
         if(-d $dir)
         {
             if(opendir($fh_dir,$dir))
             {
-                @patternmatches = grep { $regexp } readdir($fh_dir);
+                @patternmatches = grep { /$regexp/ } readdir($fh_dir);
                 @filelist = grep { -f "$dir/$_" } @patternmatches;
                 closedir($fh_dir);
 
