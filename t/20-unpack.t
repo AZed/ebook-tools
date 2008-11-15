@@ -6,7 +6,7 @@ use EBook::Tools;
 use File::Basename qw(basename);
 use File::Copy;
 use File::Path;    # Exports 'mkpath' and 'rmtree'
-use Test::More tests => 35;
+use Test::More tests => 44;
 BEGIN { use_ok('EBook::Tools::Unpack') };
 
 my $cwd;
@@ -77,7 +77,26 @@ is_deeply(\@list, ['text-main'],
           'mobitest.opf has correct spine');
 
 
-##### EREADER#####
+##### MOBIPOCKET HUFF/CDIC #####
+ok($unpacker = EBook::Tools::Unpack->new(
+       'file' => 'mobi/hufftest.mobi'),
+   'new(file => mobi/hufftest.mobi) returns successfully');
+ok($unpacker->unpack,'unpack(mobi/hufftest) returns successfully');
+chdir($cwd);
+ok(-d 'hufftest','unpack(mobi/hufftest.mobi) created hufftest/');
+ok(-f 'hufftest/hufftest.opf',
+   'unpack(mobi/hufftest.mobi) created hufftest/hufftest.opf');
+ok(-f 'hufftest/hufftest.html',
+   'unpack(mobi/hufftest.mobi) created hufftest/hufftest.html');
+ok(-f 'hufftest/Space_Encycl-_HUFFCDIC_test-0001.jpg',
+   'unpack(mobi/hufftest.mobi) created image');
+ok($ebook->init('hufftest/hufftest.opf'),'mobitest.opf parses');
+is($ebook->title,'Space Encyclopedia (HUFF/CDIC test)',
+   'hufftest.opf title is correct');
+is($ebook->primary_author,'Mobipocket',
+   'hufftest.opf author is correct');
+
+##### EREADER #####
 ok($unpacker = EBook::Tools::Unpack->new(
        'file' => 'ereader/ertest.pdb'),
    'new(file => ereader/ertest.pdb) returns successfully');
@@ -103,4 +122,5 @@ is($ebook->rights,"Copyright \x{a9} 2008 Zed Pobre",
 ########## CLEANUP ##########
 
 rmtree('ertest');
+rmtree('hufftest');
 rmtree('mobitest');
