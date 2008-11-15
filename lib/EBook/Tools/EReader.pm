@@ -48,6 +48,7 @@ our @EXPORT_OK;
     &cp1252_to_pml
     &pml_to_html
     );
+our %EXPORT_TAGS = ('all' => [@EXPORT_OK]);
 
 sub import   ## no critic (Always unpack @_ first)
 {
