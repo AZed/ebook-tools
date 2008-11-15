@@ -52,11 +52,10 @@ our @EXPORT_OK;
     );
 
 use Carp;
-use EBook::Tools qw(debug hexstring split_metadata system_tidy_xhtml);
-use EBook::Tools::EReader qw(cp1252_to_pml pml_to_html);
-use EBook::Tools::Mobipocket;
-use EBook::Tools::MSReader qw(find_convertlit find_convertlit_keys 
-                              system_convertlit);
+use EBook::Tools qw(:all);
+use EBook::Tools::EReader qw(:all);
+use EBook::Tools::Mobipocket qw(:all);
+use EBook::Tools::MSReader qw(:all);
 use EBook::Tools::PalmDoc qw(uncompress_palmdoc);
 use Encode;
 use Fcntl qw(SEEK_CUR SEEK_SET);

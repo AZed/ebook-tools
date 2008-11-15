@@ -40,6 +40,7 @@ our @EXPORT_OK;
     &find_convertlit_keys
     &system_convertlit
     );
+our %EXPORT_TAGS = ('all' => [@EXPORT_OK]);
 
 use Carp;
 use EBook::Tools qw(debug userconfigdir);

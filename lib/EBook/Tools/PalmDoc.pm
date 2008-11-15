@@ -16,17 +16,17 @@ EBook::Tools::PalmDoc - Components related to the PalmDoc/PilotDoc/AportisDoc fo
 
  use EBook::Tools::PalmDoc qw(uncompress_palmdoc);
  use Palm::PDB;
-
+ 
  my $pdb = Palm::PDB->new();
 
 or 
 
- use EBook::Tools::PalmDoc;
+ use EBook::Tools::PalmDoc qw(:all);
 
  my $pdb = EBook::Tools::PalmDoc->new();
  $pdb->set_text($text);
  $pdb->Write('textfile.pdb');
-
+ 
  my $pdb2 = EBook::Tools::PalmDoc->new();
  $pdb2->{attributes}{resource} = 1;
  $pdb->import_textfile('textfile.txt');
@@ -51,6 +51,7 @@ our @EXPORT_OK;
     &parse_palmdoc_header
     &uncompress_palmdoc
     );
+our %EXPORT_TAGS = ('all' => [@EXPORT_OK]);
 
 sub import   ## no critic (Always unpack @_ first)
 {
