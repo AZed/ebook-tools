@@ -20,9 +20,9 @@ See also L</EXAMPLES>.
 
 
 use Config::IniFiles;
-use EBook::Tools qw(debug find_opffile split_metadata split_pre strip_script
-                    system_tidy_xhtml system_tidy_xml userconfigdir);
-use EBook::Tools::Mobipocket qw(find_mobigen pid_is_valid system_mobigen);
+use EBook::Tools qw(:all);
+use EBook::Tools::Mobipocket qw(:all);
+use EBook::Tools::MSReader qw(:all);
 use EBook::Tools::Unpack;
 use File::Basename 'fileparse';
 use File::Path;              # Exports 'mkpath' and 'rmtree'
@@ -137,6 +137,8 @@ my %dispatch = (
     'adddoc'      => \&adddoc,
     'additem'     => \&additem,
     'blank'       => \&blank,
+    'dc'          => \&downconvert,
+    'downconvert' => \&downconvert,
     'config'      => \&config,
     'fix'         => \&fix,
     'genepub'     => \&genepub,
@@ -502,6 +504,180 @@ sub config
         }
         $config->setval('drm','mobipids',$value);
         $config->RewriteConfig;
+    }
+    exit(EXIT_SUCCESS);
+}
+
+
+=head2 C<downconvert>
+
+=head2 C<dc>
+
+If the appropriate helpers or plugins are available, write a copy of
+the input file with the DRM restrictions removed.
+
+NOTE: no actual DRM-removal code is present in this package.  This is
+just presents a unified interface to other programs that have that
+capability.
+
+=head3 Arguments
+
+=over
+
+=item * C<infile>
+
+The first non-option argument is taken to be the input file.  If not
+specified, the program exits with an error.
+
+=item * C<outfile>
+
+The second non-option argument is taken to be the output file.  If not
+specified, the program will use a name based on the input file,
+appending '-nodrm' to the basename and keeping the extension.  In the
+special case of Mobipocket files ending in '-sm', the '-sm' portion of
+the basename is simply removed, and nothing else is appended.
+
+=item * C<key>
+
+The third non-option argument is taken to be either the decryption
+key/PID, or in the case of Microsoft Reader (.lit) files, the
+C<keys.txt> file containing the decryption keys.
+
+If not specified, this will be looked up from the configuration file.
+Convertlit keyfiles will be looked for in standard locations.  If no
+key is found, the command aborts and exits with an error.
+
+=back
+
+=head3 Example
+
+ ebook downconvert NewBook.lit NewBook-readable.lit mykeys.txt
+ ebook dc MyBook-sm.prc
+
+=cut
+
+sub downconvert
+{
+    my ($infile,$outfile,$key) = @_;
+    my $suffix;
+    my $mobidedrm = find_mobidedrm();
+    my $convertlit = find_convertlit();
+    my $status;
+
+    if(!$infile)
+    {
+        say {*STDERR} "You must specify a file to downconvert.";
+        exit(EXIT_BADOPTION);
+    }
+    unless(-f $infile)
+    {
+        print {*STDERR} "Could not find '",$infile,"' to downconvert!\n";
+        exit(EXIT_BADINPUT);
+    }
+
+    my $unpacker = EBook::Tools::Unpack->new(
+        'file' => $infile,
+        'format' => $opt{format},
+        );
+
+    if($unpacker->format eq 'mobipocket')
+    {
+        if(!$mobidedrm)
+        {
+            say {*STDERR} <<'END';
+Downconverting Mobipocket books requires that MobiDeDRM be available,
+either on the path, in the configuration directory, or specified in
+the configuration file.
+END
+            exit(EXIT_MISSINGHELPER);
+        }
+        if($key)
+        {
+            if(!pid_is_valid($key))
+            {
+                say {*STDERR} "PID '",$key,"' is not valid!";
+                exit(EXIT_BADOPTION);
+            }
+            $outfile = system_mobidedrm(infile => $infile,
+                                        outfile => $outfile,
+                                        pid => $key);
+            if(!$outfile)
+            {
+                say {*STDERR} "Failed to downconvert '",$infile,"'!";
+                exit(EXIT_HELPERERROR);
+            }
+        }
+        else
+        {
+            my @pids = split(/,/,$config->val('drm','mobipids'));
+            if(!@pids)
+            {
+                say {*STDERR}
+                "No PID specified, and none found in configuration file!";
+                exit(EXIT_BADOPTION);
+            }
+            foreach my $pid (@pids)
+            {
+                if(!pid_is_valid($pid))
+                {
+                    say {*STDERR} "PID '",$pid,"' is not valid, skipping!";
+                    next;
+                }
+                $outfile = system_mobidedrm(infile => $infile,
+                                            outfile => $outfile,
+                                            pid => $pid);
+                last if($outfile);
+            }
+            if($outfile)
+            {
+                say("Successfully downconverted '",$infile,
+                    "' into '",$outfile,"'");
+                exit(EXIT_SUCCESS);
+            }
+            else
+            {
+                say "Unable to downconvert '",$infile,"'!";
+                exit(EXIT_BADOUTPUT);
+            }
+        } # if($key) / else
+    } # if($unpacker->format eq 'mobipocket')
+
+    elsif($unpacker->format eq 'msreader')
+    {
+        if(!$convertlit)
+        {
+            say {*STDERR} <<'END';
+Downconverting MS Reader books requires that ConvertLit be available,
+either on the path, in the configuration directory, or specified in
+the configuration file.
+END
+            exit(EXIT_MISSINGHELPER);
+        }
+        if(!$outfile)
+        {
+            ($outfile,undef,$suffix) = fileparse($infile,'\.\w+$');
+            $outfile .= '-nodrm' . $suffix;
+        }
+        my $retval = system_convertlit(infile => $infile,
+                                       outfile => $outfile,
+                                       keyfile => $key);
+        if($retval == 0)
+        {
+            say("Successfully downconverted '",$infile,
+                "' into '",$outfile,"'");
+            exit(EXIT_SUCCESS);
+        }
+        else
+        {
+            say("Failed to downconvert '",$infile,
+                " [system_convertlit returned ",$retval,"]");
+            exit(EXIT_HELPERERROR);
+        }
+    }
+    else
+    {
+        say {*STDERR} "Cannot downconvert format '",$unpacker->format,"'";
+        exit(EXIT_BADINPUT);
     }
     exit(EXIT_SUCCESS);
 }
@@ -1293,4 +1469,5 @@ username=
 convertlit=
 mobidedrm=
 mobigen=
+pdbshred=
 tidy=
