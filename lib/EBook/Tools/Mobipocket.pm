@@ -20,6 +20,7 @@ use base qw(Exporter Palm::Raw);
 
 our @EXPORT_OK;
 @EXPORT_OK = qw (
+    &find_mobidedrm
     &find_mobigen
     &parse_mobi_exth
     &parse_mobi_header
@@ -27,9 +28,11 @@ our @EXPORT_OK;
     &pid_append_checksum
     &pid_is_valid
     &pukall_cipher_1
+    &system_mobidedrm
     &system_mobigen
     &unpack_mobi_language
     );
+our %EXPORT_TAGS = ('all' => [@EXPORT_OK]);
 
 sub import   ## no critic (Always unpack @_ first)
 {
@@ -44,6 +47,16 @@ sub import   ## no critic (Always unpack @_ first)
 EBook::Tools::Mobipocket - Components related to the Mobipocket format.
 
 =head1 SYNOPSIS
+
+ use EBook::Tools::Mobipocket qw(:all);
+ my $mobi = EBook::Tools::Mobipocket->new();
+ $mobi->Load('filename.prc');
+ print "Title: ",$mobi->{title},"\n";
+ print "Author: ",$mobi->{header}{exth}{author},"\n";
+ print "Language: ",$mobi->{header}{mobi}{language},"\n";
+ 
+ my $mobigen = find_mobigen();
+ system_mobigen('myfile.opf'); 
 
 =head1 DEPENDENCIES
 
@@ -71,8 +84,7 @@ EBook::Tools::Mobipocket - Components related to the Mobipocket format.
 use Bit::Vector;
 use Carp;
 use Compress::Zlib;
-use EBook::Tools qw(debug excerpt_line hexstring split_metadata
-                    system_tidy_xhtml userconfigdir);
+use EBook::Tools qw(:all);
 use EBook::Tools::PalmDoc qw(parse_palmdoc_header uncompress_palmdoc);
 use Encode;
 use Fcntl qw(SEEK_CUR SEEK_SET);
@@ -1523,7 +1535,38 @@ sub uncompress_dictionaryhuffman_records :method
 
 =head1 PROCEDURES
 
-All procedures are exportable, but none are exported by default.
+All procedures are exportable, but none are exported by default.  All
+procedures can be exported by using the ":all" tag.
+
+
+=head2 C<find_mobidedrm()>
+
+Attempts to locate a copy of the MobiDeDrm script by searching PATH
+and looking in the EBook::Tools user configuration directory (see
+L<EBook::Tools/userconfigdir()>.
+
+Returns the complete path to the script, or undef if nothing was found.
+
+This will use package variable C<$mobidedrm_cmd> as its first guess,
+and set that variable to the return value as well.
+
+=cut
+
+sub find_mobidedrm
+{
+    my $subname = ( caller(0) )[3];
+    debug(2,"DEBUG[",$subname,"]");
+
+    my @guesses;
+    my $retval;
+    my $confdir = userconfigdir();
+    my $pattern = qr/^ MobiDeDrm(-\d+\.\d+)(.py)? $/ix;
+
+    if($mobidedrm_cmd and -f $mobidedrm_cmd) { return $mobidedrm_cmd; }
+    $mobidedrm_cmd = find_in_path($pattern,$confdir);
+    debug(1,"DEBUG: found mobidedrm as '",$mobidedrm_cmd,"'");
+    return $mobidedrm_cmd;
+}
 
 
 =head2 C<find_mobigen()>
@@ -2343,6 +2386,8 @@ sub pid_is_valid
     my $subname = ( caller(0) )[3];
     debug(2,"DEBUG[",$subname,"]");
 
+    return 0 unless($pid);
+
     my $pid2 = pid_append_checksum(substr($pid,0,-2));
 
     return 0 unless(length($pid) == 10);
@@ -2457,11 +2502,13 @@ sub pukall_cipher_1
 }
 
 
-=head2 C<system_mobigen(%args)>
+=head2 C<system_mobidedrm(%args)>
 
-Runs C<mobigen> to convert OPF, HTML, or ePub input into a Mobipocket
-.prc/.mobi book.  The procedure L<find_mobigen()> is called to locate
-the executable.
+Runs python on a copy of MobiDeDrm.py if it is available (not included
+with this distribution) to downconvert a Mobipocket file.
+
+Returns the output filename on success, or undef otherwise.
+
 
 =head3 Arguments
 
@@ -2470,7 +2517,119 @@ the executable.
 =item * C<infile>
 
 The input filename.  If not specified or invalid, the procedure
-croaks.
+returns undef.
+
+=item * C<outfile>
+
+The output filename.  If not specified, the program will use a name
+based on the input file, appending '-nodrm' to the basename and
+keeping the extension.  In the special case of Mobipocket files ending
+in '-sm', the '-sm' portion of the basename is simply removed, and
+nothing else is appended.
+
+=item * C<pid>
+
+The PID to use to decrypt the file.  If not specified or invalid, the
+procedure returns undef.
+
+=back
+
+=cut
+
+sub system_mobidedrm
+{
+    my %args = @_;
+    my $subname = ( caller(0) )[3];
+    debug(2,"DEBUG[",$subname,"]");
+
+    my %valid_args = (
+        'infile' => 1,
+        'outfile' => 1,
+        'pid' => 1,
+        );
+    foreach my $arg (keys %args)
+    {
+        croak($subname,"(): invalid argument '",$arg,"'")
+            if(!$valid_args{$arg});
+    }
+
+    if(!$args{infile})
+    {
+        debug(1,$subname,"(): no input file specified!");
+        return;
+    }
+
+    if(! -f $args{infile})
+    {
+        debug(1,$subname,"(): input file '",$args{infile},"' not found!");
+        return;
+    }
+
+    if(! pid_is_valid($args{pid}))
+    {
+        debug(1,$subname,"(): pid '",$args{pid},"' is not valid!");
+        return;
+    }
+           
+    if( !find_mobidedrm() )
+    {
+        debug(1,$subname,"(): MobiDeDRM is not available!");
+        return;
+    }
+
+    my $outfile = $args{outfile};
+    my $suffix;
+    if(!$outfile)
+    {
+        ($outfile,undef,$suffix) = fileparse($args{infile},'\.\w+$');
+        if($outfile =~ /-sm$/ix)
+        {
+            $outfile =~ s/-sm$//ix;
+            $outfile .= $suffix;
+        }
+        else
+        {
+            $outfile .= '-nodrm' . $suffix;
+        }
+    }
+    
+    my $retval = system('python',$mobidedrm_cmd,
+                        $args{infile},$outfile,$args{pid});
+    
+    if($retval == -1 or $retval == 256)
+    {
+        debug(1,$subname,"(): python not available!");
+        return;
+    }
+
+    if(-z $outfile)
+    {
+        debug(1,$subname,"(): MobiDeDRM produced 0-sized output!");
+        unlink($outfile);
+        return;
+    }
+    return $outfile;
+}
+
+
+=head2 C<system_mobigen(%args)>
+
+Runs C<mobigen> to convert OPF, HTML, or ePub input into a Mobipocket
+.prc/.mobi book.  The procedure L<find_mobigen()> is called to locate
+the executable.
+
+Returns the return value from mobigen, or undef if no filename was
+specified or the file did not exist.  Also returns undef if mobigen
+could not be found.
+
+=head3 Arguments
+
+=over
+
+=item * C<infile>
+
+The input filename.  If not specified or invalid, the procedure
+returns undef.
 
 =item * C<outfile>
 
@@ -2516,14 +2675,24 @@ sub system_mobigen
             if(!$valid_args{$arg});
     }
 
-    croak($subname,"(): no input file specified!\n")
-        unless($args{infile});
-    croak($subname,"(): input file '",$args{infile},"' not found!\n")
-        unless(-f $args{infile});
+    if(!$args{infile})
+    {
+        debug(1,$subname,"(): no input file specified!");
+        return;
+    }
+
+    if(! -f $args{infile})
+    {
+        debug(1,$subname,"(): input file '",$args{infile},"' not found!");
+        return;
+    }
 
     find_mobigen();
-    croak($subname,"(): mobigen command not specified!\n")
-        unless($mobigen_cmd);
+    if(!$mobigen_cmd)
+    {
+        debug(1,$subname,"(): mobigen command not specified!");
+        return;
+    }
 
     my @mobigen = ($mobigen_cmd);
     my $mobigenoutput = fileparse($args{infile},'\.\w+$') . '.mobi';
