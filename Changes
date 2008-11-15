@@ -1,6 +1,40 @@
 Release Notes
 =============
 
+0.3.0
+
+New Features:
+ * Configuration file and directory support
+ * Mobipocket HUFF/CDIC support
+ * Unpacking DRM-protected Mobipocket files now just skips the
+   encrypted text, but still extracts the unencrypted images
+ * EBook::Tools now takes advantage of several external helper files,
+   if they are made available:
+   * Mobipocket generation possible if mobigen is available
+   * Unpacking interface supports MS Reader (.lit) if convertlit is available
+   * Downconverting interface supports MS Reader and Mobipocket if
+     convertlit and MobiDeDRM are available, respectively.
+   * See README.Helpers.txt for more information
+ * excerpt_line() procedure available to show just the beginning and
+   end of a paragraph or other long line of text
+ * ':all' export tag is available for all modules to export all
+   procedures at once.
+
+Library Changes:
+ * EReader.pm: write_* methods now return the filename(s) written
+   instead of just returning 1
+ * Unpack.pm: gen_metadata() no longer calls split_metadata() if the
+   raw option is specified
+ * Tools.pm: fix_languages() now creates a <dc:language> if none
+   exists (this isn't mandated by the standard, but mobigen requires
+   it)
+
+Bug Fixes:
+ * Unpacking an eReader book now correctly adds the text to the OPF
+   manifest
+
+----------
+
 0.2.0
 
 New Features:
