@@ -2,6 +2,7 @@ Bin.PL
 Build.PL
 MANIFEST
 README
+README.Helpers.txt
 Changes
 lib/EBook/Tools.pm
 lib/EBook/Tools/EReader.pm
