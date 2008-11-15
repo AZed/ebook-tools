@@ -197,7 +197,11 @@ sub find_convertlit_keys
             last;
         }
     }
-    if($keyfile) { return $keyfile; }
+    if($keyfile)
+    {
+        $convertlit_keys = $keyfile;
+        return $keyfile;
+    }
     else { return; }
 }
 
@@ -207,6 +211,10 @@ sub find_convertlit_keys
 Runs C<convertlit> to extract or downconvert a MS Reader .lit file.
 The procedures L<find_convertlit()> and L<find_convertlit_keys()> are
 both called to locate necessary helper files.
+
+Returns the return value from convertlit, or undef if convertlit or
+the input file could not be found, or neither output file nor
+directory is specified.
 
 =head3 Arguments
 
@@ -257,10 +265,16 @@ sub system_convertlit
             if(!$valid_args{$arg});
     }
 
-    croak($subname,"(): no input file specified!\n")
-        unless($args{infile});
-    croak($subname,"(): input file '",$args{infile},"' not found!\n")
-        unless(-f $args{infile});
+    if(!$args{infile})
+    {
+        debug(1,$subname,"(): no input file specified!");
+        return;
+    }
+    if(! -f $args{infile})
+    {
+        debug(1,$subname,"(): input file '",$args{infile},"' not found!");
+        return;
+    }
 
     find_convertlit();
     find_convertlit_keys();
@@ -299,7 +313,8 @@ sub system_convertlit
     }
     else
     {
-        croak($subname,"(): neither output file nor directory specified!\n");
+        debug(1,$subname,"(): neither output file nor directory specified!");
+        return;
     }
     
     debug(2,"DEBUG: converting lit with '",join(' ',@convertlit),"'");
