@@ -49,3 +49,25 @@ and
 http://www.mobileread.com/forums/showthread.php?t=31095
 
 and you may have some luck searching for it on pastebin.com
+
+
+=======
+Mobigen
+=======
+
+Mobigen is a command-line executable provided by Mobipocket for
+creating Mobipocket .mobi/.prc files as an alternative to their GUI
+for doing the same.
+
+It is made available from the Mobipocket Developer Center at:
+
+http://www.mobipocket.com/dev/
+
+The direct link to the MSWin32 executable is:
+
+http://www.mobipocket.com/soft/prcgen/mobigen.zip
+
+Although it isn't currently linked to from the Mobipocket Developer
+Center page, there is also a Linux executable available:
+
+http://www.mobipocket.com/soft/prcgen/mobigen_linux.tar.gz
