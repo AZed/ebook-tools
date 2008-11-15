@@ -26,6 +26,8 @@ t/toobusy.jpg
 t/ereader/ertest.pdb
 t/ereader/ertest.pml
 t/ereader/ertest_img/resonance.png
+t/mobi/hufftest.mobi
+t/mobi/hufftest.opf
 t/mobi/langtest-af.prc
 t/mobi/langtest-ar-ae.prc
 t/mobi/langtest-ar-bh.prc
@@ -163,8 +165,10 @@ t/mobi/langtest-zh-tw.prc
 t/mobi/langtest-zh.prc
 t/mobi/langtest-zu.prc
 t/mobi/langtest.opf
+t/mobi/main.htm
 t/mobi/mobitest.opf
 t/mobi/mobitest.prc
+t/mobi/outer.jpg
 t/mobi/test.html
 ebook.pl
 Makefile.PL
