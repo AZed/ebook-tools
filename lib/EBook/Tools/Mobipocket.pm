@@ -1,4 +1,4 @@
-﻿package EBook::Tools::Mobipocket;
+package EBook::Tools::Mobipocket;
 use warnings; use strict; use utf8;
 #use warnings::unused;
 use 5.010; # Needed for smart-match operator
