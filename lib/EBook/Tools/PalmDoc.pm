@@ -1,6 +1,6 @@
 package EBook::Tools::PalmDoc;
 use warnings; use strict; use utf8;
-use version; our $VERSION = qv("0.3.0");
+use version; our $VERSION = qv("0.3.1");
 # $Revision$ $Date$
 # $Id$
 

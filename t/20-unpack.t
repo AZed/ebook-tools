@@ -6,8 +6,15 @@ use EBook::Tools;
 use File::Basename qw(basename);
 use File::Copy;
 use File::Path;    # Exports 'mkpath' and 'rmtree'
-use Test::More tests => 44;
-BEGIN { use_ok('EBook::Tools::Unpack') };
+use Test::More tests => 48;
+BEGIN
+{
+    use_ok('EBook::Tools::Unpack');
+    use_ok('EBook::Tools::EReader',qw(:all));
+    use_ok('EBook::Tools::Mobipocket',qw(:all));
+    use_ok('EBook::Tools::MSReader',qw(:all));
+    use_ok('EBook::Tools::PalmDoc',qw(:all));
+};
 
 my $cwd;
 my $ebook = EBook::Tools->new();
