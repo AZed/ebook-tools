@@ -3,7 +3,7 @@ use warnings; use strict; use utf8;
 #use warnings::unused;
 use 5.010; # Needed for smart-match operator
 use English qw( -no_match_vars );
-use version; our $VERSION = qv("0.3.0");
+use version; our $VERSION = qv("0.3.1");
 # $Revision$ $Date$
 # $Id$
 
