@@ -1,6 +1,10 @@
 Release Notes
 =============
 
+0.3.2
+ * EBook::Tools should now in theory no longer require Perl 5.10
+   (minimum requirement is now Perl 5.8.8)
+
 0.3.0
 
 New Features:
