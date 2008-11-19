@@ -406,17 +406,17 @@ sub detected :method
 =head2 C<detect_format()>
 
 Attempts to automatically detect the format of the input file and set
-the internal object attributes C<$self->{format}> and
-C<$self->{formatinfo}>, where the former is a one-word string used by
+the internal object attributes C<< $self->{format} >> and
+C<< $self->{formatinfo} >>, where the former is a one-word string used by
 the dispatcher to select the correct unpacking method and the latter
 may contain additional detected information (such as a title or
 version).
 
 Croaks if detection fails.
 
-In scalar context, returns C<$self->{format}>.  In list context,
-returns the two element list C<($self->{format},$self->{formatinfo}>
-
+In scalar context, returns C<< $self->{format} >>.  In list context,
+returns the two element list C<< ($self->{format},$self->{formatinfo}) >>
+ 
 This is automatically called by L</new()> if the C<format> argument is
 not specified.
 
