@@ -13,7 +13,7 @@ use Cwd qw(chdir getcwd);
 use Data::Dumper;
 use File::Basename qw(basename);
 use File::Copy;
-BEGIN { use_ok('EBook::Tools',qw(system_tidy_xhtml system_tidy_xml)) };
+BEGIN { use_ok('EBook::Tools',qw(:all)) };
 
 # Set this to 1 or 2 to stress the debugging code, but expect lots of
 # output.

@@ -1,16 +1,14 @@
-# Before `make install' is performed this script should be runnable with
-# `make test'. After `make install' it should work as `perl EBook-Tools.t'
 use strict; use warnings;
 
 ########## SETUP ##########
 
 # change 'tests => 1' to 'tests => last_test_to_print';
 
-use Test::More tests => 41;
+use Test::More tests => 39;
 use Cwd qw(chdir getcwd);
 use File::Basename qw(basename);
 use File::Copy;
-BEGIN { use_ok('EBook::Tools',qw(system_tidy_xhtml system_tidy_xml)) };
+BEGIN { use_ok('EBook::Tools',qw(:all)) };
 
 # Set this to 1 or 2 to stress the debugging code, but expect lots of
 # output.
@@ -215,11 +213,6 @@ is($ebook1->twigroot
 
 ok($ebook1->save,'save() of missingfwid.opf returned successfully');
 ok($ebook2->save,'save() of emptyuid.opf returned successfully');
-
-is(system_tidy_xml('emptyuid.opf','emptyuid-tidy.opf'),0,
-   'system_tidy_xml: emptyuid.opf');
-is(system_tidy_xml('missingfwid.opf','missingfwid-tidy.opf'),0,
-   'system_tidy_xml: missingfwid.opf');
 
 ########## CLEANUP ##########
 
