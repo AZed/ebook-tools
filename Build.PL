@@ -4,7 +4,7 @@ my $build = Module::Build->new
      module_name => 'EBook::Tools',
      license  => 'gpl2',
      requires => {
-         'perl'              => '5.10.0',
+         'perl'              => '5.8.8',
          'Archive::Zip'      => 1.16,
          'Bit::Vector'	     => 6.4,
          'Compress::Zlib'    => 1,
@@ -25,6 +25,6 @@ my $build = Module::Build->new
          'XML::Twig'         => 3.32,
      },
      PL_files => { 'Bin.PL' => 'bin/ebook' },
-     create_makefile_pl => 'small',
+     create_makefile_pl => 'traditional',
     );
 $build->create_build_script;

@@ -1,5 +1,4 @@
 use strict; use warnings; use utf8;
-use 5.010; # Needed for smart-match operator
 use Cwd qw(chdir getcwd);
 use File::Basename qw(basename);
 use File::Path;    # Exports 'mkpath' and 'rmtree'

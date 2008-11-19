@@ -1,6 +1,6 @@
 package EBook::Tools::PalmDoc;
 use warnings; use strict; use utf8;
-use version; our $VERSION = qv("0.3.1");
+use version; our $VERSION = qv("0.3.2");
 # $Revision$ $Date$
 # $Id$
 
@@ -660,7 +660,6 @@ sub parse_palmdoc_header
         if(length($data) != 16);
 
     my @list = unpack("nnNnnN",$data);
-    my @compression_keys = keys(%pdbcompression);
     my %header;
 
     $header{compression} = $list[0]; # Bytes 00-01
@@ -675,9 +674,10 @@ sub parse_palmdoc_header
         unless($header{spare} == 0);
     carp($subname,"(): found text record size ",$header{recordsize},
          ", expected 2048 or 4096")
-        unless($header{recordsize} ~~ [2048,4096]);
+        unless($header{recordsize} == 2048
+               or $header{recordsize} == 4096);
     carp($subname,"(): found unknown compression value ",$header{compression})
-        unless($header{compression} ~~ @compression_keys);
+        unless(defined $pdbcompression{$header{compression}});
     debug(1,"DEBUG: PDB compression type is ",
           $pdbcompression{$header{compression}});
 
