@@ -1,7 +1,6 @@
 #!/usr/bin/perl
 use warnings; use strict;
-use 5.010;
-use version; our $VERSION = qv("0.3.1");
+use version; our $VERSION = qv("0.3.2");
 # $Revision$ $Date$
 # $Id$
 
@@ -458,7 +457,7 @@ sub config
         my $fh_config;
         local $/;
         
-        say "Creating new configuration file '",$configfile,"'";
+        print "Creating new configuration file '",$configfile,"'\n";
         open($fh_config,'>',$configfile)
             or die("Unable to open config file '",$configfile,"' for writing!\n");
         print {*$fh_config} $defaultconfig;
@@ -469,7 +468,7 @@ sub config
     {
         if(not defined $value)
         {
-            say {*STDERR} "You must specify a debugging level.";
+            print {*STDERR} "You must specify a debugging level.\n";
             exit(EXIT_BADOPTION);
         }            
         $config->setval('config','debug',$value);
@@ -479,7 +478,7 @@ sub config
     {
         if(not defined $value)
         {
-            say {*STDERR} "You must specify a tidy safety level.";
+            print {*STDERR} "You must specify a tidy safety level.\n";
             exit(EXIT_BADOPTION);
         }            
         $config->setval('config','tidysafety',$value);
@@ -490,7 +489,7 @@ sub config
         my @pids;
         if(!$value)
         {
-            say {*STDERR} "You must specify at least one PID.";
+            print {*STDERR} "You must specify at least one PID.\n";
             exit(EXIT_BADOPTION);
         }
         @pids = split(/,/,$value);
@@ -498,7 +497,7 @@ sub config
         {
             if(!pid_is_valid($pid))
             {
-                say {*STDERR} "PID '",$pid,"' is not valid!  Aborting!";
+                print {*STDERR} "PID '",$pid,"' is not valid!  Aborting!\n";
                 exit(EXIT_BADOPTION);
             }
         }
@@ -566,7 +565,7 @@ sub downconvert
 
     if(!$infile)
     {
-        say {*STDERR} "You must specify a file to downconvert.";
+        print {*STDERR} "You must specify a file to downconvert.\n";
         exit(EXIT_BADOPTION);
     }
     unless(-f $infile)
@@ -584,7 +583,7 @@ sub downconvert
     {
         if(!$mobidedrm)
         {
-            say {*STDERR} <<'END';
+            print {*STDERR} <<'END';
 Downconverting Mobipocket books requires that MobiDeDRM be available,
 either on the path, in the configuration directory, or specified in
 the configuration file.
@@ -595,7 +594,7 @@ END
         {
             if(!pid_is_valid($key))
             {
-                say {*STDERR} "PID '",$key,"' is not valid!";
+                print {*STDERR} "PID '",$key,"' is not valid!\n";
                 exit(EXIT_BADOPTION);
             }
             $outfile = system_mobidedrm(infile => $infile,
@@ -603,7 +602,7 @@ END
                                         pid => $key);
             if(!$outfile)
             {
-                say {*STDERR} "Failed to downconvert '",$infile,"'!";
+                print {*STDERR} "Failed to downconvert '",$infile,"'!\n";
                 exit(EXIT_HELPERERROR);
             }
         }
@@ -612,15 +611,15 @@ END
             my @pids = split(/,/,$config->val('drm','mobipids'));
             if(!@pids)
             {
-                say {*STDERR}
-                "No PID specified, and none found in configuration file!";
+                print {*STDERR}
+                "No PID specified, and none found in configuration file!\n";
                 exit(EXIT_BADOPTION);
             }
             foreach my $pid (@pids)
             {
                 if(!pid_is_valid($pid))
                 {
-                    say {*STDERR} "PID '",$pid,"' is not valid, skipping!";
+                    print {*STDERR} "PID '",$pid,"' is not valid, skipping!\n";
                     next;
                 }
                 $outfile = system_mobidedrm(infile => $infile,
@@ -630,13 +629,13 @@ END
             }
             if($outfile)
             {
-                say("Successfully downconverted '",$infile,
-                    "' into '",$outfile,"'");
+                print("Successfully downconverted '",$infile,
+                    "' into '",$outfile,"'\n");
                 exit(EXIT_SUCCESS);
             }
             else
             {
-                say "Unable to downconvert '",$infile,"'!";
+                print "Unable to downconvert '",$infile,"'!\n";
                 exit(EXIT_BADOUTPUT);
             }
         } # if($key) / else
@@ -646,7 +645,7 @@ END
     {
         if(!$convertlit)
         {
-            say {*STDERR} <<'END';
+            print {*STDERR} <<'END';
 Downconverting MS Reader books requires that ConvertLit be available,
 either on the path, in the configuration directory, or specified in
 the configuration file.
@@ -663,20 +662,20 @@ END
                                        keyfile => $key);
         if($retval == 0)
         {
-            say("Successfully downconverted '",$infile,
-                "' into '",$outfile,"'");
+            print("Successfully downconverted '",$infile,
+                "' into '",$outfile,"'\n");
             exit(EXIT_SUCCESS);
         }
         else
         {
-            say("Failed to downconvert '",$infile,
-                " [system_convertlit returned ",$retval,"]");
+            print("Failed to downconvert '",$infile,
+                  " [system_convertlit returned ",$retval,"]\n");
             exit(EXIT_HELPERERROR);
         }
     }
     else
     {
-        say {*STDERR} "Cannot downconvert format '",$unpacker->format,"'";
+        print {*STDERR} "Cannot downconvert format '",$unpacker->format,"'\n";
         exit(EXIT_BADINPUT);
     }
     exit(EXIT_SUCCESS);
@@ -911,7 +910,7 @@ sub genmobi
 
     if(!$infile)
     {
-        say {*STDERR} "No input file specified or detected!";
+        print {*STDERR} "No input file specified or detected!\n";
         exit(EXIT_BADOPTION);
     }
 
@@ -919,7 +918,7 @@ sub genmobi
 
     if(!find_mobigen())
     {
-        say {*STDERR} "No mobigen executable available!";
+        print {*STDERR} "No mobigen executable available!\n";
         exit(EXIT_MISSINGHELPER);
     }
 
@@ -930,7 +929,7 @@ sub genmobi
 
     if($retval)
     {
-        say {*STDERR} "Error during generation: ",$retval;
+        print {*STDERR} "Error during generation: ",$retval,"\n";
         exit(EXIT_HELPERERROR);
     }
     exit(EXIT_SUCCESS);
@@ -1097,7 +1096,7 @@ sub splitpre
     my ($infile,$outfilebase) = @_;
     if(!$infile)
     { 
-        say {*STDERR} "You must specify a file to parse.";
+        print {*STDERR} "You must specify a file to parse.\n";
         exit(EXIT_BADOPTION);
     }
     split_pre($infile,$outfilebase);

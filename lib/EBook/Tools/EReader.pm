@@ -1,7 +1,6 @@
 package EBook::Tools::EReader;
 use warnings; use strict; use utf8;
-use 5.010; # Needed for smart-match operator
-use version; our $VERSION = qv("0.3.1");
+use version; our $VERSION = qv("0.3.2");
 # $Revision$ $Date$
 # $Id$
 
