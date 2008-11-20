@@ -557,7 +557,7 @@ EBook::Tools.
 
 =head2 C<Load($filename)>
 
-Sets C<$self->{filename}> and then loads and parses the file specified
+Sets C<< $self->{filename} >> and then loads and parses the file specified
 by C<$filename>, calling L</ParseRecord(%record)> on every record
 found.
 
@@ -779,8 +779,8 @@ sub ParseRecord :method   ## no critic (Always unpack @_ first)
 =head2 C<ParseRecord0($data)>
 
 Parses the header record and places the parsed values into the hashref
-C<$self->{header}{palm}>, the hashref C<$self->{header}{mobi}>, and
-C<$self->{header}{exth}> by calling L</parse_palmdoc_header()>,
+C<< $self->{header}{palm} >>, the hashref C<< $self->{header}{mobi} >>,
+and C<< $self->{header}{exth} >> by calling L</parse_palmdoc_header()>,
 L</parse_mobi_header()>, and L</parse_mobi_exth()> respectively.
 
 =cut
@@ -1160,9 +1160,9 @@ sub ParseRecordHUFF
 =head2 C<ParseRecordImage(\$dataref)>
 
 Parses image records, updating object attributes, most notably adding
-the image data to the hash C<$self->{imagedata}, adding the image
-filename to C<$self->{recindexlinks}, and incrementing
-C<$self->{recindex}>.
+the image data to the hash C<< $self->{imagedata} >>, adding the image
+filename to C<< $self->{recindexlinks} >>, and incrementing
+C<< $self->{recindex} >>.
 
 Takes as an argument a reference to the record data.  Croaks if it
 isn't provided, or isn't a reference.
@@ -1201,7 +1201,7 @@ sub ParseRecordImage :method
 =head2 C<ParseRecordText(\$dataref)>
 
 Parses text records, updating object attributes, most notably
-appending text to C<$self->{text}>.  Takes as an argument a reference
+appending text to C<< $self->{text} >>.  Takes as an argument a reference
 to the record data.
 
 This is called automatically by L</ParseRecord()> and
