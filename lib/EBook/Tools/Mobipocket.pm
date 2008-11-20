@@ -870,7 +870,7 @@ dictionary data
 
 =item * Offset 16: Indexes
 
-A number of big-endiant short ints used as index points into the
+A number of big-endian short ints used as index points into the
 dictionary data
 
 =item * Offset ??: Dictionary data
