@@ -1,7 +1,7 @@
 package EBook::Tools::Unpack;
 use warnings; use strict; use utf8;
 use English qw( -no_match_vars );
-use version; our $VERSION = qv("0.3.2");
+use version; our $VERSION = qv("0.3.3");
 # $Revision$ $Date$
 # $Id$
 
