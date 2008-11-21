@@ -1194,7 +1194,7 @@ sub tidyxml
 Unpacks an ebook into its component parts, creating an OPF for them if
 necessary.
 
-=head3 Arguments
+=head3 Options
 
 =over
 
@@ -1258,8 +1258,6 @@ warned that this can occasionally change the formatting, as Tidy isn't
 very forgiving on certain common tricks (such as empty <pre> elements
 with style elements) that abuse the standard.
 
-=back
-
 =item C<--tidycmd>
 
 The tidy executable name.  This has to be a fully qualified pathname
@@ -1269,8 +1267,6 @@ if tidy isn't on the path.  Defaults to 'tidy'.
 
 The safety level to use when running tidy (default is 1).  Potential
 values are:
-
-=over
 
 =item C<$tidysafety < 1>:
 
