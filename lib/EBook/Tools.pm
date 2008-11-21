@@ -1,4 +1,4 @@
-﻿package EBook::Tools;
+package EBook::Tools;
 use warnings; use strict; use utf8;
 #use 5.010; # Needed for smart-match operator
 #v5.10 feature use removed until 5.10 is standard on MacOSX and Debian
