@@ -1,4 +1,4 @@
-package EBook::Tools;
+ï»¿package EBook::Tools;
 use warnings; use strict; use utf8;
 #use 5.010; # Needed for smart-match operator
 #v5.10 feature use removed until 5.10 is standard on MacOSX and Debian
@@ -5885,8 +5885,9 @@ directories specified in C<@extradirs>) for the first regular file
 matching C<$pattern>.  C<$pattern> itself can take two forms: if
 passed a C<qr//> regular expression, that expression is used directly.
 If passed any other string, that string will be used for a
-case-insensitive exact match (i.e. the final pattern will be
-C<qr/^ $pattern $/ix>).
+case-insensitive exact match where the extension '.bat', '.com', or
+'.exe' is optional (i.e. the final pattern will be
+C<qr/^ $pattern (\.bat|\.com|\.exe)? $/ix>).
 
 Returns the first match found, or undef if there were no matches or if
 no pattern was specified.
@@ -5903,13 +5904,19 @@ sub find_in_path
     my $regexp;
     my @dirs;
     my $fh_dir;
-    my @patternmatches;
     my @filelist;
+    my $envsep = ':';
+    my $filesep = '/';
+    if($OSNAME eq 'MSWin32')
+    {
+        $envsep = ';';
+        $filesep = "\\";
+    }
 
     if(ref($pattern) eq 'Regexp') { $regexp = $pattern; }
-    else { $regexp = qr/^ $pattern $/ix; }
-    
-    @dirs = split(/[:;]/,$ENV{PATH});
+    else { $regexp = qr/^ $pattern (\.bat|\.com|\.exe)? $/ix; }
+
+    @dirs = split(/$envsep/,$ENV{PATH});
     unshift(@dirs,@extradirs) if(@extradirs);
     foreach my $dir (@dirs)
     {
@@ -5917,11 +5924,11 @@ sub find_in_path
         {
             if(opendir($fh_dir,$dir))
             {
-                @patternmatches = grep { /$regexp/ } readdir($fh_dir);
-                @filelist = grep { -f "$dir/$_" } @patternmatches;
+                @filelist = grep { /$regexp/ } readdir($fh_dir);
+                @filelist = grep { -f "$dir/$_" } @filelist;
                 closedir($fh_dir);
-
-                if(@filelist) { return $dir . '/' . $filelist[0]; }
+            
+                if(@filelist) { return $dir . $filesep . $filelist[0]; }
             }
         }
     }
@@ -6907,10 +6914,11 @@ sub twigelt_create_uuid
 
     if(!$gi) { $gi = 'dc:identifier'; }
     
+    my $uuidgen = Data::UUID->new();
     $element = XML::Twig::Elt->new($gi);
     $element->set_id('UUID');
     $element->set_att('scheme' => 'UUID');
-    $element->set_text(Data::UUID->create_str());
+    $element->set_text($uuidgen->create_str());
     return $element;
 }
 
@@ -7183,7 +7191,7 @@ Returns the directory in which user configuration files and helper
 programs are expected to be found, creating that directory if it does
 not exist.  Typically, this directory is C<"$ENV{HOME}/.ebooktools">,
 but on MSWin32 systems if that directory does not already exist,
-C<"$ENV{USERPROFILE}/Application Data/EBook-Tools"> is returned (and
+C<"$ENV{USERPROFILE}/ApplicationData/EBook-Tools"> is returned (and
 potentially created) instead.
 
 If C<$ENV{HOME}> (and C<$ENV{USERPROFILE} on MSWin32) are not set, the
