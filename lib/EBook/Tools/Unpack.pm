@@ -1,7 +1,7 @@
 package EBook::Tools::Unpack;
 use warnings; use strict; use utf8;
 use English qw( -no_match_vars );
-use version; our $VERSION = qv("0.3.3");
+use version; our $VERSION = qv("0.4.0");
 # $Revision$ $Date$
 # $Id$
 
@@ -53,6 +53,7 @@ our @EXPORT_OK;
 use Carp;
 use EBook::Tools qw(:all);
 use EBook::Tools::EReader qw(:all);
+use EBook::Tools::IMP qw(:all);
 use EBook::Tools::Mobipocket qw(:all);
 use EBook::Tools::MSReader qw(:all);
 use EBook::Tools::PalmDoc qw(uncompress_palmdoc);
@@ -110,6 +111,7 @@ our %pdbcompression = (
 
 our %unpack_dispatch = (
     'ereader'    => \&unpack_ereader,
+    'imp'        => \&unpack_imp,
     'mobipocket' => \&unpack_mobi,
     'msreader'   => \&unpack_msreader,
     'palmdoc'    => \&unpack_palmdoc,
@@ -467,6 +469,7 @@ sub detect_format :method
 
     # Check for Microsoft Reader
     $ident = substr($headerdata,0,8);
+    debug(3,"DEBUG: MS Reader ident = '$ident'");
     if($ident eq 'ITOLITLS')
     {
         $$self{format} = 'msreader';
@@ -484,6 +487,17 @@ sub detect_format :method
         $$self{format} = 'epub';
         $$self{formatinfo} = '';
         debug(1,"DEBUG: autodetected book format '",$$self{format},"'");
+    }
+
+    # Check for .IMP
+    $ident = substr($headerdata,2,8);
+    $info = unpack('n',substr($headerdata,0,2));
+    if($ident eq 'BOOKDOUG')
+    {
+        $$self{format} = 'imp';
+        $$self{formatinfo} = $info;
+        debug(1,"DEBUG: autodetected book format '",$$self{format},
+              "' version ",$$self{formatinfo});
     }
 
     # Check for miscellaneous zip archive (OEBZip?)
@@ -838,6 +852,25 @@ sub unpack_ereader :method
         $self->gen_opf(textfile => $textname);
     }
     return 1;
+}
+
+
+=head2 C<unpack_imp()>
+
+Unpacks SoftBook/GEB/REB/eBookWise (.imp) files.
+
+=cut
+
+sub unpack_imp
+{
+    my $self = shift;
+    my $subname = ( caller(0) )[3];
+    debug(2,"DEBUG[",$subname,"]");
+
+    my $imp = EBook::Tools::IMP->new();
+    $imp->load($self->{file});
+    print {*STDERR} "IMP support not yet functional!\n";
+    return 0;
 }
 
 
