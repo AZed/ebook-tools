@@ -1,6 +1,9 @@
 Release Notes
 =============
 
+0.3.3
+ * Fixed bugs relating to find_in_path() on MSWin32 systems and Data::UUID
+
 0.3.2
  * EBook::Tools should now in theory no longer require Perl 5.10
    (minimum requirement is now Perl 5.8.8)
