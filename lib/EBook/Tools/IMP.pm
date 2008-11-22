@@ -19,6 +19,8 @@ EBook::Tools::IMP - Components related to the SoftBook/GEB/REB/eBookWise C<.IMP>
 =head1 SYNOPSIS
 
  use EBook::Tools::IMP qw(:all)
+ my $imp = EBook::Tools::IMP->new();
+ $imp->load('myfile.imp');
 
 =cut
 
