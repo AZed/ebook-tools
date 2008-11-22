@@ -167,14 +167,6 @@ sub parse_imp_book_properties
     my $subname = (caller(0))[3];
     debug(2,"DEBUG[",$subname,"]");
 
-    my $length = length($propdata);
-    my $expectedlength = $self->{resdiroffset} - 24;
-    if($length != $expectedlength)
-    {
-        croak($subname,"(): expected ",$expectedlength,
-              " bytes, was passed ",$length,"!\n");
-    }
-
     my @properties = unpack("Z*Z*Z*Z*Z*Z*Z*",$propdata);
     if(scalar(@properties) != 7)
     {
