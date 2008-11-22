@@ -54,8 +54,8 @@ unless($@){ $drmsupport = 1; }
 my %rwfields = (
     'filename'      => 'string',
     'filecount'     => 'integer',
-    'dirnamelength' => 'integer',
-    'bookpropsize'  => 'integer',
+    'resdirlength'  => 'integer',
+    'resdiroffset'  => 'integer',
     'version'       => 'integer',
     'compression'   => 'integer',
     'encryption'    => 'integer',
@@ -135,13 +135,24 @@ sub load
         return;
     }
 
-    if(!$self->{bookpropsize})
+    if(!$self->{resdiroffset})
     {
-        carp($subname,"(): '",$filename,"' has no book properties!\n");
+        carp($subname,"(): '",$filename,"' has no res dir offset!\n");
         return;
     }
-    sysread($fh_imp,$bookpropdata,$self->{bookpropsize});
+    my $bookproplength = $self->{resdiroffset} - 24;
+    sysread($fh_imp,$bookpropdata,$bookproplength);
     $retval = $self->parse_imp_book_properties($bookpropdata);
+
+    if(!$self->{resdirlength})
+    {
+        carp($subname,"(): '",$filename,"' has no directory name!\n");
+        return;
+    }
+
+    sysread($fh_imp,$self->{resdirname},$self->{resdirlength});
+
+    debug(1,"DEBUG: resource directory = '",$self->{resdirname},"'");
 
     return 1;
 }
@@ -155,15 +166,14 @@ sub parse_imp_book_properties
     debug(2,"DEBUG[",$subname,"]");
 
     my $length = length($propdata);
-    if($length != $self->{bookpropsize})
+    my $expectedlength = $self->{resdiroffset} - 24;
+    if($length != $expectedlength)
     {
-        croak($subname,"(): expected ",$self->{bookpropsize},
+        croak($subname,"(): expected ",$expectedlength,
               " bytes, was passed ",$length,"!\n");
     }
 
-    my @properties;
-    (@properties) = ($propdata =~ m/(.*?)\0/gx);
-
+    my @properties = unpack("Z*Z*Z*Z*Z*Z*Z*",$propdata);
     if(scalar(@properties) != 7)
     {
         carp($subname,"(): WARNING: expected 7 book properties, but found ",
@@ -190,6 +200,82 @@ sub parse_imp_book_properties
     return 1;
 }
 
+
+=head2 C<parse_imp_header()>
+
+Parses the first 48 bytes of a .IMP file, setting object variables.
+The method croaks if it receives any more or less than 48 bytes.
+
+=head3 Header Format
+
+=over
+
+=item * Offset 0x00 [2 bytes, big-endian unsigned short int]
+
+Version.  Expected values are 1 or 2; the version affects the format
+of the table of contents header.  If this isn't 1 or 2, the method
+carps a warning and returns undef.
+
+=item * Offset 0x02 [8 bytes]
+
+Identifier.  This is always 'BOOKDOUG', and the method carps a warning
+and returns undef if it isn't.
+
+=item * Offset 0x0A [8 bytes]
+
+Unknown data, stored in C<< $self->{unknown0x0a} >>.  Use with caution
+-- this value may be renamed if more information is obtained.
+
+=item * Offset 0x12 [2 bytes, big-endian unsigned short int]
+
+Number of included files, stored in C<< $self->{filecount} >>.
+
+=item * Offset 0x14 [2 bytes, big-endian unsigned short int]
+
+Length in bytes of the .RES directory name, stored in
+C<< $self->{resdirlength} >>.
+
+=item * Offset 0x16 [2 bytes, big-endian unsigned short int]
+
+Offset from the point after this value to the .RES directory name,
+which also marks the end of the book properties.  Note that this is
+NOT the length of the book properties.  To get the length of the book
+properties, subtract 24 from this value (the number of bytes remaining
+in the header after this point).
+
+=item * Offset 0x18 [4 bytes, big-endian unsigned long int?]
+
+Unknown value, stored in C<< $self->{unknown0x18} >>.  Use with
+caution -- this value may be renamed if more information is obtained.
+
+=item * Offset 0x1C [4 bytes, big-endian unsigned long int?]
+
+Unknown value, stored in C<< $self->{unknown0x1c} >>.  Use with
+caution -- this value may be renamed if more information is obtained.
+
+=item * Offset 0x20 [4 bytes, big-endian unsigned long int]
+
+Compression type, stored in C<< $self->{compression} >>.  Expected
+values are 0 (no compression) and 1 (LZSS compression).
+
+=item * Offset 0x24 [4 bytes, big-endian unsigned long int]
+
+Encryption type, stored in C<< $self->{encryption} >>.  Expected
+values are 0 (no encryption) and 2 (DES encryption).
+
+=item * Offset 0x28 [4 bytes, big-endian unsigned long int]
+
+Zoom state, stored in C<< $self->{zoomstate} >>.  Expected values are
+0 (both zooms), 1 (small zoom), and 2 (large zoom)
+
+=item * Offset 0x2C [4 bytes, big-endian unsigned long int]
+
+Unknown value, stored in C<< $self->{unknown0x2c} >>.  Use with
+caution -- this value may be renamed if more information is obtained.
+
+=back
+
+=cut
 
 sub parse_imp_header
 {
@@ -223,11 +309,11 @@ sub parse_imp_header
     # Unsigned short int values
     my @list = unpack('nnn',substr($headerdata,0x12,6));
     $self->{filecount}     = $list[0];
-    $self->{dirnamelength} = $list[1];
-    $self->{bookpropsize}    = $list[2];
+    $self->{resdirlength}  = $list[1];
+    $self->{resdiroffset}  = $list[2];
     debug(2,"DEBUG: IMP file count = ",$self->{filecount});
-    debug(2,"DEBUG: IMP dirnamelength = ",$self->{dirnamelength});
-    debug(2,"DEBUG: IMP book properties size = ",$self->{bookpropsize});
+    debug(2,"DEBUG: IMP resdirlength = ",$self->{resdirlength});
+    debug(2,"DEBUG: IMP resdir offset = ",$self->{resdiroffset});
 
     # Unsigned long int values
     @list = unpack('NNNNNN',substr($headerdata,0x18,24));
