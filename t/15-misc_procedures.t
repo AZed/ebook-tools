@@ -2,11 +2,16 @@ use strict; use warnings;
 use Cwd qw(chdir getcwd realpath);
 use File::Basename qw(basename dirname);
 use File::Copy;
+use File::Path;    # Exports 'mkpath' and 'rmtree'
 use Test::More tests => 11;
 BEGIN
 {
     use_ok('EBook::Tools',qw(:all));
 };
+
+# Set this to 1 or 2 to stress the debugging code, but expect lots of
+# output.
+$EBook::Tools::debug = 0;
 
 my $result;
 my $longline = 'We think ourselves possessed, or, at least, we boast that we are so, of liberty of conscience on all subjects, and of the right of free inquiry and private judgment in all cases, and yet how far are we from these exalted privileges in fact! -- John Adams';
@@ -16,6 +21,7 @@ my $scriptname = basename($0);
 ########## TESTS BEGIN ##########
 
 ok( (basename(getcwd()) eq 't') || chdir('t/'), "Working in 't/" ) or die;
+rmtree('META-INF');
 
 ok(find_in_path('perl'),'find_in_path("perl") finds perl');
 is(find_in_path($scriptname,dirname(realpath($scriptname))),

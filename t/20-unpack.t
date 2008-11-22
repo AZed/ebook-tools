@@ -15,6 +15,10 @@ BEGIN
     use_ok('EBook::Tools::PalmDoc',qw(:all));
 };
 
+# Set this to 1 or 2 to stress the debugging code, but expect lots of
+# output.
+$EBook::Tools::debug = 0;
+
 my $cwd;
 my $ebook = EBook::Tools->new();
 my $unpacker;
