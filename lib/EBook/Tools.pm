@@ -1,9 +1,9 @@
-package EBook::Tools;
+﻿package EBook::Tools;
 use warnings; use strict; use utf8;
 #use 5.010; # Needed for smart-match operator
 #v5.10 feature use removed until 5.10 is standard on MacOSX and Debian
 use English qw( -no_match_vars );
-use version; our $VERSION = qv("0.3.3");
+use version; our $VERSION = qv("0.3.4");
 # $Revision$ $Date$
 # $Id$
 
@@ -1759,41 +1759,12 @@ sub search_knownuids :method    ## no critic (Always unpack @_ first)
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
 
-    my @knownuids = qw (
-        OverDriveGUID
-        GUID
-        guid
-        UUID
-        uuid
-        UID
-        uid
-        calibre_id
-        FWID
-        fwid
-        );
+    my @elements;
 
-    my $element;
-    my $retval = undef;
-
-    foreach my $id (@knownuids)
-    {
-	# The twig ID handling system is unreliable, especially when
-	# multiple twigs may be existing simultenously.  Use
-	# XML::Twig->first_elt instead of XML::Twig->elt_id, even
-	# though it is slower.
-	#$element = $$self{twig}->elt_id($id);
-	$element = $$self{twig}->first_elt("*[\@id='$id']");
-
-	if($element)
-	{
-	    if(lc($element->gi) eq 'dc:identifier')
-	    {
-		$retval = $element->id;
-                last;
-	    }
-	}
-    }
-    return $retval;
+    @elements = $$self{twigroot}->descendants(\&twigelt_is_knownuid);
+    return unless(@elements);
+    debug(1,"DEBUG: found known UID '",$elements[0]->id,"'");
+    return $elements[0]->id;
 }
 
 
@@ -3933,6 +3904,10 @@ sub fix_packageid :method
 	# multiple twigs may be existing simultaneously.  Use
 	# XML::Twig->first_elt instead of XML::Twig->elt_id, even
 	# though it is slower.
+        #
+        # As of Twig 3.32, this will cause 'uninitialized value'
+        # warnings to be spewed for each time no descendants are
+        # found.
 	#$element = $$self{twig}->elt_id($packageid);
 	$element = $$self{twig}->first_elt("*[\@id='$packageid']");
     
@@ -7029,7 +7004,7 @@ sub twigelt_fix_oeb12_atts
         if($opfatts_no_ns{$att})
         {
             # If the opf:att attribute properly exists already, do nothing.
-            if($element->att($opfatts_no_ns{att}))
+            if($element->att($opfatts_no_ns{$att}))
             {
                 debug(1,"DEBUG:   found both '",$att,"' and '",
                       $opfatts_no_ns{$att},"' -- skipping.");
@@ -7077,7 +7052,7 @@ sub twigelt_fix_opf20_atts
         if($opfatts_ns{$att})
         {
             # If the opf:att attribute properly exists already, do nothing.
-            if($element->att($opfatts_ns{att}))
+            if($element->att($opfatts_ns{$att}))
             {
                 debug(1,"DEBUG:   found both '",$att,"' and '",
                       $opfatts_ns{$att},"' -- skipping.");
@@ -7181,6 +7156,59 @@ sub twigelt_is_isbn
     return 1 if($scheme =~ /^e?-?isbn/ix);
     $scheme = $element->att('scheme') || '';
     return 1 if($scheme =~ /^e?-?isbn/ix);
+    return;
+}
+
+
+=head2 C<twigelt_is_knownuid($element)>
+
+Takes as an argument a twig element.  Returns true if the element is a
+dc:identifier (case-insensitive) element with an C<id> attribute
+matching the known IDs of proper unique identifiers suitable for a
+package-id (also case-insensitive).  Returns undef otherwise.
+
+Croaks if fed no argument, or fed an argument that isn't a twig element.
+
+Intended to be used as a twig search condition.
+
+=head3 Example
+
+ my @elements = $ebook->twigroot->descendants(\&twigelt_is_knownuid);
+
+=cut
+
+sub twigelt_is_knownuid
+{
+    my ($element) = @_;
+    my $subname = ( caller(0) )[3];
+    debug(3,"DEBUG[",$subname,"]");
+
+    croak($subname,"(): no element provided") unless($element);
+
+    my $ref = ref($element) || '';
+
+    croak($subname,"(): argument was of type '",$ref,
+          "', needs to be 'XML::Twig::Elt' or a subclass")
+        unless($element->isa('XML::Twig::Elt'));
+
+    return if( (lc $element->gi) ne 'dc:identifier');
+    my $id = $element->id;
+    return unless($id);
+
+    my %knownuids = (
+        'overdriveguid' => 48,
+        'guid' => 40,
+        'uuid' => 32,
+        'uid'  => 24,
+        'calibre_id' => 16,
+        'fwid' => 8,
+        );
+
+    if($knownuids{lc $id})
+    {
+#        debug(2,"DEBUG: '",$element->gi,"' has known UID '",$id,"'");
+        return 1;
+    }
     return;
 }
 
