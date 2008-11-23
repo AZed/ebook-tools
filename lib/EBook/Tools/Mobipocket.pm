@@ -339,7 +339,7 @@ $mobilangcode{53}{0}  = 'zu'; # Zulu
 our $mobigen_cmd = '';
 our $mobidedrm_cmd = '';
 
-our %pdbencoding = (
+my %pdbencoding = (
     '1252' => 'Windows-1252',
     '65001' => 'UTF-8',
     );
