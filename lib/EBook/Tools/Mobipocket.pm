@@ -646,7 +646,7 @@ sub ParseRecord :method   ## no critic (Always unpack @_ first)
 
         if($self->drm)
         {
-            debug(2,"DEBUG: record ",$currentrecord,
+            debug(3,"DEBUG: record ",$currentrecord,
                   " is DRM-protected text, skipping");
         }
         elsif($compression == 17480)
@@ -654,12 +654,12 @@ sub ParseRecord :method   ## no critic (Always unpack @_ first)
             # HUFF/CDIC-compressed text is skipped on the first pass,
             # since uncompressing it requires data from records that
             # aren't parsed until later.
-            debug(2,"DEBUG: record ",$currentrecord,
+            debug(3,"DEBUG: record ",$currentrecord,
                   " is HUFF/CDIC-compressed, handled in second pass");
         }
         else
         {
-            debug(2,"DEBUG: record ",$currentrecord,
+            debug(3,"DEBUG: record ",$currentrecord,
                   " is PalmDoc-compressed text");
             $self->ParseRecordText(\$data);
         }
@@ -1760,7 +1760,7 @@ sub parse_mobi_exth
             last;
         }
         $exthrecord{data} = substr($headerdata,$offset,$exthrecord{length});
-        debug(3,"DEBUG: EXTH record ",$recordpos," [",
+        debug(2,"DEBUG: EXTH record ",$recordpos," [",
               $exthtypes{$exthrecord{type}},"] has ", 
               $exthrecord{length}, " bytes");
         push(@exthrecords,\%exthrecord);
@@ -2812,7 +2812,7 @@ sub uncompress_dictionaryhuffman
 
     # Why does $data have to be zero-terminated this way?  Sometimes it
     # runs out of bits otherwise, though.
-    my $data = $args{data} . "\x00";
+    my $data = $args{data} . "\x00\x00";
     my $octets = length($data);
     my $depth = $args{depth} || 0;
     debug(3,"DEBUG: uncompressing ",$octets," octets at depth ",$depth);
@@ -2905,7 +2905,7 @@ sub uncompress_dictionaryhuffman
                 carp($subname,"():\n",
                      "supposedly out of bits, but bit data still exists!\n");
             }
-            debug(2,"DEBUG: returning from depth ",$depth," with '",$text,"'");
+#            debug(2,"DEBUG: returning from depth ",$depth," with '",$text,"'");
             return $text;
         }
 
