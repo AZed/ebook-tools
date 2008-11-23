@@ -109,15 +109,6 @@ our %pdbcompression = (
     17480 => 'Mobipocket DRM',
     );
 
-our %unpack_dispatch = (
-    'ereader'    => \&unpack_ereader,
-    'imp'        => \&unpack_imp,
-    'mobipocket' => \&unpack_mobi,
-    'msreader'   => \&unpack_msreader,
-    'palmdoc'    => \&unpack_palmdoc,
-    'aportisdoc' => \&unpack_palmdoc,
-    );
-
 
 #################################
 ########## CONSTRUCTOR ##########
@@ -797,6 +788,15 @@ sub unpack :method
     croak($subname,"(): no input file specified\n")
         unless($filename);
     my $retval;
+
+    my  %unpack_dispatch = (
+        'ereader'    => \&unpack_ereader,
+        'imp'        => \&unpack_imp,
+        'mobipocket' => \&unpack_mobi,
+        'msreader'   => \&unpack_msreader,
+        'palmdoc'    => \&unpack_palmdoc,
+        'aportisdoc' => \&unpack_palmdoc,
+        );
 
     croak($subname,
           "(): don't know how to handle format '",$$self{format},"'\n")
