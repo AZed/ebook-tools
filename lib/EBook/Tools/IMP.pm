@@ -54,6 +54,7 @@ unless($@){ $drmsupport = 1; }
 #################################
 
 my %rwfields = (
+    'version'       => 'integer',
     'filename'      => 'string',
     'filecount'     => 'integer',
     'resdirlength'  => 'integer',
@@ -70,6 +71,9 @@ my %rwfields = (
     'middlename'    => 'string',
     'firstname'     => 'string',
     'resdirname'    => 'string',
+    'RSRC.INF'      => 'string',
+    'resfiles'      => 'array',         # Array of hashes
+    'toc'           => 'array',         # Table of Contents, array of hashes
     );
 my %rofields = (
     'unknown0x0a'   => 'string',
@@ -105,11 +109,12 @@ sub new   ## no critic (Always unpack @_ first)
 ########## MODIFIER METHODS ##########
 ######################################
 
-sub load
+sub load :method
 {
     my $self = shift;
     my ($filename) = @_;
     my $subname = (caller(0))[3];
+    croak($subname . "() called as a procedure!\n") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
 
     if(!$self->{filename} and !$filename)
@@ -125,6 +130,8 @@ sub load
     my $headerdata;
     my $bookpropdata;
     my $retval;
+    my $toc_size;
+    my $tocdata;
 
     open($fh_imp,'<',$filename)
         or croak($subname,"(): unable to open '",$filename,
@@ -155,16 +162,122 @@ sub load
     sysread($fh_imp,$self->{resdirname},$self->{resdirlength});
 
     debug(1,"DEBUG: resource directory = '",$self->{resdirname},"'");
+    
+    $self->{'RSRC.INF'} = $self->pack_imp_rsrc_inf;
+
+    if($self->{version} == 1)
+    {
+        $toc_size = 10 * $self->{filecount};
+        sysread($fh_imp,$tocdata,$toc_size)
+            or croak($subname,"(): unable to read TOC data!\n");
+        $self->parse_imp_toc_v1($tocdata);
+    }
+    elsif($self->{version} == 2)
+    {
+        $toc_size = 20 * $self->{filecount};
+        sysread($fh_imp,$tocdata,$toc_size)
+            or croak($subname,"(): unable to read TOC data!\n");
+        $self->parse_imp_toc_v2($tocdata);
+    }
+    else
+    {
+        carp($subname,"(): IMP version ",$self->{version}," not supported!\n");
+        return;
+    }
 
     return 1;
 }
 
 
-sub parse_imp_book_properties
+=head2 C<pack_imp_rsrc_inf()>
+
+Packs object variables into the data string that would be the content
+of the RSRC.INF file.  Returns that string.
+
+Currently does no sanity checking at all on the values it uses.
+
+=cut
+
+sub pack_imp_rsrc_inf :method
+{
+    my $self = shift;
+    my $subname = (caller(0))[3];
+    croak($subname . "() called as a procedure!\n") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+
+    my $rsrc;
+    my $length;
+    my $pad;
+
+    $rsrc = pack('na[8]n',$self->{version},'BOOKDOUG',$self->{resdiroffset});
+    $rsrc .= pack('NNNNNN',
+                  $self->{unknown0x18},$self->{unknown0x1c},
+                  $self->{compression},$self->{encryption},
+                  $self->{zoomstate},$self->{unknown0x2c});
+    $rsrc .= pack('Z*','3:B:' . $self->{identifier});
+    $rsrc .= pack('Z*Z*Z*',
+                  $self->{category},$self->{subcategory},$self->{title});
+    $rsrc .= pack('Z*Z*Z*',
+                  $self->{lastname},$self->{middlename},$self->{firstname});
+    
+    # Make sure next record is 4-byte aligned
+    $length = length($rsrc);
+    $pad = $length % 4;
+    if($pad)
+    {
+        $pad = 4 - $pad;
+        $rsrc .= pack("a[$pad]","\0");
+    }
+
+    # Use ISSUE_NUMBER here for periodicals, but periodicals not yet handled
+    $rsrc .= pack('NN',2,0xffffffff);
+    # CONTENT_FEED periodical data not used
+    $rsrc .= pack('Z*','');
+    # SOURCE_ID:SOURCE_TYPE:None
+    $rsrc .= pack('Z*','3:B:None');
+    # Unknown 4 bytes
+    $rsrc .= pack('N',0);
+
+    return $rsrc;
+}
+
+
+=head2 C<parse_imp_book_properties($propdata)>
+
+Takes as a single argument a string containing the book properties
+data.  Sets the object variables from its contents, which should be
+seven null-terminated strings in the following order:
+
+=over
+
+=item * Identifier
+
+=item * Category
+
+=item * Subcategory
+
+=item * Title
+
+=item * Last Name
+
+=item * Middle Name
+
+=item * First Name
+
+=back
+
+Note that the entire name is frequently placed into the "First Name"
+component, and the "Last Name" and "Middle Name" components are left
+blank.
+
+=cut
+
+sub parse_imp_book_properties :method
 {
     my $self = shift;
     my ($propdata) = @_;
     my $subname = (caller(0))[3];
+    croak($subname . "() called as a procedure!\n") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
 
     my @properties = unpack("Z*Z*Z*Z*Z*Z*Z*",$propdata);
@@ -271,11 +384,12 @@ caution -- this value may be renamed if more information is obtained.
 
 =cut
 
-sub parse_imp_header
+sub parse_imp_header :method
 {
     my $self = shift;
     my ($headerdata) = @_;
     my $subname = (caller(0))[3];
+    croak($subname . "() called as a procedure!\n") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
 
     my $length = length($headerdata);
@@ -291,10 +405,10 @@ sub parse_imp_header
         return;
     }
 
-    my $version = unpack('n',$headerdata);
-    if($version < 1 or $version > 2)
+    $self->{version} = unpack('n',$headerdata);
+    if($self->{version} < 1 or $self->{version} > 2)
     {
-        carp($subname,"(): Version ",$version," is not supported!\n");
+        carp($subname,"(): Version ",$self->{version}," is not supported!\n");
         return;
     }
 
@@ -327,6 +441,102 @@ sub parse_imp_header
     return 1;
 }
 
+
+sub parse_imp_toc_v1 :method
+{
+    my $self = shift;
+    my ($tocdata) = @_;
+    my $subname = (caller(0))[3];
+    croak($subname . "() called as a procedure!\n") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+
+    my $length = length($tocdata);
+    my $lengthexpected = 10 * $self->{filecount};
+    my $tocentrydata;
+    my $offset = 0;
+
+    if($self->{version} != 1)
+    {
+        carp($subname,"(): attempting to parse a version 1 TOC,",
+             " but the file appears to be version ",$self->{version},"!\n");
+    }
+
+    if($length != $lengthexpected)
+    {
+        carp($subname,"(): expected ",$lengthexpected," bytes, but received ",
+             $length," -- aborting!\n");
+        return;
+    }
+    
+    $self->{toc} = ();
+    foreach my $index (0 .. $self->{filecount} - 1)
+    {
+        my %tocentry;
+        my @list;
+        $tocentrydata = substr($tocdata,$offset,10);
+        @list = unpack('a[4]nN',$tocentrydata);
+
+        $tocentry{name}     = $list[0];
+        $tocentry{unknown1} = $list[1];
+        $tocentry{size}     = $list[2];
+
+        debug(3,"DEBUG: found toc entry '",$tocentry{name},"'");
+        push(@{$self->{toc}}, \%tocentry);
+        $offset += 10;
+    }
+
+    return 1;
+}
+
+
+sub parse_imp_toc_v2 :method
+{
+    my $self = shift;
+    my ($tocdata) = @_;
+    my $subname = (caller(0))[3];
+    croak($subname . "() called as a procedure!\n") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+
+    my $length = length($tocdata);
+    my $lengthexpected = 20 * $self->{filecount};
+    my $template;
+    my $tocentrydata;
+    my $offset = 0;
+
+    if($self->{version} != 2)
+    {
+        carp($subname,"(): attempting to parse a version 2 TOC,",
+             " but the file appears to be version ",$self->{version},"!\n");
+    }
+
+    if($length != $lengthexpected)
+    {
+        carp($subname,"(): expected ",$lengthexpected," bytes, but received ",
+             $length," -- aborting!\n");
+        return;
+    }
+    
+    $self->{toc} = ();
+    foreach my $index (0 .. $self->{filecount} - 1)
+    {
+        my %tocentry;
+        my @list;
+        $tocentrydata = substr($tocdata,$offset,20);
+        @list = unpack('a[4]NNNN',$tocentrydata);
+
+        $tocentry{name}     = $list[0];
+        $tocentry{unknown1} = $list[1];
+        $tocentry{size}     = $list[2];
+        $tocentry{type}     = $list[3];
+        $tocentry{unknown2} = $list[4];
+
+        debug(3,"DEBUG: found toc entry '",$tocentry{name},"'");
+        push(@{$self->{toc}}, \%tocentry);
+        $offset += 20;
+    }
+
+    return 1;
+}
 
 ################################
 ########## PROCEDURES ##########
