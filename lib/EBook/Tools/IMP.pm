@@ -490,8 +490,8 @@ sub parse_imp_toc_v1 :method
         $tocentry{unknown1} = $list[1];
         $tocentry{size}     = $list[2];
 
-        debug(3,"DEBUG: found toc entry '",$tocentry{name},
-              "' [",$tocentry{size}," bytes]");
+        debug(2,"DEBUG: found toc entry '",$tocentry{name},
+              "', type '",$tocentry{type},"' [",$tocentry{size}," bytes]");
         push(@{$self->{toc}}, \%tocentry);
         $offset += 10;
     }
@@ -533,7 +533,7 @@ sub parse_imp_toc_v2 :method
         my %tocentry;
         my @list;
         $tocentrydata = substr($tocdata,$offset,20);
-        @list = unpack('a[4]NNNN',$tocentrydata);
+        @list = unpack('a[4]NNa[4]N',$tocentrydata);
 
         $tocentry{name}     = $list[0];
         $tocentry{unknown1} = $list[1];
@@ -542,7 +542,7 @@ sub parse_imp_toc_v2 :method
         $tocentry{unknown2} = $list[4];
 
         debug(2,"DEBUG: found toc entry '",$tocentry{name},
-              "' [",$tocentry{size}," bytes]");
+              "', type '",$tocentry{type},"' [",$tocentry{size}," bytes]");
         push(@{$self->{toc}}, \%tocentry);
         $offset += 20;
     }
