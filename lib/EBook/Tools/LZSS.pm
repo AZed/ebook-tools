@@ -19,6 +19,10 @@ EBook::Tools::LZSS - Lempel-Ziv-Storer-Szymanski compression and decompression
 =head1 SYNOPSIS
 
  use EBook::Tools::LZSS qw(:all)
+ my $textref = uncompress_lzss(dataref => \$data,
+                               lengthbits => 3,
+                               offsetbits => 14,
+                               windowinit => 'the man');
 
 =cut
 
@@ -144,7 +148,6 @@ sub uncompress_lzss
             $bitpos += 8;
             $byte = $bitvector->Chunk_Read(8,$bitoffset);
             $uncompressed .= chr($byte);
-            debug(1,"## uncomp = ",$uncompressed);
             substr($window,$windowpos,1,chr($byte));
             $windowpos++;
         }
@@ -168,19 +171,14 @@ sub uncompress_lzss
                 last;
             }
             $bitpos += ($offsetbits + $lengthbits);
+            $lzss_length += 3;
 
-            debug(1,"## BIT POSITION ",$bitpos," is ENCODED [offset=",
-                  $lzss_offset,", length=",$lzss_length,"]");
-            debug(1,"## window = ",substr($window,0,240));
             $lzss_text = substr($window,$lzss_offset,$lzss_length);
-            debug(1,"## lzss = ",$lzss_text);
             substr($window,$windowpos,$lzss_length,$lzss_text);
             $windowpos += $lzss_length;
             $uncompressed .= $lzss_text;
-            debug(1,"## uncomp = ",$uncompressed);
         }
     }
-
     return \$uncompressed;
 }
 
@@ -191,7 +189,9 @@ sub uncompress_lzss
 
 =over
 
-=item * Not finished.  Do not try to use yet.
+=item * Undocumented.
+
+=item * Compression not yet implemented.
 
 =back
 
