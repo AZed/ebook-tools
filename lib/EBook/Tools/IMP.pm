@@ -29,6 +29,8 @@ use base qw(Exporter);
 
 our @EXPORT_OK;
 @EXPORT_OK = qw (
+    &parse_imp_resource_v1
+    &parse_imp_resource_v2
     );
 our %EXPORT_TAGS = ('all' => [@EXPORT_OK]);
 
@@ -172,6 +174,25 @@ sub load :method
         sysread($fh_imp,$tocdata,$toc_size)
             or croak($subname,"(): unable to read TOC data!\n");
         $self->parse_imp_toc_v1($tocdata);
+
+        $self->{resources} = ();
+        foreach my $entry (@{$self->{toc}})
+        {
+            sysread($fh_imp,$entrydata,$entry->{size}+10);
+            push(@{$self->{resources}},
+                 parse_imp_resource_v1($entrydata));
+
+            if($entry->{type} eq '    ')
+            {
+                my $resindex = $#{$self->{resources}};
+                my $textref = uncompress_lzss(
+                    dataref => \$self->{resources}->[$resindex]->{data},
+                    lengthbits => 3,
+                    offsetbits => 14);
+
+                $self->{text} = $$textref;
+            }
+        }
     }
     elsif($self->{version} == 2)
     {
@@ -185,14 +206,11 @@ sub load :method
         {
             sysread($fh_imp,$entrydata,$entry->{size}+20);
             push(@{$self->{resources}},
-                 parse_resource_v2($entrydata));
+                 parse_imp_resource_v2($entrydata));
             
             if($entry->{type} eq '    ')
             {
                 my $resindex = $#{$self->{resources}};
-                
-                my $substr = substr($self->{resources}->[$resindex]->{data},
-                                    0,240);
                 my $textref = uncompress_lzss(
                     dataref => \$self->{resources}->[$resindex]->{data},
                     lengthbits => 3,
@@ -211,6 +229,7 @@ sub load :method
     close($fh_imp)
         or croak($subname,"(): failed to close '",$filename,"'!\n");
 
+    debug(2,$self->{text});
     return 1;
 }
 
@@ -618,18 +637,133 @@ sub parse_imp_toc_v2 :method
 
 All procedures are exportable, but none are exported by default.
 
+
+=head2 C<parse_imp_resource_v1()>
+
+Takes as a sole argument a string containing the data (including the
+10-byte header) of a version 1 IMP resource.
+
+Returns a hashref containing that data separated into the following
+keys:
+
+=over
+
+=item * C<name>
+
+The four-letter name of the resource.
+
+=item * C<type>
+
+The four-letter type of the resource.  For a version 1 resource, this
+is the same as C<name>
+
+=item * C<unknown1>
+
+A 16-bit unsigned int of unknown purpose.  Expected values are 0 or 1.
+
+Use with caution.  This key may be renamed later if more information
+is found.
+
+=item * C<size>
+
+The expected size in bytes of the actual resource data.  A warning
+will be carped if this does not match the actual size of the data
+following the header.
+
+=item * C<data>
+
+The actual resource data.
+
+=back
+
 =cut
 
-sub parse_resource_v2
+sub parse_imp_resource_v1
 {
     my ($data) = @_;
     my $subname = (caller(0))[3];
     debug(2,"DEBUG[",$subname,"]");
 
-    my $length = length($data);
-    debug(1,"## resource length = ",$length);
-    my @list;
-    my %resource;
+    my @list;           # Temporary list
+    my %resource;       # Hash containing resource data and metadata
+    my $size;           # Actual size of resource data
+
+    @list = unpack('a[4]nN',$data);
+    $resource{name}     = $list[0];
+    $resource{type}     = $list[0];
+    $resource{unknown1} = $list[1];
+    $resource{size}     = $list[2];
+    $resource{data}     = substr($data,10);
+
+    $size = length($resource{data});
+    if($size != $resource{size})
+    {
+        carp($subname,"(): resource '",$resource{name},"' has ",
+             $size," bytes (expected ",$resource{size},")!\n");
+    }
+    
+    debug(2,"DEBUG: found resource '",$resource{name},
+          "', type '",$resource{type},"' [",$resource{size}," bytes]");
+
+    return \%resource;
+}
+
+
+=head2 C<parse_imp_resource_v2()>
+
+Takes as a sole argument a string containing the data (including the
+20-byte header) of a version 2 IMP resource.
+
+Returns a hashref containing that data separated into the following
+keys:
+
+=over
+
+=item * C<name>
+
+The four-letter name of the resource.
+
+=item * C<unknown1>
+
+A 32-bit unsigned int of unknown purpose.  Expected values are 0 or 1.
+
+Use with caution.  This key may be renamed later if more information
+is found.
+
+=item * C<size>
+
+The expected size in bytes of the actual resource data.  A warning
+will be carped if this does not match the actual size of the data
+following the header.
+
+=item * C<type>
+
+The four-letter type of the resource.
+
+=item * C<unknown2>
+
+A 32-bit unsigned int of unknown purpose.  Expected values are 0 or 1.
+
+Use with caution.  This key may be renamed later if more information
+is found.
+
+=item * C<data>
+
+The actual resource data.
+
+=back
+
+=cut
+
+sub parse_imp_resource_v2
+{
+    my ($data) = @_;
+    my $subname = (caller(0))[3];
+    debug(2,"DEBUG[",$subname,"]");
+
+    my @list;           # Temporary list
+    my %resource;       # Hash containing resource data and metadata
+    my $size;           # Actual size of resource data
 
     @list = unpack('a[4]NNa[4]N',$data);
     $resource{name}     = $list[0];
@@ -637,9 +771,14 @@ sub parse_resource_v2
     $resource{size}     = $list[2];
     $resource{type}     = $list[3];
     $resource{unknown2} = $list[4];
-
-    
     $resource{data}     = substr($data,20);
+
+    $size = length($resource{data});
+    if($size != $resource{size})
+    {
+        carp($subname,"(): resource '",$resource{name},"' has ",
+             $size," bytes (expected ",$resource{size},")!\n");
+    }
     
     debug(2,"DEBUG: found resource '",$resource{name},
           "', type '",$resource{type},"' [",$resource{size}," bytes]");
