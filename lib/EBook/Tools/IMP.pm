@@ -33,7 +33,8 @@ our @EXPORT_OK;
 our %EXPORT_TAGS = ('all' => [@EXPORT_OK]);
 
 use Carp;
-use EBook::Tools qw(debug userconfigdir);
+use EBook::Tools qw(:all);
+use EBook::Tools::PalmDoc qw(:all);
 use Encode;
 use File::Basename qw(dirname fileparse);
 use File::Path;     # Exports 'mkpath' and 'rmtree'
@@ -74,6 +75,7 @@ my %rwfields = (
     'RSRC.INF'      => 'string',
     'resfiles'      => 'array',         # Array of hashes
     'toc'           => 'array',         # Table of Contents, array of hashes
+    'resourcedata'  => 'array',         # Raw resource file data
     );
 my %rofields = (
     'unknown0x0a'   => 'string',
@@ -132,6 +134,7 @@ sub load :method
     my $retval;
     my $toc_size;
     my $tocdata;
+    my $entrydata;
 
     open($fh_imp,'<',$filename)
         or croak($subname,"(): unable to open '",$filename,
@@ -178,6 +181,13 @@ sub load :method
         sysread($fh_imp,$tocdata,$toc_size)
             or croak($subname,"(): unable to read TOC data!\n");
         $self->parse_imp_toc_v2($tocdata);
+
+        $self->{resourcedata} = ();
+        foreach my $entry (@{$self->{toc}})
+        {
+            sysread($fh_imp,$entrydata,$entry->{size});
+            push(@{$self->{resourcedata}},$entrydata);
+        }
     }
     else
     {
@@ -480,7 +490,8 @@ sub parse_imp_toc_v1 :method
         $tocentry{unknown1} = $list[1];
         $tocentry{size}     = $list[2];
 
-        debug(3,"DEBUG: found toc entry '",$tocentry{name},"'");
+        debug(3,"DEBUG: found toc entry '",$tocentry{name},
+              "' [",$tocentry{size}," bytes]");
         push(@{$self->{toc}}, \%tocentry);
         $offset += 10;
     }
@@ -530,7 +541,8 @@ sub parse_imp_toc_v2 :method
         $tocentry{type}     = $list[3];
         $tocentry{unknown2} = $list[4];
 
-        debug(3,"DEBUG: found toc entry '",$tocentry{name},"'");
+        debug(2,"DEBUG: found toc entry '",$tocentry{name},
+              "' [",$tocentry{size}," bytes]");
         push(@{$self->{toc}}, \%tocentry);
         $offset += 20;
     }
