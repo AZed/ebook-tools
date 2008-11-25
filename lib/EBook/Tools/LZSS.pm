@@ -156,7 +156,7 @@ sub uncompress_lzss
             if($bitoffset - ($offsetbits + $lengthbits) < 0)
             {
                 debug(1,"DEBUG: ran out of bits at bit position ",
-                      $bitpos,"!");
+                      $bitpos," [",$bitoffset," bits remaining]!");
                 last;
             }
             $bitoffset -= $offsetbits;
@@ -166,8 +166,11 @@ sub uncompress_lzss
             if($lzss_length == 0
                and $lzss_offset == 0)
             {
-                carp($subname,"(): invalid LZSS code at bit position ",
-                     $bitpos,"!\n");
+                if($bitoffset >= 8)
+                {
+                    carp($subname,"(): invalid LZSS code at bit position ",
+                         $bitpos," [",$bitoffset," bits remaining]!\n");
+                }
                 last;
             }
             $bitpos += ($offsetbits + $lengthbits);
