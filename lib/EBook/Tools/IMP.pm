@@ -77,6 +77,7 @@ my %rwfields = (
     'resfiles'      => 'array',         # Array of hashes
     'toc'           => 'array',         # Table of Contents, array of hashes
     'resources'     => 'array',         # Raw resource file data
+    'text'          => 'string',        # Uncompressed text
     );
 my %rofields = (
     'unknown0x0a'   => 'string',
@@ -191,11 +192,13 @@ sub load :method
                 my $resindex = $#{$self->{resources}};
                 
                 my $substr = substr($self->{resources}->[$resindex]->{data},
-                                    0,140);
-                my $textref = uncompress_lzss(dataref => \$substr,
-                                              lengthbits => 3,
-                                              offsetbits => 14);
-                debug(1,"##\n",$$textref);
+                                    0,240);
+                my $textref = uncompress_lzss(
+                    dataref => \$self->{resources}->[$resindex]->{data},
+                    lengthbits => 3,
+                    offsetbits => 14);
+
+                $self->{text} = $$textref;
             }
         }
     }
@@ -205,6 +208,9 @@ sub load :method
         return;
     }
 
+    close($fh_imp)
+        or croak($subname,"(): failed to close '",$filename,"'!\n");
+
     return 1;
 }
 
@@ -213,7 +219,17 @@ sub load :method
 ########## ACCESSOR METHODS ##########
 ######################################
 
-sub write_resdir
+sub text :method
+{
+    my $self = shift;
+    my $subname = (caller(0))[3];
+    croak($subname . "() called as a procedure!\n") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+    return $self->{text};
+}
+
+
+sub write_resdir :method
 {
     my $self = shift;
     my $subname = (caller(0))[3];
