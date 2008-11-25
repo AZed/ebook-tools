@@ -33,8 +33,9 @@ our @EXPORT_OK;
 our %EXPORT_TAGS = ('all' => [@EXPORT_OK]);
 
 use Carp;
+use Cwd qw(getcwd realpath);
 use EBook::Tools qw(:all);
-use EBook::Tools::PalmDoc qw(:all);
+use EBook::Tools::LZSS qw(:all);
 use Encode;
 use File::Basename qw(dirname fileparse);
 use File::Path;     # Exports 'mkpath' and 'rmtree'
@@ -50,9 +51,9 @@ unless($@){ $drmsupport = 1; }
 
 
 
-#################################
-########## CONSTRUCTOR ##########
-#################################
+####################################################
+########## CONSTRUCTOR AND INITIALIZATION ##########
+####################################################
 
 my %rwfields = (
     'version'       => 'integer',
@@ -75,7 +76,7 @@ my %rwfields = (
     'RSRC.INF'      => 'string',
     'resfiles'      => 'array',         # Array of hashes
     'toc'           => 'array',         # Table of Contents, array of hashes
-    'resourcedata'  => 'array',         # Raw resource file data
+    'resources'     => 'array',         # Raw resource file data
     );
 my %rofields = (
     'unknown0x0a'   => 'string',
@@ -106,10 +107,6 @@ sub new   ## no critic (Always unpack @_ first)
     return $self;
 }
 
-
-######################################
-########## MODIFIER METHODS ##########
-######################################
 
 sub load :method
 {
@@ -182,11 +179,24 @@ sub load :method
             or croak($subname,"(): unable to read TOC data!\n");
         $self->parse_imp_toc_v2($tocdata);
 
-        $self->{resourcedata} = ();
+        $self->{resources} = ();
         foreach my $entry (@{$self->{toc}})
         {
-            sysread($fh_imp,$entrydata,$entry->{size});
-            push(@{$self->{resourcedata}},$entrydata);
+            sysread($fh_imp,$entrydata,$entry->{size}+20);
+            push(@{$self->{resources}},
+                 parse_resource_v2($entrydata));
+            
+            if($entry->{type} eq '    ')
+            {
+                my $resindex = $#{$self->{resources}};
+                
+                my $substr = substr($self->{resources}->[$resindex]->{data},
+                                    0,140);
+                my $textref = uncompress_lzss(dataref => \$substr,
+                                              lengthbits => 3,
+                                              offsetbits => 14);
+                debug(1,"##\n",$$textref);
+            }
         }
     }
     else
@@ -198,6 +208,38 @@ sub load :method
     return 1;
 }
 
+
+######################################
+########## ACCESSOR METHODS ##########
+######################################
+
+sub write_resdir
+{
+    my $self = shift;
+    my $subname = (caller(0))[3];
+    croak($subname . "() called as a procedure!\n") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+
+    if(!$self->{resdirname})
+    {
+        carp($subname,"(): .RES directory name not known!\n");
+        return;
+    }
+
+    mkpath($self->{resdirname});
+    my $cwd = getcwd();
+
+    cd($self->{resdirname});
+    
+    
+
+    cd $cwd;
+    return 1;
+}
+
+######################################
+########## MODIFIER METHODS ##########
+######################################
 
 =head2 C<pack_imp_rsrc_inf()>
 
@@ -487,6 +529,7 @@ sub parse_imp_toc_v1 :method
         @list = unpack('a[4]nN',$tocentrydata);
 
         $tocentry{name}     = $list[0];
+        $tocentry{type}     = $list[0];
         $tocentry{unknown1} = $list[1];
         $tocentry{size}     = $list[2];
 
@@ -550,6 +593,7 @@ sub parse_imp_toc_v2 :method
     return 1;
 }
 
+
 ################################
 ########## PROCEDURES ##########
 ################################
@@ -560,6 +604,32 @@ All procedures are exportable, but none are exported by default.
 
 =cut
 
+sub parse_resource_v2
+{
+    my ($data) = @_;
+    my $subname = (caller(0))[3];
+    debug(2,"DEBUG[",$subname,"]");
+
+    my $length = length($data);
+    debug(1,"## resource length = ",$length);
+    my @list;
+    my %resource;
+
+    @list = unpack('a[4]NNa[4]N',$data);
+    $resource{name}     = $list[0];
+    $resource{unknown1} = $list[1];
+    $resource{size}     = $list[2];
+    $resource{type}     = $list[3];
+    $resource{unknown2} = $list[4];
+
+    
+    $resource{data}     = substr($data,20);
+    
+    debug(2,"DEBUG: found resource '",$resource{name},
+          "', type '",$resource{type},"' [",$resource{size}," bytes]");
+
+    return \%resource;
+}
 
 
 ########## END CODE ##########
