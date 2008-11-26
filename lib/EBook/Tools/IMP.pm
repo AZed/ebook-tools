@@ -361,6 +361,10 @@ Note that the entire name is frequently placed into the "First Name"
 component, and the "Last Name" and "Middle Name" components are left
 blank.
 
+A warning will be carped if the length of the parsed properties
+(including the C null string terminators) is not equal to the length
+of the data passed.
+
 =cut
 
 sub parse_imp_book_properties :method
@@ -395,6 +399,22 @@ sub parse_imp_book_properties :method
     debug(2,"  Middle Name:  ",$self->{middlename});
     debug(2,"  First Name:   ",$self->{firstname});
 
+    # Check for leftover data
+    my $length = 0;
+    $length += (length($properties[0]) + 1) if(defined $properties[0]);
+    $length += (length($properties[1]) + 1) if(defined $properties[1]);
+    $length += (length($properties[2]) + 1) if(defined $properties[2]);
+    $length += (length($properties[3]) + 1) if(defined $properties[3]);
+    $length += (length($properties[4]) + 1) if(defined $properties[4]);
+    $length += (length($properties[5]) + 1) if(defined $properties[5]);
+    $length += (length($properties[6]) + 1) if(defined $properties[6]);
+    
+    if($length != length($propdata))
+    {
+        carp($subname,"():\n parsed ",$length,
+             " bytes of book properties, but was passed ",length($propdata),
+             " bytes of data!\n");
+    }
     return 1;
 }
 
