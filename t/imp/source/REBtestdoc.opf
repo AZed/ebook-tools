@@ -1,0 +1,58 @@
+<?xml version="1.0"?>
+
+<!DOCTYPE package PUBLIC "+//ISBN 0-9673008-1-9//DTD OEB 1.0 Package//EN" "http://openebook.org/dtds/oeb-1.0.1/oebpkg101.dtd">
+
+<package unique-identifier="Package-ID">
+	<metadata>
+		<dc-metadata xmlns:dc="http://purl.org/dc/elements/1.0/" xmlns:oebpackage="http://openebook.org/namespaces/oeb-package/1.0/">
+			<dc:Identifier id="Package-ID">REBTestDocument-10dec02-0945</dc:Identifier>
+			<dc:Identifier>REBTestDocument-10dec02-0945</dc:Identifier>
+			<dc:Title>REB Test Document</dc:Title>
+			<dc:Creator role="aut">Ludo</dc:Creator>
+			<dc:Subject>Content Creation</dc:Subject>
+			<dc:Type>Test</dc:Type>
+		</dc-metadata>
+		<x-metadata>
+			<meta name="x-SBP-category"       content="Content Creation"/>
+			<meta name="x-SBP-subcategory"    content="Test"/>
+			<meta name="x-SBP-nameondisk"     content="REBTestDocument"/>
+			<meta name="x-SBP-logdir"         content="c:\"/>
+			<meta name="x-SBP-logging"        content="on"/>
+			<meta name="x-SBP-encrypt"        content="off"/>
+			<meta name="x-SBP-compress"       content="on"/>
+			<meta name="x-SBP-widow"          content="1"/>
+			<meta name="x-SBP-orphan"         content="1"/>
+			<meta name="x-SBP-zoomstate"      content="both"/>
+			<meta name="x-SBP-undlinks"       content="on"/>
+			<meta name="x-SBP-destdir"        content="c:\"/>
+			<meta name="x-SBP-RLEtrigger"     content="100"/>
+			<meta name="x-SBP-csssupport"     content="2"/>
+			<meta name="x-SBP-projectversion" content="0.1"/>
+		</x-metadata>
+	</metadata>
+	<manifest>
+		<item id="i00001" href="REBTD-intro.html"       media-type="text/x-oeb1-document"/>
+		<item id="i00002" href="REBTD-text-basics.html" media-type="text/x-oeb1-document"/>
+		<item id="i00003" href="REBTD-text-format.html" media-type="text/x-oeb1-document"/>
+		<item id="i00004" href="REBTD-graphics.html"    media-type="text/x-oeb1-document"/>
+		<item id="i00005" href="REBTD-css.html"    	media-type="text/x-oeb1-document"/>
+		<item id="i00006" href="REBTD-TOC.html"         media-type="text/x-oeb1-document"/>
+		<item id="i00007" href="REBTD-external.html"    media-type="text/x-oeb1-document"/>
+		<item id="i00008" href="ebooklogo.gif"          media-type="image/gif"/>
+		<item id="i00009" href="ebooklogo.png"          media-type="image/png"/>
+		<item id="i00010" href="REBTD-fullpage.png"     media-type="image/png"/>
+		<item id="i00011" href="REBTD-fullpage256.png"  media-type="image/png"/>
+	</manifest>
+	<spine>
+		<itemref idref="i00001"/>
+		<itemref idref="i00002"/>
+		<itemref idref="i00003"/>
+		<itemref idref="i00004"/>
+		<itemref idref="i00005"/>
+		<itemref idref="i00006"/>
+		<itemref idref="i00007"/>
+	</spine>
+	<guide>
+		<reference type="toc" title="REBtestdocTOC" href="REBTD-intro.html#toc" />
+	</guide>
+</package>
