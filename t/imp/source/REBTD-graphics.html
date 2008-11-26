@@ -1,0 +1,393 @@
+<html>
+
+<head>
+	<title>REB Test Document - Graphics</title>
+	<meta name="generator" content="Hand Coded" />
+	<style type="text/css">.A{font-family:smallfont; font-size:small}</style>
+</head>
+<body>
+	<p>&nbsp;</p>
+	<h1 align="center">Graphics</h1>
+	<p>&nbsp;</p>
+	<h3 id="basicimage" align="center">Basic Image Support</h3>
+	<p>&nbsp;</p>
+	<p>In a separate paragraph, default (left):</p>
+	<p><img src="ebooklogo.gif" width="153" height="61" alt="eBook Logo" /></p>
+	<p>In a separate paragraph, center:</p>
+	<p align="center"><img src="ebooklogo.gif" width="153" height="61" alt="eBook Logo" /></p>
+	<p>In a separate paragraph, right:</p>
+	<p align="right"><img src="ebooklogo.gif" width="153" height="61" alt="eBook Logo" /></p>
+	<p>Currently only GIFs (above) support transparency.</p>
+	<p>A PNG (with alphachannel) below:</p>
+	<p align="center"><img src="ebooklogo.png" width="153" height="61" alt="eBook Logo" align="top"/></p>
+	<pb>
+
+	<p>&nbsp;</p>
+	<h3 id="imageprep" align="center">Image Preparation</h3>
+	<p>&nbsp;</p>
+	<h4 align="center">Source Images</h4>
+	<p align="justify">Maximum specifications: 472x595 pixels, 16-bit color, 8-bit grayscale. Note that the REB1200 display only supports 15-bit color.</p>
+	<p align="justify">Fileformat: can be PNG or JPG, but the source filesize (JPGs tend to be smaller than the non-lossy PNGs) is not reflected in the final filesize (see below). Note that JPGs take longer to be processed, probably being internally converted to PNGs anyway.</p>
+	<p>&nbsp;</p>
+	<h4 align="center">IMP file creation</h4>
+	<p align="justify">Preferences are defined in the OPF file. The most important setting for files with a lot of images is the 'RLE-trigger' setting. I did a number of tests with very large (20-30Mb) 'photo albums', without coming to a definite conclusion.</p>
+	<p align="justify">My best shot: it really seems to be a trigger, i.e. there is a 'compressed state' and an 'uncompressed state', either one of which will be similar in filesize (a few Kb difference for a 30Mb file) regardless of differing RLE-trigger settings. A setting of '25' always generates an uncompressed file, while a setting greater than 100 always generates a compressed file.</p>
+	<p align="justify">I noticed that when 16-bit color images were converted to 8-bit color (256 color, 'paletted mode'), the resulting filesize was fairly similar (a bit less though), but the display-speed on the REB1200 was noticeably faster. Grayscale yielded noticeably better compression results (2/3 of the uncompressed version) than all-color images (4/5 - 3/4 at best).</p>
+	<pb>
+
+	<p>&nbsp;</p>
+	<h4 align="center">Miscellaneous</h4>
+	<p align="justify">If GIF files are used in the source, SBpublisher will create a 'OEB-Fallbacks' directory in the source folder, with a PNG version (with unique ID) of each GIF everytime you run it, i.e. you end up with a directory full of copies of the same file if you do frequent test-compilations.</p>
+	<p align="justify">Note that in the OPF file, the "spine" part must NOT contain an ID referring to an image resource (causing a fatal error in SBpublisher, which took me a while to figure out).</p>
+	<p align="justify">The 'object type="image/png"' syntax is supported, but in context not very useful, and just means more typing.</p>
+	<p>&nbsp;</p>
+	<h4 align="center">On the next page: a fullsize image</h4>
+	<p align="Justify">(Using "class=FullPagePicture") Note the banding, which suggests severe color-reduction of the <b>true-color original</b>. The default OPF setting used for this file generates an uncompressed file (max. filesize) It is more noticeable on the PC viewer than the actual device, especially in grayscale.</p>
+	<p>&nbsp;</p>
+	<h4 align="center">Following the first image: a 256 color version</h4>
+	<p align="justify">This version was color-reduced at the source. In this case, the result looks better than the generated version. I have also tried it on graphics rather than photos, and sometimes the generated version looked better.</p>
+	<p align="justify">It seems though, for all practical intents and purposes, that the result is essentially 256 color out of ~16000 (15-bit). It is unclear whether that is due to REB1200 display limitations, or the SBpublisher image-generating code.</p>
+
+	<p><img class=FullPagePicture align=center src='REBTD-fullpage.png' alt='Full Page Picture'></p>
+	
+	<object type="image/png" data='REBTD-fullpage256.png' class=FullPagePicture align=center alt='Full Page Picture 256'></object>
+
+	<p>&nbsp;</p>
+	<h3 id="textflow" align="center">Textflow around Images</h3>
+	<p>&nbsp;</p>
+	<h4 align="center">Default behaviour:</h4>
+	<p><img src="ebooklogo.png" width="153" height="61" alt="eBook Logo" />Random test text designed to test the flow around an object. I think we need a some more test to make sure of the way the flow continues below the object. Hmm, we need just a more still, but I really hope that by adding another line it should most definetely be enough.</p>
+	<p>&nbsp;</p>
+	<h4 align="center">Image aligned to the right:</h4>
+	<p><img src="ebooklogo.png" width="153" height="61" alt="eBook Logo" align="right"/>Random test text designed to test the flow around an object. I think we need a little more test to make sure of the way the flow continues below the object. Hmm, we need just a little more still, but I really hope that by adding another line it should most definetely be enough.</p>
+	<p>&nbsp;</p>
+	<h4 align="center">Image aligned to the left:</h4>
+	<p><img src="ebooklogo.png" width="153" height="61" alt="eBook Logo" align="left"/>Random test text designed to test the flow around an object. I think we need a little more test to make sure of the way the flow continues below the object. Hmm, we need just a little more still, but I really hope that by adding another line it should most definetely be enough.</p>
+	<pb>
+
+	<p>&nbsp;</p>
+	<h4 align="center">Image aligned to the top:</h4>
+	<p><img src="ebooklogo.png" width="153" height="61" alt="eBook Logo" align="top"/>Random test text designed to test the flow around an object. I think we need a little more test to make sure of the way the flow continues below the object. Hmm, we need just a little more still, but I really hope that by adding another line it should most definetely be enough.</p>
+	<p>&nbsp;</p>
+	<h4 align="center">Justified blockquote, Image aligned to the left:</h4>
+	<blockquote align="justify"><img src="ebooklogo.png" width="153" height="61" alt="eBook Logo" align="left"/>Random test text designed to test the flow around an object. I think we need a little more test to make sure of the way the flow continues below the object. Hmm, we need just a little more still, but I really hope that by adding another line it should most definetely be enough.</blockquote>
+	<p>&nbsp;</p>
+	<h4 align="center">Like above, but a &amp;zwnj; paragraph inbetween:</h4>
+	<img src="ebooklogo.png" width="153" height="61" alt="eBook Logo" align="left"/><p>&zwnj;</p><blockquote align="justify">Random test text designed to test the flow around an object. I think we need a little more test to make sure of the way the flow continues below the object. Hmm, we need just a little more still, but I really hope that by adding another line it should most definetely be enough.</blockquote>
+	<p>Note the difference from one without the 'empty' paragraph.</p>
+	<pb>
+
+	<p>&nbsp;</p>
+	<h3 id="imagealign" align="center">Image Alignment</h3>
+	<p>&nbsp;</p>
+	<p align="justify">Using tables, handy for split images as a replacement for the missing image-map functionality.</p>
+	<p>&nbsp;</p>
+	<center>
+		<table border="0" cellspacing="0" cellpadding="0">
+		<tr><td><img src="2150front_01b.gif" width="176" height="207"></td><td><img src="2150front_02b.gif" width="174" height="207" align="bottom"></td></tr>
+		<tr><td><img src="2150front_03b.gif" width="176" height="212"></td><td><img src="2150front_04b.gif" width="174" height="212" align="top"></td></tr>
+		</table>
+	</center>
+	<pb>
+
+	<p>&nbsp;</p>
+	<h3 id="usecolor" align="center">Using color</h3>
+	<p>&nbsp;</p>
+	<h4 align="center">In General</h4>
+	<p>&nbsp;</p>
+	<p align="justify">Defining a color by it's RGB value is not supported, instead use it's hexadecimal value. You can only use it's name when using 'style="color:black"', but not when simply using 'color="black"'.</p>
+	<p align="justify">If you use 'bgcolor' in the 'body' tag of ANY ONE of several linked documents, the ENTIRE resulting document will be that color. See more on on 'bgcolor' below.</p>
+	<p align="justify">The 'style="background-color: xxx; color: xxx"' seems to always work, and is recommended over 'bgcolor'.</p>
+	<p>&nbsp;</p>
+	<h4 align="center">Basic Text</h4>
+	<p>&nbsp;</p>
+	<p align="justify" style="background-color: #CCFFFF; color: #0000CC;">In a regular paragraph, you can only define the text color, but not the background color. Either you define one background color for the entire document (see above), or you 'fake' text background color by wrapping it all in a table (see next).</p>
+	<pb>
+
+	<p>&nbsp;</p>
+	<h4 align="center">Tables</h4>
+	<p>&nbsp;</p>
+	<p align="justify">The 'bgcolor' attribute works only in 'td' and 'th' (and 'body').</p>
+	<p align="justify">The 'tr' tag doesn't seem to accept any color attribute.</p>
+
+	<p>&nbsp;</p>
+	<center>
+	<table width="75%" border="1" cellpadding="10" cellspacing="5">
+		<tr align="center"><th colspan="3" style="background-color: #0066CC; color: #CCFFFF;">eBook Reader Devices</th></tr>
+		<tr align="center"><th style="background-color: #CC3333; color: #FF9966;">Year</th><th style="background-color: #CC3333; color: #FF9966;">Device</th><th style="background-color: #CC3333; color: #FF9966;">Video Spec</th></tr>
+		<tr align="center"><td bgcolor="#339900" color="#FFFF00" rowspan="2">2000</td><td bgcolor="#CCFFCC">REB1200</td><td bgcolor="#CCFFCC">480x640 15bit</td></tr>
+		<tr align="center"><td bgcolor="#99FF99">REB1100</td><td bgcolor="#99FF99">320x480 1bit</td></tr>
+		<tr align="center"><td bgcolor="#339900" color="#FFFF00">2002</td><td style="background-color:#CCFFFF">New Palm Zire</td><td style="background-color:#CCFFFF">160x160 1bit</td></tr>
+	</table>
+	</center>
+	<pb>
+
+	<p>&nbsp;</p>
+	<h3 align="center">Websafe Colors:</h3>
+	<p>&nbsp;</p>
+	<center>
+		<table border="1" cellpadding="1" cellspacing="0" width="100%">
+	<tr>
+	<td style="background-color: #FFFFFF; color: black;"> <p class="A">&nbsp;FFF<br />&nbsp;&nbsp;&nbsp;FFF</p> </td>
+	<td style="background-color: #CCCCCC; color: black;"> <p class="A">&nbsp;CCC<br />&nbsp;&nbsp;&nbsp;CCC</p> </td>
+	<td style="background-color: #999999; color: black;"> <p class="A">&nbsp;999<br />&nbsp;&nbsp;&nbsp;999</p> </td>
+	<td style="background-color: #666666; color: white;"> <p class="A">&nbsp;666<br />&nbsp;&nbsp;&nbsp;666</p> </td>
+	<td style="background-color: #333333; color: white;"> <p class="A">&nbsp;333<br />&nbsp;&nbsp;&nbsp;333</p> </td>
+	<td style="background-color: #000000; color: white;"> <p class="A">&nbsp;000<br />&nbsp;&nbsp;&nbsp;000</p> </td>
+	<td style="background-color: #FFCC00; color: black;"> <p class="A">&nbsp;FFC<br />&nbsp;&nbsp;&nbsp;C00</p> </td>
+	<td style="background-color: #FF9900; color: black;"> <p class="A">&nbsp;FF9<br />&nbsp;&nbsp;&nbsp;900</p> </td>
+	<td style="background-color: #FF6600; color: black;"> <p class="A">&nbsp;FF6<br />&nbsp;&nbsp;&nbsp;600</p> </td>
+	<td style="background-color: #FF3300; color: white;"> <p class="A">&nbsp;FF3<br />&nbsp;&nbsp;&nbsp;300</p> </td>
+	<td colspan="6"></td>
+	</tr>
+	<tr>
+	<td style="background-color: #99CC00; color: black;"> <p class="A">&nbsp;99C<br />&nbsp;&nbsp;&nbsp;C00</p> </td>
+	<td colspan="4"></td>
+	<td style="background-color: #CC9900; color: black;"> <p class="A">&nbsp;CC9<br />&nbsp;&nbsp;&nbsp;900</p> </td>
+	<td style="background-color: #FFCC33; color: black;"> <p class="A">&nbsp;FFC<br />&nbsp;&nbsp;&nbsp;C33</p> </td>
+	<td style="background-color: #FFCC66; color: black;"> <p class="A">&nbsp;FFC<br />&nbsp;&nbsp;&nbsp;C66</p> </td>
+	<td style="background-color: #FF9966; color: black;"> <p class="A">&nbsp;FF9<br />&nbsp;&nbsp;&nbsp;966</p> </td>
+	<td style="background-color: #FF6633; color: black;"> <p class="A">&nbsp;FF6<br />&nbsp;&nbsp;&nbsp;633</p> </td>
+	<td style="background-color: #CC3300; color: white;"> <p class="A">&nbsp;CC3<br />&nbsp;&nbsp;&nbsp;300</p> </td>
+	<td colspan="4"></td>
+	<td style="background-color: #CC0033; color: white;"> <p class="A">&nbsp;CC0<br />&nbsp;&nbsp;&nbsp;033</p> </td>
+	</tr>
+	<tr>
+	<td style="background-color: #CCFF00; color: black;"> <p class="A">&nbsp;CCF<br />&nbsp;&nbsp;&nbsp;F00</p> </td>
+	<td style="background-color: #CCFF33; color: black;"> <p class="A">&nbsp;CCF<br />&nbsp;&nbsp;&nbsp;F33</p> </td>
+	<td style="background-color: #333300; color: white;"> <p class="A">&nbsp;333<br />&nbsp;&nbsp;&nbsp;300</p> </td>
+	<td style="background-color: #666600; color: white;"> <p class="A">&nbsp;666<br />&nbsp;&nbsp;&nbsp;600</p> </td>
+	<td style="background-color: #999900; color: black;"> <p class="A">&nbsp;999<br />&nbsp;&nbsp;&nbsp;900</p> </td>
+	<td style="background-color: #CCCC00; color: black;"> <p class="A">&nbsp;CCC<br />&nbsp;&nbsp;&nbsp;C00</p> </td>
+	<td style="background-color: #FFFF00; color: black;"> <p class="A">&nbsp;FFF<br />&nbsp;&nbsp;&nbsp;F00</p> </td>
+	<td style="background-color: #CC9933; color: black;"> <p class="A">&nbsp;CC9<br />&nbsp;&nbsp;&nbsp;933</p> </td>
+	<td style="background-color: #CC6633; color: white;"> <p class="A">&nbsp;CC6<br />&nbsp;&nbsp;&nbsp;633</p> </td>
+	<td style="background-color: #330000; color: white;"> <p class="A">&nbsp;330<br />&nbsp;&nbsp;&nbsp;000</p> </td>
+	<td style="background-color: #660000; color: white;"> <p class="A">&nbsp;660<br />&nbsp;&nbsp;&nbsp;000</p> </td>
+	<td style="background-color: #990000; color: white;"> <p class="A">&nbsp;990<br />&nbsp;&nbsp;&nbsp;000</p> </td>
+	<td style="background-color: #CC0000; color: white;"> <p class="A">&nbsp;CC0<br />&nbsp;&nbsp;&nbsp;000</p> </td>
+	<td style="background-color: #FF0000; color: white;"> <p class="A">&nbsp;FF0<br />&nbsp;&nbsp;&nbsp;000</p> </td>
+	<td style="background-color: #FF3366; color: white;"> <p class="A">&nbsp;FF3<br />&nbsp;&nbsp;&nbsp;366</p> </td>
+	<td style="background-color: #FF0033; color: white;"> <p class="A">&nbsp;FF0<br />&nbsp;&nbsp;&nbsp;033</p> </td>
+	</tr>
+	<tr>
+	<td style="background-color: #99FF00; color: black;"> <p class="A">&nbsp;99F<br />&nbsp;&nbsp;&nbsp;F00</p> </td>
+	<td style="background-color: #CCFF66; color: black;"> <p class="A">&nbsp;CCF<br />&nbsp;&nbsp;&nbsp;F66</p> </td>
+	<td style="background-color: #99CC33; color: black;"> <p class="A">&nbsp;99C<br />&nbsp;&nbsp;&nbsp;C33</p> </td>
+	<td style="background-color: #666633; color: white;"> <p class="A">&nbsp;666<br />&nbsp;&nbsp;&nbsp;633</p> </td>
+	<td style="background-color: #999933; color: black;"> <p class="A">&nbsp;999<br />&nbsp;&nbsp;&nbsp;933</p> </td>
+	<td style="background-color: #CCCC33; color: black;"> <p class="A">&nbsp;CCC<br />&nbsp;&nbsp;&nbsp;C33</p> </td>
+	<td style="background-color: #FFFF33; color: black;"> <p class="A">&nbsp;FFF<br />&nbsp;&nbsp;&nbsp;F33</p> </td>
+	<td style="background-color: #996600; color: white;"> <p class="A">&nbsp;996<br />&nbsp;&nbsp;&nbsp;600</p> </td>
+	<td style="background-color: #993300; color: white;"> <p class="A">&nbsp;993<br />&nbsp;&nbsp;&nbsp;300</p> </td>
+	<td style="background-color: #663333; color: white;"> <p class="A">&nbsp;663<br />&nbsp;&nbsp;&nbsp;333</p> </td>
+	<td style="background-color: #993333; color: white;"> <p class="A">&nbsp;993<br />&nbsp;&nbsp;&nbsp;333</p> </td>
+	<td style="background-color: #CC3333; color: white;"> <p class="A">&nbsp;CC3<br />&nbsp;&nbsp;&nbsp;333</p> </td>
+	<td style="background-color: #FF3333; color: white;"> <p class="A">&nbsp;FF3<br />&nbsp;&nbsp;&nbsp;333</p> </td>
+	<td style="background-color: #CC3366; color: white;"> <p class="A">&nbsp;CC3<br />&nbsp;&nbsp;&nbsp;366</p> </td>
+	<td style="background-color: #FF6699; color: black;"> <p class="A">&nbsp;FF6<br />&nbsp;&nbsp;&nbsp;699</p> </td>
+	<td style="background-color: #FF0066; color: white;"> <p class="A">&nbsp;FF0<br />&nbsp;&nbsp;&nbsp;066</p> </td>
+	</tr>
+	<tr>
+	<td style="background-color: #66FF00; color: black;"> <p class="A">&nbsp;66F<br />&nbsp;&nbsp;&nbsp;F00</p> </td>
+	<td style="background-color: #99FF66; color: black;"> <p class="A">&nbsp;99F<br />&nbsp;&nbsp;&nbsp;F66</p> </td>
+	<td style="background-color: #66CC33; color: black;"> <p class="A">&nbsp;66C<br />&nbsp;&nbsp;&nbsp;C33</p> </td>
+	<td style="background-color: #669900; color: white;"> <p class="A">&nbsp;669<br />&nbsp;&nbsp;&nbsp;900</p> </td>
+	<td style="background-color: #999966; color: black;"> <p class="A">&nbsp;999<br />&nbsp;&nbsp;&nbsp;966</p> </td>
+	<td style="background-color: #CCCC66; color: black;"> <p class="A">&nbsp;CCC<br />&nbsp;&nbsp;&nbsp;C66</p> </td>
+	<td style="background-color: #FFFF66; color: black;"> <p class="A">&nbsp;FFF<br />&nbsp;&nbsp;&nbsp;F66</p> </td>
+	<td style="background-color: #996633; color: white;"> <p class="A">&nbsp;996<br />&nbsp;&nbsp;&nbsp;633</p> </td>
+	<td style="background-color: #663300; color: white;"> <p class="A">&nbsp;663<br />&nbsp;&nbsp;&nbsp;300</p> </td>
+	<td style="background-color: #996666; color: white;"> <p class="A">&nbsp;996<br />&nbsp;&nbsp;&nbsp;666</p> </td>
+	<td style="background-color: #CC6666; color: black;"> <p class="A">&nbsp;CC6<br />&nbsp;&nbsp;&nbsp;666</p> </td>
+	<td style="background-color: #FF6666; color: black;"> <p class="A">&nbsp;FF6<br />&nbsp;&nbsp;&nbsp;666</p> </td>
+	<td style="background-color: #990033; color: white;"> <p class="A">&nbsp;990<br />&nbsp;&nbsp;&nbsp;033</p> </td>
+	<td style="background-color: #CC3399; color: white;"> <p class="A">&nbsp;CC3<br />&nbsp;&nbsp;&nbsp;399</p> </td>
+	<td style="background-color: #FF66CC; color: black;"> <p class="A">&nbsp;FF6<br />&nbsp;&nbsp;&nbsp;6CC</p> </td>
+	<td style="background-color: #FF0099; color: white;"> <p class="A">&nbsp;FF0<br />&nbsp;&nbsp;&nbsp;099</p> </td>
+	</tr>
+	<tr>
+	<td style="background-color: #33FF00; color: black;"> <p class="A">&nbsp;33F<br />&nbsp;&nbsp;&nbsp;F00</p> </td>
+	<td style="background-color: #66FF33; color: black;"> <p class="A">&nbsp;66F<br />&nbsp;&nbsp;&nbsp;F33</p> </td>
+	<td style="background-color: #339900; color: white;"> <p class="A">&nbsp;339<br />&nbsp;&nbsp;&nbsp;900</p> </td>
+	<td style="background-color: #66CC00; color: black;"> <p class="A">&nbsp;66C<br />&nbsp;&nbsp;&nbsp;C00</p> </td>
+	<td style="background-color: #99FF33; color: black;"> <p class="A">&nbsp;99F<br />&nbsp;&nbsp;&nbsp;F33</p> </td>
+	<td style="background-color: #CCCC99; color: black;"> <p class="A">&nbsp;CCC<br />&nbsp;&nbsp;&nbsp;C99</p> </td>
+	<td style="background-color: #FFFF99; color: black;"> <p class="A">&nbsp;FFF<br />&nbsp;&nbsp;&nbsp;F99</p> </td>
+	<td style="background-color: #CC9966; color: black;"> <p class="A">&nbsp;CC9<br />&nbsp;&nbsp;&nbsp;966</p> </td>
+	<td style="background-color: #CC6600; color: white;"> <p class="A">&nbsp;CC6<br />&nbsp;&nbsp;&nbsp;600</p> </td>
+	<td style="background-color: #CC9999; color: black;"> <p class="A">&nbsp;CC9<br />&nbsp;&nbsp;&nbsp;999</p> </td>
+	<td style="background-color: #FF9999; color: black;"> <p class="A">&nbsp;FF9<br />&nbsp;&nbsp;&nbsp;999</p> </td>
+	<td style="background-color: #FF3399; color: white;"> <p class="A">&nbsp;FF3<br />&nbsp;&nbsp;&nbsp;399</p> </td>
+	<td style="background-color: #CC0066; color: white;"> <p class="A">&nbsp;CC0<br />&nbsp;&nbsp;&nbsp;066</p> </td>
+	<td style="background-color: #990066; color: white;"> <p class="A">&nbsp;990<br />&nbsp;&nbsp;&nbsp;066</p> </td>
+	<td style="background-color: #FF33CC; color: black;"> <p class="A">&nbsp;FF3<br />&nbsp;&nbsp;&nbsp;3CC</p> </td>
+	<td style="background-color: #FF00CC; color: white;"> <p class="A">&nbsp;FF0<br />&nbsp;&nbsp;&nbsp;0CC</p> </td>
+	</tr>
+	<tr>
+	<td style="background-color: #00CC00; color: white;"> <p class="A">&nbsp;00C<br />&nbsp;&nbsp;&nbsp;C00</p> </td>
+	<td style="background-color: #33CC00; color: black;"> <p class="A">&nbsp;33C<br />&nbsp;&nbsp;&nbsp;C00</p> </td>
+	<td style="background-color: #336600; color: white;"> <p class="A">&nbsp;336<br />&nbsp;&nbsp;&nbsp;600</p> </td>
+	<td style="background-color: #669933; color: white;"> <p class="A">&nbsp;669<br />&nbsp;&nbsp;&nbsp;933</p> </td>
+	<td style="background-color: #99CC66; color: black;"> <p class="A">&nbsp;99C<br />&nbsp;&nbsp;&nbsp;C66</p> </td>
+	<td style="background-color: #CCFF99; color: black;"> <p class="A">&nbsp;CCF<br />&nbsp;&nbsp;&nbsp;F99</p> </td>
+	<td style="background-color: #FFFFCC; color: black;"> <p class="A">&nbsp;FFF<br />&nbsp;&nbsp;&nbsp;FCC</p> </td>
+	<td style="background-color: #FFCC99; color: black;"> <p class="A">&nbsp;FFC<br />&nbsp;&nbsp;&nbsp;C99</p> </td>
+	<td style="background-color: #FF9933; color: black;"> <p class="A">&nbsp;FF9<br />&nbsp;&nbsp;&nbsp;933</p> </td>
+	<td style="background-color: #FFCCCC; color: black;"> <p class="A">&nbsp;FFC<br />&nbsp;&nbsp;&nbsp;CCC</p> </td>
+	<td style="background-color: #FF99CC; color: black;"> <p class="A">&nbsp;FF9<br />&nbsp;&nbsp;&nbsp;9CC</p> </td>
+	<td style="background-color: #CC6699; color: black;"> <p class="A">&nbsp;CC6<br />&nbsp;&nbsp;&nbsp;699</p> </td>
+	<td style="background-color: #993366; color: white;"> <p class="A">&nbsp;993<br />&nbsp;&nbsp;&nbsp;366</p> </td>
+	<td style="background-color: #660033; color: white;"> <p class="A">&nbsp;660<br />&nbsp;&nbsp;&nbsp;033</p> </td>
+	<td style="background-color: #CC0099; color: white;"> <p class="A">&nbsp;CC0<br />&nbsp;&nbsp;&nbsp;099</p> </td>
+	<td style="background-color: #330033; color: white;"> <p class="A">&nbsp;330<br />&nbsp;&nbsp;&nbsp;033</p> </td>
+	</tr>
+	<tr>
+	<td style="background-color: #33CC33; color: black;"> <p class="A">&nbsp;33C<br />&nbsp;&nbsp;&nbsp;C33</p> </td>
+	<td style="background-color: #66CC66; color: black;"> <p class="A">&nbsp;66C<br />&nbsp;&nbsp;&nbsp;C66</p> </td>
+	<td style="background-color: #00FF00; color: black;"> <p class="A">&nbsp;00F<br />&nbsp;&nbsp;&nbsp;F00</p> </td>
+	<td style="background-color: #33FF33; color: black;"> <p class="A">&nbsp;33F<br />&nbsp;&nbsp;&nbsp;F33</p> </td>
+	<td style="background-color: #66FF66; color: black;"> <p class="A">&nbsp;66F<br />&nbsp;&nbsp;&nbsp;F66</p> </td>
+	<td style="background-color: #99FF99; color: black;"> <p class="A">&nbsp;99F<br />&nbsp;&nbsp;&nbsp;F99</p> </td>
+	<td style="background-color: #CCFFCC; color: black;"> <p class="A">&nbsp;CCF<br />&nbsp;&nbsp;&nbsp;FCC</p> </td>
+	<td colspan="3"></td>
+	<td style="background-color: #CC99CC; color: black;"> <p class="A">&nbsp;CC9<br />&nbsp;&nbsp;&nbsp;9CC</p> </td>
+	<td style="background-color: #996699; color: white;"> <p class="A">&nbsp;996<br />&nbsp;&nbsp;&nbsp;699</p> </td>
+	<td style="background-color: #993399; color: white;"> <p class="A">&nbsp;993<br />&nbsp;&nbsp;&nbsp;399</p> </td>
+	<td style="background-color: #990099; color: white;"> <p class="A">&nbsp;990<br />&nbsp;&nbsp;&nbsp;099</p> </td>
+	<td style="background-color: #663366; color: white;"> <p class="A">&nbsp;663<br />&nbsp;&nbsp;&nbsp;366</p> </td>
+	<td style="background-color: #660066; color: white;"> <p class="A">&nbsp;660<br />&nbsp;&nbsp;&nbsp;066</p> </td>
+	</tr>
+	<tr>
+	<td style="background-color: #006600; color: white;"> <p class="A">&nbsp;006<br />&nbsp;&nbsp;&nbsp;600</p> </td>
+	<td style="background-color: #336633; color: white;"> <p class="A">&nbsp;336<br />&nbsp;&nbsp;&nbsp;633</p> </td>
+	<td style="background-color: #009900; color: white;"> <p class="A">&nbsp;009<br />&nbsp;&nbsp;&nbsp;900</p> </td>
+	<td style="background-color: #339933; color: white;"> <p class="A">&nbsp;339<br />&nbsp;&nbsp;&nbsp;933</p> </td>
+	<td style="background-color: #669966; color: black;"> <p class="A">&nbsp;669<br />&nbsp;&nbsp;&nbsp;966</p> </td>
+	<td style="background-color: #99CC99; color: black;"> <p class="A">&nbsp;99C<br />&nbsp;&nbsp;&nbsp;C99</p> </td>
+	<td colspan="3"></td>
+	<td style="background-color: #FFCCFF; color: black;"> <p class="A">&nbsp;FFC<br />&nbsp;&nbsp;&nbsp;CFF</p> </td>
+	<td style="background-color: #FF99FF; color: black;"> <p class="A">&nbsp;FF9<br />&nbsp;&nbsp;&nbsp;9FF</p> </td>
+	<td style="background-color: #FF66FF; color: black;"> <p class="A">&nbsp;FF6<br />&nbsp;&nbsp;&nbsp;6FF</p> </td>
+	<td style="background-color: #FF33FF; color: black;"> <p class="A">&nbsp;FF3<br />&nbsp;&nbsp;&nbsp;3FF</p> </td>
+	<td style="background-color: #FF00FF; color: white;"> <p class="A">&nbsp;FF0<br />&nbsp;&nbsp;&nbsp;0FF</p> </td>
+	<td style="background-color: #CC66CC; color: black;"> <p class="A">&nbsp;CC6<br />&nbsp;&nbsp;&nbsp;6CC</p> </td>
+	<td style="background-color: #CC33CC; color: white;"> <p class="A">&nbsp;CC3<br />&nbsp;&nbsp;&nbsp;3CC</p> </td>
+	</tr>
+	<tr>
+	<td style="background-color: #003300; color: white;"> <p class="A">&nbsp;003<br />&nbsp;&nbsp;&nbsp;300</p> </td>
+	<td style="background-color: #00CC33; color: white;"> <p class="A">&nbsp;00C<br />&nbsp;&nbsp;&nbsp;C33</p> </td>
+	<td style="background-color: #006633; color: white;"> <p class="A">&nbsp;006<br />&nbsp;&nbsp;&nbsp;633</p> </td>
+	<td style="background-color: #339966; color: white;"> <p class="A">&nbsp;339<br />&nbsp;&nbsp;&nbsp;966</p> </td>
+	<td style="background-color: #66CC99; color: black;"> <p class="A">&nbsp;66C<br />&nbsp;&nbsp;&nbsp;C99</p> </td>
+	<td style="background-color: #99FFCC; color: black;"> <p class="A">&nbsp;99F<br />&nbsp;&nbsp;&nbsp;FCC</p> </td>
+	<td style="background-color: #CCFFFF; color: black;"> <p class="A">&nbsp;CCF<br />&nbsp;&nbsp;&nbsp;FFF</p> </td>
+	<td style="background-color: #3399FF; color: black;"> <p class="A">&nbsp;339<br />&nbsp;&nbsp;&nbsp;9FF</p> </td>
+	<td style="background-color: #99CCFF; color: black;"> <p class="A">&nbsp;99C<br />&nbsp;&nbsp;&nbsp;CFF</p> </td>
+	<td style="background-color: #CCCCFF; color: black;"> <p class="A">&nbsp;CCC<br />&nbsp;&nbsp;&nbsp;CFF</p> </td>
+	<td style="background-color: #CC99FF; color: black;"> <p class="A">&nbsp;CC9<br />&nbsp;&nbsp;&nbsp;9FF</p> </td>
+	<td style="background-color: #9966CC; color: black;"> <p class="A">&nbsp;996<br />&nbsp;&nbsp;&nbsp;6CC</p> </td>
+	<td style="background-color: #663399; color: white;"> <p class="A">&nbsp;663<br />&nbsp;&nbsp;&nbsp;399</p> </td>
+	<td style="background-color: #330066; color: white;"> <p class="A">&nbsp;330<br />&nbsp;&nbsp;&nbsp;066</p> </td>
+	<td style="background-color: #9900CC; color: white;"> <p class="A">&nbsp;990<br />&nbsp;&nbsp;&nbsp;0CC</p> </td>
+	<td style="background-color: #CC00CC; color: white;"> <p class="A">&nbsp;CC0<br />&nbsp;&nbsp;&nbsp;0CC</p> </td>
+	</tr>
+	<tr>
+	<td style="background-color: #00FF33; color: black;"> <p class="A">&nbsp;00F<br />&nbsp;&nbsp;&nbsp;F33</p> </td>
+	<td style="background-color: #33FF66; color: black;"> <p class="A">&nbsp;33F<br />&nbsp;&nbsp;&nbsp;F66</p> </td>
+	<td style="background-color: #009933; color: white;"> <p class="A">&nbsp;009<br />&nbsp;&nbsp;&nbsp;933</p> </td>
+	<td style="background-color: #00CC66; color: black;"> <p class="A">&nbsp;00C<br />&nbsp;&nbsp;&nbsp;C66</p> </td>
+	<td style="background-color: #33FF99; color: black;"> <p class="A">&nbsp;33F<br />&nbsp;&nbsp;&nbsp;F99</p> </td>
+	<td style="background-color: #99FFFF; color: black;"> <p class="A">&nbsp;99F<br />&nbsp;&nbsp;&nbsp;FFF</p> </td>
+	<td style="background-color: #99CCCC; color: black;"> <p class="A">&nbsp;99C<br />&nbsp;&nbsp;&nbsp;CCC</p> </td>
+	<td style="background-color: #0066CC; color: white;"> <p class="A">&nbsp;006<br />&nbsp;&nbsp;&nbsp;6CC</p> </td>
+	<td style="background-color: #6699CC; color: black;"> <p class="A">&nbsp;669<br />&nbsp;&nbsp;&nbsp;9CC</p> </td>
+	<td style="background-color: #9999FF; color: black;"> <p class="A">&nbsp;999<br />&nbsp;&nbsp;&nbsp;9FF</p> </td>
+	<td style="background-color: #9999CC; color: black;"> <p class="A">&nbsp;999<br />&nbsp;&nbsp;&nbsp;9CC</p> </td>
+	<td style="background-color: #9933FF; color: white;"> <p class="A">&nbsp;993<br />&nbsp;&nbsp;&nbsp;3FF</p> </td>
+	<td style="background-color: #6600CC; color: white;"> <p class="A">&nbsp;660<br />&nbsp;&nbsp;&nbsp;0CC</p> </td>
+	<td style="background-color: #660099; color: white;"> <p class="A">&nbsp;660<br />&nbsp;&nbsp;&nbsp;099</p> </td>
+	<td style="background-color: #CC33FF; color: white;"> <p class="A">&nbsp;CC3<br />&nbsp;&nbsp;&nbsp;3FF</p> </td>
+	<td style="background-color: #CC00FF; color: white;"> <p class="A">&nbsp;CC0<br />&nbsp;&nbsp;&nbsp;0FF</p> </td>
+	</tr>
+	<tr>
+	<td style="background-color: #00FF66; color: black;"> <p class="A">&nbsp;00F<br />&nbsp;&nbsp;&nbsp;F66</p> </td>
+	<td style="background-color: #66FF99; color: black;"> <p class="A">&nbsp;66F<br />&nbsp;&nbsp;&nbsp;F99</p> </td>
+	<td style="background-color: #33CC66; color: black;"> <p class="A">&nbsp;33C<br />&nbsp;&nbsp;&nbsp;C66</p> </td>
+	<td style="background-color: #009966; color: white;"> <p class="A">&nbsp;009<br />&nbsp;&nbsp;&nbsp;966</p> </td>
+	<td style="background-color: #66FFFF; color: black;"> <p class="A">&nbsp;66F<br />&nbsp;&nbsp;&nbsp;FFF</p> </td>
+	<td style="background-color: #66CCCC; color: black;"> <p class="A">&nbsp;66C<br />&nbsp;&nbsp;&nbsp;CCC</p> </td>
+	<td style="background-color: #669999; color: black;"> <p class="A">&nbsp;669<br />&nbsp;&nbsp;&nbsp;999</p> </td>
+	<td style="background-color: #003366; color: white;"> <p class="A">&nbsp;003<br />&nbsp;&nbsp;&nbsp;366</p> </td>
+	<td style="background-color: #336699; color: white;"> <p class="A">&nbsp;336<br />&nbsp;&nbsp;&nbsp;699</p> </td>
+	<td style="background-color: #6666FF; color: white;"> <p class="A">&nbsp;666<br />&nbsp;&nbsp;&nbsp;6FF</p> </td>
+	<td style="background-color: #6666CC; color: white;"> <p class="A">&nbsp;666<br />&nbsp;&nbsp;&nbsp;6CC</p> </td>
+	<td style="background-color: #666699; color: white;"> <p class="A">&nbsp;666<br />&nbsp;&nbsp;&nbsp;699</p> </td>
+	<td style="background-color: #330099; color: white;"> <p class="A">&nbsp;330<br />&nbsp;&nbsp;&nbsp;099</p> </td>
+	<td style="background-color: #9933CC; color: white;"> <p class="A">&nbsp;993<br />&nbsp;&nbsp;&nbsp;3CC</p> </td>
+	<td style="background-color: #CC66FF; color: black;"> <p class="A">&nbsp;CC6<br />&nbsp;&nbsp;&nbsp;6FF</p> </td>
+	<td style="background-color: #9900FF; color: white;"> <p class="A">&nbsp;990<br />&nbsp;&nbsp;&nbsp;0FF</p> </td>
+	</tr>
+	<tr>
+	<td style="background-color: #00FF99; color: black;"> <p class="A">&nbsp;00F<br />&nbsp;&nbsp;&nbsp;F99</p> </td>
+	<td style="background-color: #66FFCC; color: black;"> <p class="A">&nbsp;66F<br />&nbsp;&nbsp;&nbsp;FCC</p> </td>
+	<td style="background-color: #33CC99; color: black;"> <p class="A">&nbsp;33C<br />&nbsp;&nbsp;&nbsp;C99</p> </td>
+	<td style="background-color: #33FFFF; color: black;"> <p class="A">&nbsp;33F<br />&nbsp;&nbsp;&nbsp;FFF</p> </td>
+	<td style="background-color: #33CCCC; color: black;"> <p class="A">&nbsp;33C<br />&nbsp;&nbsp;&nbsp;CCC</p> </td>
+	<td style="background-color: #339999; color: white;"> <p class="A">&nbsp;339<br />&nbsp;&nbsp;&nbsp;999</p> </td>
+	<td style="background-color: #336666; color: white;"> <p class="A">&nbsp;336<br />&nbsp;&nbsp;&nbsp;666</p> </td>
+	<td style="background-color: #006699; color: white;"> <p class="A">&nbsp;006<br />&nbsp;&nbsp;&nbsp;699</p> </td>
+	<td style="background-color: #003399; color: white;"> <p class="A">&nbsp;003<br />&nbsp;&nbsp;&nbsp;399</p> </td>
+	<td style="background-color: #3333FF; color: white;"> <p class="A">&nbsp;333<br />&nbsp;&nbsp;&nbsp;3FF</p> </td>
+	<td style="background-color: #3333CC; color: white;"> <p class="A">&nbsp;333<br />&nbsp;&nbsp;&nbsp;3CC</p> </td>
+	<td style="background-color: #333399; color: white;"> <p class="A">&nbsp;333<br />&nbsp;&nbsp;&nbsp;399</p> </td>
+	<td style="background-color: #333366; color: white;"> <p class="A">&nbsp;333<br />&nbsp;&nbsp;&nbsp;366</p> </td>
+	<td style="background-color: #6633CC; color: white;"> <p class="A">&nbsp;663<br />&nbsp;&nbsp;&nbsp;3CC</p> </td>
+	<td style="background-color: #9966FF; color: black;"> <p class="A">&nbsp;996<br />&nbsp;&nbsp;&nbsp;6FF</p> </td>
+	<td style="background-color: #6600FF; color: white;"> <p class="A">&nbsp;660<br />&nbsp;&nbsp;&nbsp;0FF</p> </td>
+	</tr>
+	<tr>
+	<td style="background-color: #00FFCC; color: black;"> <p class="A">&nbsp;00F<br />&nbsp;&nbsp;&nbsp;FCC</p> </td>
+	<td style="background-color: #33FFCC; color: black;"> <p class="A">&nbsp;33F<br />&nbsp;&nbsp;&nbsp;FCC</p> </td>
+	<td style="background-color: #00FFFF; color: black;"> <p class="A">&nbsp;00F<br />&nbsp;&nbsp;&nbsp;FFF</p> </td>
+	<td style="background-color: #00CCCC; color: black;"> <p class="A">&nbsp;00C<br />&nbsp;&nbsp;&nbsp;CCC</p> </td>
+	<td style="background-color: #009999; color: white;"> <p class="A">&nbsp;009<br />&nbsp;&nbsp;&nbsp;999</p> </td>
+	<td style="background-color: #006666; color: white;"> <p class="A">&nbsp;006<br />&nbsp;&nbsp;&nbsp;666</p> </td>
+	<td style="background-color: #003333; color: white;"> <p class="A">&nbsp;003<br />&nbsp;&nbsp;&nbsp;333</p> </td>
+	<td style="background-color: #3399CC; color: black;"> <p class="A">&nbsp;339<br />&nbsp;&nbsp;&nbsp;9CC</p> </td>
+	<td style="background-color: #3366CC; color: white;"> <p class="A">&nbsp;336<br />&nbsp;&nbsp;&nbsp;6CC</p> </td>
+	<td style="background-color: #0000FF; color: white;"> <p class="A">&nbsp;000<br />&nbsp;&nbsp;&nbsp;0FF</p> </td>
+	<td style="background-color: #0000CC; color: white;"> <p class="A">&nbsp;000<br />&nbsp;&nbsp;&nbsp;0CC</p> </td>
+	<td style="background-color: #000099; color: white;"> <p class="A">&nbsp;000<br />&nbsp;&nbsp;&nbsp;099</p> </td>
+	<td style="background-color: #000066; color: white;"> <p class="A">&nbsp;000<br />&nbsp;&nbsp;&nbsp;066</p> </td>
+	<td style="background-color: #000033; color: white;"> <p class="A">&nbsp;000<br />&nbsp;&nbsp;&nbsp;033</p> </td>
+	<td style="background-color: #6633FF; color: white;"> <p class="A">&nbsp;663<br />&nbsp;&nbsp;&nbsp;3FF</p> </td>
+	<td style="background-color: #3300FF; color: white;"> <p class="A">&nbsp;330<br />&nbsp;&nbsp;&nbsp;0FF</p> </td>
+	</tr>
+	<tr>
+	<td style="background-color: #00CC99; color: black;"> <p class="A">&nbsp;00C<br />&nbsp;&nbsp;&nbsp;C99</p> </td>
+	<td colspan="4"></td>
+	<td style="background-color: #0099CC; color: white;"> <p class="A">&nbsp;009<br />&nbsp;&nbsp;&nbsp;9CC</p> </td>
+	<td style="background-color: #33CCFF; color: black;"> <p class="A">&nbsp;33C<br />&nbsp;&nbsp;&nbsp;CFF</p> </td>
+	<td style="background-color: #66CCFF; color: black;"> <p class="A">&nbsp;66C<br />&nbsp;&nbsp;&nbsp;CFF</p> </td>
+	<td style="background-color: #6699FF; color: black;"> <p class="A">&nbsp;669<br />&nbsp;&nbsp;&nbsp;9FF</p> </td>
+	<td style="background-color: #3366FF; color: white;"> <p class="A">&nbsp;336<br />&nbsp;&nbsp;&nbsp;6FF</p> </td>
+	<td style="background-color: #0033CC; color: white;"> <p class="A">&nbsp;003<br />&nbsp;&nbsp;&nbsp;3CC</p> </td>
+	<td colspan="4"></td>
+	<td style="background-color: #3300CC; color: white;"> <p class="A">&nbsp;330<br />&nbsp;&nbsp;&nbsp;0CC</p> </td>
+	</tr>
+	<tr>
+	<td colspan="6"></td>
+	<td style="background-color: #00CCFF; color: black;"> <p class="A">&nbsp;00C<br />&nbsp;&nbsp;&nbsp;CFF</p> </td>
+	<td style="background-color: #0099FF; color: white;"> <p class="A">&nbsp;009<br />&nbsp;&nbsp;&nbsp;9FF</p> </td>
+	<td style="background-color: #0066FF; color: white;"> <p class="A">&nbsp;006<br />&nbsp;&nbsp;&nbsp;6FF</p> </td>
+	<td style="background-color: #0033FF; color: white;"> <p class="A">&nbsp;003<br />&nbsp;&nbsp;&nbsp;3FF</p> </td>
+	<td colspan="6"></td>
+	</tr>
+	</table>
+	</center>
+	<p>&nbsp;</p>
+	<p align="center"><b>This concludes the Graphics chapter.</b></p>
+</body>
+
+</html>
