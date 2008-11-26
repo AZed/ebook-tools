@@ -128,8 +128,11 @@ sub uncompress_lzss
     }
 
     $bitpos = 0;
-    while($bitpos < $bitsize)
+    while($bitpos < $bitsize - 8)
     {
+        # If there are less than 8 bits left, there's nothing to
+        # decode and we can stop.  Otherwise, uncompress.
+
         $bitoffset = $bitsize - $bitpos;
         $encflag = $bitvector->Chunk_Read(1,$bitoffset-1);
         $bitpos++;
