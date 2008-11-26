@@ -63,10 +63,10 @@ my %rwfields = (
     'filecount'     => 'integer',
     'resdirlength'  => 'integer',
     'resdiroffset'  => 'integer',
-    'version'       => 'integer',
     'compression'   => 'integer',
     'encryption'    => 'integer',
-    'zoomstate'     => 'integer',
+    'type'          => 'integer',
+    'zoomstates'     => 'integer',
     'identifier'    => 'string',
     'category'      => 'string',
     'subcategory'   => 'string',
@@ -85,6 +85,8 @@ my %rofields = (
     'unknown0x0a'   => 'string',
     'unknown0x18'   => 'integer',
     'unknown0x1c'   => 'integer',
+    'unknown0x28'   => 'integer',
+    'unknown0x2a'   => 'integer',
     'unknown0x2c'   => 'integer',
     );
 my %privatefields = (
@@ -229,7 +231,7 @@ sub load :method
     close($fh_imp)
         or croak($subname,"(): failed to close '",$filename,"'!\n");
 
-    debug(2,$self->{text});
+    debug(3,$self->{text});
     return 1;
 }
 
@@ -300,7 +302,7 @@ sub pack_imp_rsrc_inf :method
     $rsrc .= pack('NNNNNN',
                   $self->{unknown0x18},$self->{unknown0x1c},
                   $self->{compression},$self->{encryption},
-                  $self->{zoomstate},$self->{unknown0x2c});
+                  $self->{zoomstates},$self->{unknown0x2c});
     $rsrc .= pack('Z*','3:B:' . $self->{identifier});
     $rsrc .= pack('Z*Z*Z*',
                   $self->{category},$self->{subcategory},$self->{title});
@@ -457,10 +459,26 @@ values are 0 (no compression) and 1 (LZSS compression).
 Encryption type, stored in C<< $self->{encryption} >>.  Expected
 values are 0 (no encryption) and 2 (DES encryption).
 
-=item * Offset 0x28 [4 bytes, big-endian unsigned long int]
+=item * Offset 0x28 [2 bytes, big-ending unsigned short int]
 
-Zoom state, stored in C<< $self->{zoomstate} >>.  Expected values are
-0 (both zooms), 1 (small zoom), and 2 (large zoom)
+Unknown value, stored in C<< $self->{unknown0x28} >>.  Use with
+caution -- this value may be renamed if more information is obtained.
+
+=item * Offset 0x2A [1 byte]
+
+Unknown value, stored in C<< $self->{unknown0x2A} >>.  Use with
+caution -- this value may be renamed if more information is obtained.
+
+=item * Offset 0x2B [2 nybbles (1 byte)]
+
+The upper nybble at this position is the IMP reader type for which the
+e-book was designed, stored in C<< $self->{type} >>.  Expected values
+are 0 (Softbook 200/250e), 1 (REB 1200/GEB 2150), and 2 (EBW
+1150/GEB1150).
+
+The lower nybble marks the possible zoom states, stored in
+C<< $self->{zoomstates} >>.  Expected values are 0 (both zooms), 1
+(small zoom), and 2 (large zoom)
 
 =item * Offset 0x2C [4 bytes, big-endian unsigned long int]
 
@@ -510,20 +528,33 @@ sub parse_imp_header :method
     debug(2,"DEBUG: IMP resdirlength = ",$self->{resdirlength});
     debug(2,"DEBUG: IMP resdir offset = ",$self->{resdiroffset});
 
-    # Unsigned long int values
-    @list = unpack('NNNNNN',substr($headerdata,0x18,24));
+    # Unknown long ints
+    @list = unpack('NN',substr($headerdata,0x18,8));
     $self->{unknown0x18} = $list[0];
     $self->{unknown0x1c} = $list[1];
-    $self->{compression} = $list[2];
-    $self->{encryption}  = $list[3];
-    $self->{zoomstate}   = $list[4];
-    $self->{unknown0x2c} = $list[5];
+    debug(2,"DEBUG: Unknown long int at offset 0x18 = ",$self->{unknown0x18});
+    debug(2,"DEBUG: Unknown long int at offset 0x1c = ",$self->{unknown0x1c});
+
+    # Compression/Encryption/Unknown
+    @list = unpack('NNnC',substr($headerdata,0x20,11));
+    $self->{compression} = $list[0];
+    $self->{encryption}  = $list[1];
+    $self->{unknown0x28} = $list[2];
+    $self->{unknown0x2a} = $list[3];
     debug(2,"DEBUG: IMP compression = ",$self->{compression});
     debug(2,"DEBUG: IMP encryption = ",$self->{encryption});
-    debug(2,"DEBUG: IMP zoom state = ",$self->{zoomstate});
-    debug(2,"DEBUG: Unknown value at offset 0x18 = ",$self->{unknown0x18});
-    debug(2,"DEBUG: Unknown value at offset 0x1c = ",$self->{unknown0x1c});
-    debug(2,"DEBUG: Unknown value at offset 0x2c = ",$self->{unknown0x2c});
+    debug(2,"DEBUG: Unknown short int at offset 0x28 = ",$self->{unknown0x28});
+    debug(2,"DEBUG: Unknown byte at offset 0x2A = ",$self->{unknown0x2a});
+
+    # Zoom State, and Unknown
+    @list = unpack('CN',substr($headerdata,0x2B,5));
+    $self->{type}        = $list[0] >> 4;
+    $self->{zoomstates}   = $list[0] & 0x0f;
+    $self->{unknown0x2c} = $list[1];
+
+    debug(2,"DEBUG: IMP type = ",$self->{type});
+    debug(2,"DEBUG: IMP zoom state = ",$self->{zoomstates});
+    debug(2,"DEBUG: Unknown long int at offset 0x2c = ",$self->{unknown0x2c});
 
     return 1;
 }
@@ -682,7 +713,7 @@ sub parse_imp_resource_v1
 {
     my ($data) = @_;
     my $subname = (caller(0))[3];
-    debug(2,"DEBUG[",$subname,"]");
+    debug(3,"DEBUG[",$subname,"]");
 
     my @list;           # Temporary list
     my %resource;       # Hash containing resource data and metadata
@@ -759,7 +790,7 @@ sub parse_imp_resource_v2
 {
     my ($data) = @_;
     my $subname = (caller(0))[3];
-    debug(2,"DEBUG[",$subname,"]");
+    debug(3,"DEBUG[",$subname,"]");
 
     my @list;           # Temporary list
     my %resource;       # Hash containing resource data and metadata
