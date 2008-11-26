@@ -893,6 +893,15 @@ sub parse_imp_resource_v2
 
 =item * Not finished.  Do not try to use yet.
 
+=item * Encrypted .IMP files provided by the eBookwise servers may
+have additional data inside the book properties header area,
+corresponding to the data from the padding bytes through the
+SOURCE_ID:SOURCE_TYPE:None string in the RSRC.INF file.  Currently,
+this information is completely ignored (preset values will be used
+when writing the RSRC.INF in all cases), and a warning will be carped
+if it exists.  This should only happen inside encrypted books,
+however.
+
 =back
 
 =head1 AUTHOR
