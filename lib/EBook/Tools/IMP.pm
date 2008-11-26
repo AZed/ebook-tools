@@ -275,6 +275,22 @@ sub write_resdir :method
     }
     chdir($self->{resdirname});
     
+    if($self->{'RSRC.INF'})
+    {
+        open($fh_resource,'>','RSRC.INF')
+            or croak($subname,"():\n",
+                     " unable to open 'RSRC.INF' for writing!\n");
+        print {*$fh_resource} $self->{'RSRC.INF'};
+        close($fh_resource)
+            or croak($subname,"():\n",
+                     " unable to close 'RSRC.INF'!\n");
+    }
+    else
+    {
+        carp($subname,"():\n",
+             " WARNING: no RSRC.INF data found!\n");
+    }
+
     foreach my $restype (keys %{$self->{resources}})
     {
         my $filename = $self->{resources}->{$restype}->{name};
@@ -292,7 +308,12 @@ sub write_resdir :method
 
         print {*$fh_resource} $header;
         print {*$fh_resource} $self->{resources}->{$restype}->{data};
+        close($fh_resource)
+            or croak($subname,"():\n",
+                     " unable to close '",$filename,"'!\n");
     }
+    
+    
 
     chdir($cwd);
     return 1;
