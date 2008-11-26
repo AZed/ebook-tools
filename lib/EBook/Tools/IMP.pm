@@ -854,6 +854,11 @@ sub parse_imp_resource_v2
 
 Zed Pobre <zed@debian.org>
 
+=head1 THANKS
+
+Thanks are due to Nick Rapallo for invaluable assistance in
+understanding the .IMP format and testing this code.
+
 =head1 LICENSE AND COPYRIGHT
 
 Copyright 2008 Zed Pobre
