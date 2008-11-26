@@ -76,9 +76,9 @@ my %rwfields = (
     'firstname'     => 'string',
     'resdirname'    => 'string',
     'RSRC.INF'      => 'string',
-    'resfiles'      => 'array',         # Array of hashes
+    'resfiles'      => 'array',         # Array of hashrefs
     'toc'           => 'array',         # Table of Contents, array of hashes
-    'resources'     => 'array',         # Raw resource file data
+    'resources'     => 'hash',          # Hash of hashrefs keyed on 'type'
     'text'          => 'string',        # Uncompressed text
     );
 my %rofields = (
@@ -137,6 +137,8 @@ sub load :method
     my $toc_size;
     my $tocdata;
     my $entrydata;
+    my $resource;       # Hashref
+
 
     open($fh_imp,'<',$filename)
         or croak($subname,"(): unable to open '",$filename,
@@ -181,14 +183,13 @@ sub load :method
         foreach my $entry (@{$self->{toc}})
         {
             sysread($fh_imp,$entrydata,$entry->{size}+10);
-            push(@{$self->{resources}},
-                 parse_imp_resource_v1($entrydata));
+            $resource = parse_imp_resource_v1($entrydata);
+            $self->{resources}->{$resource->{type}} = $resource;
 
             if($entry->{type} eq '    ')
             {
-                my $resindex = $#{$self->{resources}};
                 my $textref = uncompress_lzss(
-                    dataref => \$self->{resources}->[$resindex]->{data},
+                    dataref => \$self->{resources}->{'    '}->{data},
                     lengthbits => 3,
                     offsetbits => 14);
 
@@ -207,14 +208,13 @@ sub load :method
         foreach my $entry (@{$self->{toc}})
         {
             sysread($fh_imp,$entrydata,$entry->{size}+20);
-            push(@{$self->{resources}},
-                 parse_imp_resource_v2($entrydata));
+            $resource = parse_imp_resource_v2($entrydata);
+            $self->{resources}->{$resource->{type}} = $resource;
             
             if($entry->{type} eq '    ')
             {
-                my $resindex = $#{$self->{resources}};
                 my $textref = uncompress_lzss(
-                    dataref => \$self->{resources}->[$resindex]->{data},
+                    dataref => \$self->{resources}->{'    '}->{data},
                     lengthbits => 3,
                     offsetbits => 14);
 
