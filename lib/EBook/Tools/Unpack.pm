@@ -869,6 +869,11 @@ sub unpack_imp
 
     my $imp = EBook::Tools::IMP->new();
     $imp->load($self->{file});
+    
+    if($self->{raw})
+    {
+        $imp->write_resdir();
+    }
     print {*STDERR} "IMP support not yet functional!\n";
     return 0;
 }

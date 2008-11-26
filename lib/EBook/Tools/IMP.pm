@@ -263,14 +263,38 @@ sub write_resdir :method
         return;
     }
 
-    mkpath($self->{resdirname});
     my $cwd = getcwd();
+    my $fh_resource;
 
-    cd($self->{resdirname});
+    mkpath($self->{resdirname});
+    if(! -d $self->{resdirname})
+    {
+        croak($subname,"():\n",
+              " unable to create .RES directory '",$self->{resdirname},
+              "'!\n");
+    }
+    chdir($self->{resdirname});
     
-    
+    foreach my $restype (keys %{$self->{resources}})
+    {
+        my $filename = $self->{resources}->{$restype}->{name};
+        $filename = 'DATA.FRK' if($filename eq '    ');
+        my $header = pack('a[4]NNa[4]N',
+                          $self->{resources}->{$restype}->{name},
+                          $self->{resources}->{$restype}->{unknown1},
+                          $self->{resources}->{$restype}->{size},
+                          $self->{resources}->{$restype}->{type},
+                          $self->{resources}->{$restype}->{unknown2});
 
-    cd $cwd;
+        open($fh_resource,'>',$filename)
+            or croak($subname,"():\n",
+                     " unable to open '",$filename,"' for writing!\n");
+
+        print {*$fh_resource} $header;
+        print {*$fh_resource} $self->{resources}->{$restype}->{data};
+    }
+
+    chdir($cwd);
     return 1;
 }
 
