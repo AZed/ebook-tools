@@ -1525,6 +1525,9 @@ sub uncompress_dictionaryhuffman_records :method
 
     foreach my $recoffset (1 .. $lasttextrecord)
     {
+        local $| = 1;
+        print "Uncompressing record ",$recoffset,"/",$lasttextrecord,"\r"
+            if($recoffset % 10 == 0);
         $compressed = $self->{records}->[$recoffset]->{data};
         croak($subname,"(): no data found in record ",$recoffset,"!\n")
             unless($compressed);
@@ -1533,6 +1536,7 @@ sub uncompress_dictionaryhuffman_records :method
             huff => $self->{huff},
             cdics => $self->{cdics});
     }
+    print "Finished uncompressing text.\n";
     return 1;
 }
 
