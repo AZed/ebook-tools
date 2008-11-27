@@ -1525,7 +1525,7 @@ sub uncompress_dictionaryhuffman_records :method
 
     foreach my $recoffset (1 .. $lasttextrecord)
     {
-        local $| = 1;
+        local $OUTPUT_AUTOFLUSH = 1;
         print "Uncompressing record ",$recoffset,"/",$lasttextrecord,"\r"
             if($recoffset % 10 == 0);
         $compressed = $self->{records}->[$recoffset]->{data};
