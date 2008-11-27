@@ -24,8 +24,9 @@ my $ebook = EBook::Tools->new();
 my $unpacker;
 my @list;
 
+my $md5 = Digest::MD5->new();
 my %md5sums = (
-    'resonance.png' => 'TZBbdiIcLHpgkxsK0Dp18Q',
+    'resonance.png' => 'N0aTiJPQrsyTNRD8Iy0PQA',
     );
 
 my $mobitest_description =
@@ -116,7 +117,11 @@ ok(-d 'ertest','unpack() created ertest/');
 ok(-f 'ertest/ertest.opf','created ertest/ertest.opf');
 ok(-f 'ertest/ertest.pml','created ertest/ertest.pml');
 ok(-d 'ertest/ertest_img','unpack() created ertest/ertest_img');
-is(md5_base64('ertest/ertest_img/resonance.png'),$md5sums{'resonance.png'},
+open(my $fh_md5,'<:raw','ertest/ertest_img/resonance.png')
+    or die("Unable to open 'ertest/ertest_img/resonance.png': @!");
+$md5->addfile($fh_md5);
+close($fh_md5);
+is($md5->b64digest,$md5sums{'resonance.png'},
    'unpack() created ertest/ertest_img/resonance.png with correct checksum');
 ok($ebook->init('ertest/ertest.opf'),'ertest.opf parses');
 is($ebook->title,'eReader Test',
