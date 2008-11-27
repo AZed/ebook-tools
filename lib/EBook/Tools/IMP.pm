@@ -330,14 +330,14 @@ sub pack_imp_rsrc_inf :method
     my $length;
     my $pad;
 
-    $rsrc = pack('na[8]n',$self->{version},'BOOKDOUG',$self->{resdiroffset});
+    $rsrc = pack('na[8]n',1,'BOOKDOUG',$self->{resdiroffset});
     $rsrc .= pack('NNNNnCCN',
                   $self->{unknown0x18},$self->{unknown0x1c},
                   $self->{compression},$self->{encryption},
                   $self->{unknown0x28},$self->{unknown0x2a},
                   ($self->{type} * 16) + $self->{zoomstates},
                   $self->{unknown0x2c});
-    $rsrc .= pack('Z*','3:B:' . $self->{identifier});
+    $rsrc .= pack('Z*',$self->{identifier});
     $rsrc .= pack('Z*Z*Z*',
                   $self->{category},$self->{subcategory},$self->{title});
     $rsrc .= pack('Z*Z*Z*',
