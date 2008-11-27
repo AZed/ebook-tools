@@ -280,6 +280,8 @@ sub write_resdir :method
         open($fh_resource,'>','RSRC.INF')
             or croak($subname,"():\n",
                      " unable to open 'RSRC.INF' for writing!\n");
+
+        binmode ($fh_resource);
         print {*$fh_resource} $self->{'RSRC.INF'};
         close($fh_resource)
             or croak($subname,"():\n",
@@ -306,7 +308,8 @@ sub write_resdir :method
             or croak($subname,"():\n",
                      " unable to open '",$filename,"' for writing!\n");
 
-        print {*$fh_resource} $header;
+        binmode ($fh_resource);
+        print {*$fh_resource} $header if($filename ne '    ');
         print {*$fh_resource} $self->{resources}->{$restype}->{data};
         close($fh_resource)
             or croak($subname,"():\n",
