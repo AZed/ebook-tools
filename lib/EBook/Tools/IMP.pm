@@ -352,23 +352,23 @@ sub pack_imp_rsrc_inf :method
     $rsrc .= pack('Z*Z*Z*',
                   $self->{lastname},$self->{middlename},$self->{firstname});
     
-    # Make sure next record is 4-byte aligned
-    $length = length($rsrc);
-    $pad = $length % 4;
-    if($pad)
-    {
-        $pad = 4 - $pad;
-        $rsrc .= pack("a[$pad]","\0");
-    }
-
+    # Make sure next record is 4-byte aligned (omit; breaks existing tools)
+    #$length = length($rsrc);
+    #$pad = $length % 4;
+    #if($pad)
+    #{
+    #    $pad = 4 - $pad;
+    #    $rsrc .= pack("a[$pad]","\0");
+    #}
+    #
     # Use ISSUE_NUMBER here for periodicals, but periodicals not yet handled
-    $rsrc .= pack('NN',2,0xffffffff);
+    #$rsrc .= pack('NN',2,0xffffffff);
     # CONTENT_FEED periodical data not used
-    $rsrc .= pack('Z*','');
+    #$rsrc .= pack('Z*','');
     # SOURCE_ID:SOURCE_TYPE:None
-    $rsrc .= pack('Z*','3:B:None');
+    #$rsrc .= pack('Z*','3:B:None');
     # Unknown 4 bytes
-    $rsrc .= pack('N',0);
+    #$rsrc .= pack('N',0);
 
     return $rsrc;
 }
