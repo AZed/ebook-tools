@@ -307,8 +307,6 @@ sub write_resdir :method
             or croak($subname,"():\n",
                      " unable to close '",$filename,"'!\n");
     }
-    
-    
 
     chdir($cwd);
     return 1;
