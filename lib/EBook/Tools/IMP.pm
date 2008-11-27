@@ -298,11 +298,10 @@ sub write_resdir :method
         my $filename = $self->{resources}->{$restype}->{name};
         $filename = 'DATA.FRK' if($filename eq '    ');
 
-        open($fh_resource,'>',$filename)
+        open($fh_resource,'>:raw',$filename)
             or croak($subname,"():\n",
                      " unable to open '",$filename,"' for writing!\n");
 
-        binmode ($fh_resource);
         print {*$fh_resource} $self->{resources}->{$restype}->{data};
         close($fh_resource)
             or croak($subname,"():\n",
