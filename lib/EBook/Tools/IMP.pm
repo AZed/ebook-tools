@@ -297,19 +297,12 @@ sub write_resdir :method
     {
         my $filename = $self->{resources}->{$restype}->{name};
         $filename = 'DATA.FRK' if($filename eq '    ');
-        my $header = pack('a[4]NNa[4]N',
-                          $self->{resources}->{$restype}->{name},
-                          $self->{resources}->{$restype}->{unknown1},
-                          $self->{resources}->{$restype}->{size},
-                          $self->{resources}->{$restype}->{type},
-                          $self->{resources}->{$restype}->{unknown2});
 
         open($fh_resource,'>',$filename)
             or croak($subname,"():\n",
                      " unable to open '",$filename,"' for writing!\n");
 
         binmode ($fh_resource);
-        print {*$fh_resource} $header if($filename ne 'DATA.FRK');
         print {*$fh_resource} $self->{resources}->{$restype}->{data};
         close($fh_resource)
             or croak($subname,"():\n",
