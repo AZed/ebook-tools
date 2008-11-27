@@ -58,29 +58,32 @@ unless($@){ $drmsupport = 1; }
 ####################################################
 
 my %rwfields = (
-    'version'       => 'integer',
-    'filename'      => 'string',
-    'filecount'     => 'integer',
-    'resdirlength'  => 'integer',
-    'resdiroffset'  => 'integer',
-    'compression'   => 'integer',
-    'encryption'    => 'integer',
-    'type'          => 'integer',
+    'version'        => 'integer',
+    'filename'       => 'string',
+    'filecount'      => 'integer',
+    'resdirlength'   => 'integer',
+    'resdiroffset'   => 'integer',
+    'compression'    => 'integer',
+    'encryption'     => 'integer',
+    'type'           => 'integer',
     'zoomstates'     => 'integer',
-    'identifier'    => 'string',
-    'category'      => 'string',
-    'subcategory'   => 'string',
-    'title'         => 'string',
-    'lastname'      => 'string',
-    'middlename'    => 'string',
-    'firstname'     => 'string',
-    'resdirname'    => 'string',
-    'RSRC.INF'      => 'string',
-    'resfiles'      => 'array',         # Array of hashrefs
-    'toc'           => 'array',         # Table of Contents, array of hashes
-    'resources'     => 'hash',          # Hash of hashrefs keyed on 'type'
-    'text'          => 'string',        # Uncompressed text
+    'identifier'     => 'string',
+    'category'       => 'string',
+    'subcategory'    => 'string',
+    'title'          => 'string',
+    'lastname'       => 'string',
+    'middlename'     => 'string',
+    'firstname'      => 'string',
+    'resdirname'     => 'string',
+    'RSRC.INF'       => 'string',
+    'resfiles'       => 'array',        # Array of hashrefs
+    'toc'            => 'array',        # Table of Contents, array of hashes
+    'resources'      => 'hash',         # Hash of hashrefs keyed on 'type'
+    'lzsslengthbits' => 'integer',
+    'lzssoffsetbits' => 'integer',      
+    'text'           => 'string',       # Uncompressed text
     );
+
 my %rofields = (
     'unknown0x0a'   => 'string',
     'unknown0x18'   => 'integer',
@@ -184,17 +187,14 @@ sub load :method
         {
             sysread($fh_imp,$entrydata,$entry->{size}+10);
             $resource = parse_imp_resource_v1($entrydata);
+            if($resource->{type} ne $entry->{type})
+            {
+                carp($subname,"():\n",
+                     " '",$entry->{type},"' TOC entry pointed to '",
+                     $resource->{type},"' resource!\n");
+            }
             $self->{resources}->{$resource->{type}} = $resource;
 
-            if($entry->{type} eq '    ')
-            {
-                my $textref = uncompress_lzss(
-                    dataref => \$self->{resources}->{'    '}->{data},
-                    lengthbits => 3,
-                    offsetbits => 14);
-
-                $self->{text} = $$textref;
-            }
         }
     }
     elsif($self->{version} == 2)
@@ -210,16 +210,6 @@ sub load :method
             sysread($fh_imp,$entrydata,$entry->{size}+20);
             $resource = parse_imp_resource_v2($entrydata);
             $self->{resources}->{$resource->{type}} = $resource;
-            
-            if($entry->{type} eq '    ')
-            {
-                my $textref = uncompress_lzss(
-                    dataref => \$self->{resources}->{'    '}->{data},
-                    lengthbits => 3,
-                    offsetbits => 14);
-
-                $self->{text} = $$textref;
-            }
         }
     }
     else
@@ -227,6 +217,9 @@ sub load :method
         carp($subname,"(): IMP version ",$self->{version}," not supported!\n");
         return;
     }
+
+    $self->parse_imp_resource_cm();
+    $self->parse_imp_text();
 
     close($fh_imp)
         or croak($subname,"(): failed to close '",$filename,"'!\n");
@@ -311,6 +304,7 @@ sub write_resdir :method
     chdir($cwd);
     return 1;
 }
+
 
 ######################################
 ########## MODIFIER METHODS ##########
@@ -620,6 +614,105 @@ sub parse_imp_header :method
 }
 
 
+=head2 C<parse_imp_resource_cm()>
+
+Parses the C<!!cm> resource loaded into C<< $self->{resources} >>,
+if present, extracting the LZSS uncompression parameters into
+C<< $self->{lzssoffsetbits} >> and C<< $self->{lzsslengthbits} >>.
+
+Returns 1 on success, or undef if no C<!!cm> resource has been loaded
+yet or the resource data is invalid.
+
+=cut
+
+sub parse_imp_resource_cm :method
+{
+    my $self = shift;
+    my $subname = (caller(0))[3];
+    croak($subname . "() called as a procedure!\n") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+
+    return unless($self->{resources}->{'!!cm'});
+
+    my @list;
+    my $version;
+    my $ident;          # Must be constant string '!!cm'
+    my $unknown1;
+    my $indexoffset;
+    my $lzssdata;
+
+    @list = unpack('na[4]NN',$self->{resources}->{'!!cm'}->{data});
+    $version     = $list[0];
+    $ident       = $list[1];
+    $unknown1    = $list[2];
+    $indexoffset = $list[3];
+
+    if($ident ne '!!cm')
+    {
+        carp($subname,"():\n",
+             " Invalid '!!cm' record!\n");
+        return;
+    }
+    debug(2,"DEBUG: parsing !!cm v",$version,", index offset ",$indexoffset);
+    $lzssdata = substr($self->{resources}->{'!!cm'}->{data},$indexoffset-4,4);
+    @list = unpack('nn',$lzssdata);
+
+    if($list[0] + $list[1] > 32
+       or $list[0] < 2
+       or $list[1] < 1)
+    {
+        carp($subname,"():\n",
+             " invalid LZSS compression bit lengths!\n",
+             "[",$list[0]," offset bits, ",
+             $list[1]," length bits]\n");
+        return;
+    }
+
+    $self->{lzssoffsetbits} = $list[0];
+    $self->{lzsslengthbits} = $list[1];
+    debug(2,"DEBUG: !!cm specifies ",$list[0]," offset bits, ",
+          $list[1]," length bits");
+    return 1;
+}
+
+
+=head2 C<parse_imp_text()>
+
+Parses the C<'    '> (DATA.FRK) resource loaded into
+C<< $self->{resources} >>, if present, extracting the text into 
+C<< $self->{text} >>, uncompressing it if necessary.  LZSS uncompression
+will use the C<< $self->{lzsslengthbits} >> and
+C<< $self->{lzssoffsetbits} >> attributes if present, and default to 3
+length bits and 14 offset bits otherwise.
+
+Returns the length of the uncompressed text, or undef if no text
+resource was found.
+
+=cut
+
+sub parse_imp_text :method
+{
+    my $self = shift;
+    my $subname = (caller(0))[3];
+    croak($subname . "() called as a procedure!\n") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+
+    return unless($self->{resources}->{'    '});
+    
+    my $lengthbits = $self->{lzsslengthbits} || 3;
+    my $offsetbits = $self->{lzssoffsetbits} || 14;
+
+    my $textref = uncompress_lzss(
+        dataref => \$self->{resources}->{'    '}->{data},
+        lengthbits => $lengthbits,
+        offsetbits => $offsetbits);
+        
+    $self->{text} = $$textref;
+
+    return length($self->{text});
+}
+
+
 sub parse_imp_toc_v1 :method
 {
     my $self = shift;
@@ -659,7 +752,7 @@ sub parse_imp_toc_v1 :method
         $tocentry{unknown1} = $list[1];
         $tocentry{size}     = $list[2];
 
-        debug(2,"DEBUG: found toc entry '",$tocentry{name},
+        debug(3,"DEBUG: found toc entry '",$tocentry{name},
               "', type '",$tocentry{type},"' [",$tocentry{size}," bytes]");
         push(@{$self->{toc}}, \%tocentry);
         $offset += 10;
@@ -710,7 +803,7 @@ sub parse_imp_toc_v2 :method
         $tocentry{type}     = $list[3];
         $tocentry{unknown2} = $list[4];
 
-        debug(2,"DEBUG: found toc entry '",$tocentry{name},
+        debug(3,"DEBUG: found toc entry '",$tocentry{name},
               "', type '",$tocentry{type},"' [",$tocentry{size}," bytes]");
         push(@{$self->{toc}}, \%tocentry);
         $offset += 20;
@@ -905,6 +998,10 @@ Zed Pobre <zed@debian.org>
 
 Thanks are due to Nick Rapallo <nrapallo@yahoo.ca> for invaluable
 assistance in understanding the .IMP format and testing this code.
+
+Thanks are also due to Jeffrey Kraus-yao <krausyaoj@ameritech.net> for
+his work reverse-engineering the .IMP format to begin with, and the
+documentation at L<http://krausyaoj.tripod.com/reb1200.htm>.
 
 =head1 LICENSE AND COPYRIGHT
 
