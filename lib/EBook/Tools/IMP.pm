@@ -309,7 +309,7 @@ sub write_resdir :method
                      " unable to open '",$filename,"' for writing!\n");
 
         binmode ($fh_resource);
-        print {*$fh_resource} $header if($filename ne '    ');
+        print {*$fh_resource} $header if($filename ne 'DATA.FRK');
         print {*$fh_resource} $self->{resources}->{$restype}->{data};
         close($fh_resource)
             or croak($subname,"():\n",
@@ -913,8 +913,8 @@ Zed Pobre <zed@debian.org>
 
 =head1 THANKS
 
-Thanks are due to Nick Rapallo for invaluable assistance in
-understanding the .IMP format and testing this code.
+Thanks are due to Nick Rapallo <nrapallo@yahoo.ca> for invaluable
+assistance in understanding the .IMP format and testing this code.
 
 =head1 LICENSE AND COPYRIGHT
 
