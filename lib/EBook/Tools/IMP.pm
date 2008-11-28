@@ -1301,7 +1301,7 @@ format (10 bytes per entry).
 =item * Offset 0x00 [4 bytes, text]
 
 Resource name.  Stored in hash key C<name>.  In the case of the
-'DATA.FRK' text resource, this will be four spaces (C<' '>).
+'DATA.FRK' text resource, this will be four spaces (C<'    '>).
 
 =item * Offset 0x04 [2 bytes, big-endian unsigned short int]
 
@@ -1376,7 +1376,7 @@ format (20 bytes per entry).
 =item * Offset 0x00 [4 bytes, text]
 
 Resource name.  Stored in C<name>.  In the case of the 'DATA.FRK' text
-resource, this will be four spaces (C<' '>).
+resource, this will be four spaces (C<'   '>).
 
 =item * Offset 0x04 [4 bytes, big-endian unsigned long int]
 
