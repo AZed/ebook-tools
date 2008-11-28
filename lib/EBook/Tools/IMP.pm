@@ -261,6 +261,54 @@ sub bookproplength :method
 }
 
 
+=head2 C<filecount()>
+
+Returns the number of resource files as stored in
+C<< $self->{filecount} >>.  Note that this does NOT recompute that value
+from the actual number of resources in C<< $self->{resources} >>.  To do
+that, use L</create_toc_from_resources()>.
+
+=cut
+
+sub filecount :method
+{
+    my $self = shift;
+    my $subname = (caller(0))[3];
+    croak($subname . "() called as a procedure!\n") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+    return $self->{filecount};
+}
+
+
+=head2 C<find_resource_by_name($name)>
+
+Takes as a single argument a resource name and if a resource with that
+name exists in C<< $self->{resources} >> returns the resource type
+used as the hash key.
+
+Returns undef if no match was found or a name was not specified.
+
+=cut
+
+sub find_resource_by_name :method
+{
+    my $self = shift;
+    my ($name) = @_;
+    my $subname = (caller(0))[3];
+    croak($subname . "() called as a procedure!\n") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+
+    return unless($name);
+    return unless($self->{resources});
+
+    foreach my $type (keys %{$self->{resources}})
+    {
+        return $type if($self->{resources}->{$type}->{name} eq $name);
+    }
+    return;
+}
+
+
 =head2 C<pack_imp_book_properties()>
 
 Packs object attributes into the 7 null-terminated strings that
@@ -277,7 +325,7 @@ present.
 
 =cut
 
-sub pack_imp_book_properties
+sub pack_imp_book_properties :method
 {
     my $self = shift;
     my $subname = (caller(0))[3];
@@ -377,9 +425,122 @@ sub pack_imp_header :method
 }
 
 
+=head2 C<pack_imp_resource(%args)>
+
+Packs the specified resource stored in C<< $self->{resources} >> into
+a a data string suitable for writing into a .imp file, with a header
+format determined by C<< $self->{version} >>.
+
+Returns a reference to that string if the resource was found, or undef
+it was not.
+
+=head3 Arguments
+
+=over
+
+=item * C<name>
+
+Select the resource by resource name.
+
+If both this and C<type> are specified, the type is checked first and
+the name is only used if the type lookup fails.
+
+=item * C<type>
+
+Select the resource by resource type.  This is faster than selecting
+by name (since resources are stored in a hash keyed by type) and is
+recommended for most use.
+
+If both this and C<name> are specified, the type is checked first and
+the name is only used if the type lookup fails.
+
+=back
+
+=cut
+
+sub pack_imp_resource :method
+{
+    my $self = shift;
+    my %args = @_;
+    my $subname = (caller(0))[3];
+    croak($subname . "() called as a procedure!\n") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+
+    my %valid_args = (
+        'name' => 1,
+        'type' => 1,
+        );
+    foreach my $arg (keys %args)
+    {
+        croak($subname,"(): invalid argument '",$arg,"'")
+            if(!$valid_args{$arg});
+    }
+    if(!$args{name} and !$args{type})
+    {
+        carp($subname,"():\n",
+             " at least one of name or type must be specified!\n");
+        return;
+    }
+
+    my $type = $args{type};
+    my $resource;
+    my $resdata;
+
+    if(!($type and $self->{resources}->{$type}) and $args{name})
+    {
+        $type = $self->find_resource_by_name($args{name});
+        if(!$type or !$self->{resources}->{$type})
+        {
+            carp($subname,"():\n",
+                 " no resource with name '",$args{name},"' found!\n");
+            return;
+        }
+    }
+    if(!$self->{resources}->{$type})
+    {
+        carp($subname,"()\n",
+             " no resource with type '",$args{type},"' found!\n");
+        return;
+    }
+
+    $resource = $self->{resources}->{$type};
+    if($self->{version} == 1)
+    {
+        $resdata = pack('a[4]nN',
+                        $resource->{name},
+                        $resource->{unknown1},
+                        $resource->{size});
+        $resdata .= $resource->{data};
+    }
+    elsif($self->{version} == 2)
+    {
+        $resdata = pack('a[4]NNa[4]N',
+                        $resource->{name},
+                        $resource->{unknown1},
+                        $resource->{size},
+                        $resource->{type},
+                        $resource->{unknown2});
+        $resdata .= $resource->{data};
+    }
+    else
+    {
+        carp($subname,"(): invalid version ",$self->{version},"!\n");
+        return;
+    }
+
+    if(!$resdata)
+    {
+        carp($subname,"(): no resource data packed!\n");
+        return;
+    }
+
+    return \$resdata;
+}
+
+
 =head2 C<pack_imp_rsrc_inf()>
 
-Packs object variables into the data string that would be the content
+Packs object attributes into the data string that would be the content
 of the RSRC.INF file.  Returns that string.
 
 Currently does no sanity checking at all on the values it uses.
@@ -432,6 +593,117 @@ sub pack_imp_rsrc_inf :method
 }
 
 
+=head2 C<pack_imp_toc()>
+
+Packs the C<< $self->{toc} >> object attribute into a data string
+suitable for writing into a .imp file.  The format is determined by 
+C<< $self->{version} >>.
+
+Returns that string, or undef if valid version or TOC data is not
+found.
+
+=cut
+
+sub pack_imp_toc
+{
+    my $self = shift;
+    my $subname = (caller(0))[3];
+    croak($subname . "() called as a procedure!\n") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+    
+    my $tocdata;
+
+    if(!$self->{version})
+    {
+        carp($subname,"():\n",
+             " no version information found (did you load a file first?)\n");
+        return;
+    }
+    if($self->{version} > 2)
+    {
+        carp($subname,"():\n",
+             " invalid version ",$self->{version},"!\n");
+        return;
+    }
+
+    if(!@{$self->{toc}})
+    {
+        carp($subname,"(): no TOC data found!\n");
+        return;
+    }
+    
+    foreach my $entry (@{$self->{toc}})
+    {
+        if($self->{version} == 1)
+        {
+            $tocdata .= pack('a[4]nN',
+                             $entry->{name},
+                             $entry->{unknown1},
+                             $entry->{size});
+        }
+        elsif($self->{version} == 2)
+        {
+            $tocdata .= pack('a[4]NNa[4]N',
+                             $entry->{name},
+                             $entry->{unknown1},
+                             $entry->{size},
+                             $entry->{type},
+                             $entry->{unknown2});
+        }
+    }
+
+    if(!length($tocdata))
+    {
+        carp($subname,"(): no valid TOC data produced!\n");
+        return;
+    }
+
+    return $tocdata;
+}
+
+
+=head2 C<resdirlength()>
+
+Returns the length of the .RES directory name as stored in
+C<< $self->{resdirlength} >>.  Note that this does NOT recompute the 
+length from the actual name stored in C<< $self->{resdirname} >> --
+for that, use L</set_resdirlength()>.
+
+=cut
+
+sub resdirlength
+{
+    my $self = shift;
+    my $subname = (caller(0))[3];
+    croak($subname . "() called as a procedure!\n") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+    return $self->{resdirlength};
+}
+
+
+=head2 C<resdirname()>
+
+Returns the .RES directory name stored in C<< $self->{resdirname} >>.
+
+=cut
+
+sub resdirname :method
+{
+    my $self = shift;
+    my $subname = (caller(0))[3];
+    croak($subname . "() called as a procedure!\n") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+    return $self->{resdirname};
+}
+
+
+=head2 C<text()>
+
+Returns the uncompressed text originally stored in the DATA.FRK
+(C<'    '>) resource.  This will only work if the text was unencrypted.   
+
+=cut
+
 sub text :method
 {
     my $self = shift;
@@ -441,6 +713,53 @@ sub text :method
     return $self->{text};
 }
 
+
+=head2 C<tocentry($index)>
+
+Takes as a single argument an integer index to the table of contents
+data stored in C<< $self->{toc} >>.  Returns the hashref corresponding
+to that TOC entry, if it exists, or undef otherwise.
+
+=cut
+
+sub tocentry :method
+{
+    my $self = shift;
+    my ($index) = @_;
+    my $subname = (caller(0))[3];
+    croak($subname . "() called as a procedure!\n") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+    return $self->{toc}->[$index];
+}
+
+
+=head2 C<version()>
+
+Returns the version of the IMP format used to determine TOC and
+resource metadata size as stored in C<< $self->{version} >>.  Expected
+values are 1 (10-byte metadata) and 2 (20-byte metadata).
+
+=cut
+
+sub version
+{
+    my $self = shift;
+    my $subname = (caller(0))[3];
+    croak($subname . "() called as a procedure!\n") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+    return $self->{version};
+}
+
+
+=head2 C<write_imp($filename)>
+
+Takes as a sole argument the name of a file to write to, and writes a
+.imp file to that filename using the object attribute data.
+
+Returns 1 on success, or undef if required data (including the
+filename) was invalid or missing, or the file could not be written.
+
+=cut
 
 sub write_imp :method
 {
@@ -453,14 +772,18 @@ sub write_imp :method
     return unless($filename);
 
     my $fh_imp;
-    open($fh_imp,'>:raw',$filename)
-        or croak($subname,"():\n",
-                 " unable to open '",$filename,"' for writing!\n");
+    if(!open($fh_imp,'>:raw',$filename))
+    {
+        carp($subname,"():\n",
+             " unable to open '",$filename,"' for writing!\n");
+        return;
+    }
 
     my $headerdata = $self->pack_imp_header();
     my $bookpropdata = $self->pack_imp_book_properties();
+    my $tocdata = $self->pack_imp_toc;
 
-    if(!$headerdata or length($headerdata != 48))
+    if(!$headerdata or length($headerdata) != 48)
     {
         carp($subname,"(): invalid header data!\n");
         return;
@@ -468,6 +791,11 @@ sub write_imp :method
     if(!$bookpropdata)
     {
         carp($subname,"(): invalid book properties data!\n");
+        return;
+    }
+    if(!$tocdata)
+    {
+        carp($subname,"(): invalid table of contents data!\n");
         return;
     }
     if(!$self->{resdirname})
@@ -481,12 +809,17 @@ sub write_imp :method
         return;
     }
 
-    print {*fh_imp} $self->pack_imp_header();
-    print {*fh_imp} $self->pack_imp_book_properties();
-    print {*fh_imp} $self->{resdirname};
+    print {*$fh_imp} $headerdata;
+    print {*$fh_imp} $bookpropdata;
+    print {*$fh_imp} $self->{resdirname};
+    print {*$fh_imp} $tocdata;
 
-    print {*STDERR} "## UNFINISHED METHOD!\n";
-    return;
+    foreach my $tocentry (@{$self->{toc}})
+    {
+        print {*$fh_imp} ${$self->pack_imp_resource(type => $tocentry->{type})};
+    }
+
+    return 1;
 }
 
 
@@ -557,6 +890,20 @@ sub write_resdir :method
 ######################################
 ########## MODIFIER METHODS ##########
 ######################################
+
+=head2 C<create_toc_from_resources()>
+
+Creates appropriate table of contents data from the metadata in
+C<< $self->{resources} >>, in the format specified by
+C<< $self->{version} >>.  This will also set C<< $self->{filecount} >> to
+match the actual number of resources.
+
+=cut
+
+sub create_toc_from_resources
+{
+}
+
 
 =head2 C<parse_imp_book_properties($propdata)>
 
@@ -677,7 +1024,9 @@ which also marks the end of the book properties, stored in
 C<< $self->{resdiroffset} >>.  Note that this is NOT the length of the
 book properties.  To get the length of the book properties, subtract
 24 from this value (the number of bytes remaining in the header after
-this point).
+this point).  It is also NOT the offset from the beginning of the file
+to the .RES directory name -- to find that, add 24 to this value (the 
+number of bytes already parsed).
 
 =item * Offset 0x18 [4 bytes, big-endian unsigned long int?]
 
@@ -1164,6 +1513,9 @@ sub parse_imp_resource_v2
 =over
 
 =item * Not finished.  Do not try to use yet.
+
+=item * Support for v1 files is completely untested and implemented
+with some guesswork.  Bug reports welcome.
 
 =item * Encrypted .IMP files provided by the eBookwise servers may
 have additional data inside the book properties header area,
