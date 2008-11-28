@@ -29,6 +29,7 @@ use base qw(Exporter);
 
 our @EXPORT_OK;
 @EXPORT_OK = qw (
+    &detect_resource_type
     &parse_imp_resource_v1
     &parse_imp_resource_v2
     );
@@ -697,6 +698,45 @@ sub resdirname :method
 }
 
 
+=head2 C<resource($type)>
+
+Returns a hashref containing the resource data for the specified
+resource type, as stored in C<< $self->{resources}->{$type} >>.
+
+Returns undef if C<$type> is not specified, or if the specified type
+is not found.
+
+=cut
+
+sub resource
+{
+    my $self = shift;
+    my ($type) = @_;
+    my $subname = (caller(0))[3];
+    croak($subname . "() called as a procedure!\n") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+    return unless($type);
+    return $self->{resources}->{$type};
+}
+
+
+=head2 C<resources()>
+
+Returns a hashref of hashrefs containing all of the resource data
+keyed by type, as stored in C<< $self->{resources} >>.
+
+=cut
+
+sub resources :method
+{
+    my $self = shift;
+    my $subname = (caller(0))[3];
+    croak($subname . "() called as a procedure!\n") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+    return $self->{resources};
+}
+
+
 =head2 C<text()>
 
 Returns the uncompressed text originally stored in the DATA.FRK
@@ -1339,7 +1379,8 @@ sub parse_imp_toc_v2 :method
         $tocentry{unknown2} = $list[4];
 
         debug(3,"DEBUG: found toc entry '",$tocentry{name},
-              "', type '",$tocentry{type},"' [",$tocentry{size}," bytes]");
+              "', type '",$tocentry{type},"' [",$tocentry{size}," bytes,",
+              " unk1=",$tocentry{unknown1}," unk2=",$tocentry{unknown2},"]");
         push(@{$self->{toc}}, \%tocentry);
         $offset += 20;
     }
@@ -1355,6 +1396,44 @@ sub parse_imp_toc_v2 :method
 =head1 PROCEDURES
 
 All procedures are exportable, but none are exported by default.
+
+
+=head2 C<detect_resource_type(\$data)
+
+Takes as a sole argument a reference to the data component of a
+resource.  Returns a 4-byte string containing the resource type if
+detected successfully, or undef otherwise.
+
+Detection will not work on the C<DATA.FRK> (C<'   '>) resource.  That
+one must be detected separately by name/type.
+
+=cut
+
+sub detect_resource_type
+{
+    my ($dataref) = @_;
+    my $subname = (caller(0))[3];
+    debug(3,"DEBUG[",$subname,"]");
+
+    if(!$dataref)
+    {
+        carp($subname,"(): no resource data provided!\n");
+        return;
+    }
+    if(ref $dataref ne 'SCALAR')
+    {
+        carp($subname,"(): argument is not a scalar reference!\n");
+        return;
+    }
+
+    my $id = substr($$dataref,2,4);
+    if($id =~ m/^[\w! ]{4}$/)
+    {
+        return $id;
+    }
+    carp($subname,"(): resource not recognized!\n");
+    return;
+}
 
 
 =head2 C<parse_imp_resource_v1()>
@@ -1500,7 +1579,8 @@ sub parse_imp_resource_v2
     }
     
     debug(2,"DEBUG: found resource '",$resource{name},
-          "', type '",$resource{type},"' [",$resource{size}," bytes]");
+          "', type '",$resource{type},"' [",$resource{size}," bytes,",
+          " unk1=",$resource{unknown1}," unk2=",$resource{unknown2},"]");
 
     return \%resource;
 }
