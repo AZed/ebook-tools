@@ -1452,8 +1452,8 @@ The four-letter name of the resource.
 
 =item * C<type>
 
-The four-letter type of the resource.  For a version 1 resource, this
-is the same as C<name>
+The four-letter type of the resource.  This is detected from the data,
+and is not part of the v1 header.
 
 =item * C<unknown1>
 
@@ -1488,10 +1488,17 @@ sub parse_imp_resource_v1
 
     @list = unpack('a[4]nN',$data);
     $resource{name}     = $list[0];
-    $resource{type}     = $list[0];
     $resource{unknown1} = $list[1];
     $resource{size}     = $list[2];
     $resource{data}     = substr($data,10);
+    if($resource{name} eq '    ')
+    {
+        $resource{type} = '    ';
+    }
+    else
+    {
+        $resource{type} = detect_resource_type(\$resource{data});
+    }
 
     $size = length($resource{data});
     if($size != $resource{size})
