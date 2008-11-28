@@ -3,8 +3,8 @@ use Cwd qw(chdir getcwd);
 use Digest::MD5 qw(md5);
 use File::Basename qw(basename);
 use File::Path;    # Exports 'mkpath' and 'rmtree'
-use Test::More tests => 47;
-BEGIN { use_ok('EBook::Tools::IMP') };
+use Test::More tests => 78;
+BEGIN { use_ok('EBook::Tools::IMP',':all') };
 
 my $cwd;
 my $imp = EBook::Tools::IMP->new();
@@ -30,6 +30,7 @@ $cwd = getcwd();
 
 ok($imp->load('imp/REBTestDocument.imp'),
    "load('imp/REBTestDocument.imp') returns succesfully");
+
 open($fh_header,'<:raw','imp/REBTestDocument.imp')
     or die("Failed to load imp/REBTestDocument.imp! [@!]");
 sysread($fh_header,$headerdata,48);
@@ -38,6 +39,14 @@ sysread($fh_header,$resdirname,$imp->resdirlength);
 sysread($fh_header,$tocdata,$imp->version * 10 * $imp->filecount);
 sysread($fh_header,$resource,$imp->tocentry(0)->{size} + $imp->version * 10);
 close($fh_header);
+
+foreach my $type (keys %{$imp->resources})
+{
+    next if($imp->resource($type)->{name} eq '    ');
+    my $resdata = $imp->resource($type)->{data};
+    ok(detect_resource_type(\$resdata) eq $type,
+       "detect_resource_type() correctly detects '$type'");
+}
 
 is($imp->pack_imp_header,$headerdata,
    'pack_imp_header() creates the correct data');
