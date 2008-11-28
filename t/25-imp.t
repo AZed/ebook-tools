@@ -3,17 +3,21 @@ use Cwd qw(chdir getcwd);
 use Digest::MD5 qw(md5);
 use File::Basename qw(basename);
 use File::Path;    # Exports 'mkpath' and 'rmtree'
-use Test::More tests => 38;
+use Test::More tests => 40;
 BEGIN { use_ok('EBook::Tools::IMP') };
 
 my $cwd;
 my $imp = EBook::Tools::IMP->new();
 my $filename;
+my $headerdata;
+my $bookpropdata;
+my $fh_header;
 my $fh_res;
 my $fh_res_eti;
 my $md5 = Digest::MD5->new();
 my $md5eti = Digest::MD5->new();
 my @list;
+
 
 ########## TESTS BEGIN ##########
 
@@ -22,6 +26,17 @@ $cwd = getcwd();
 
 ok($imp->load('imp/REBTestDocument.imp'),
    "load('imp/REBTestDocument.imp') returns succesfully");
+open($fh_header,'<:raw','imp/REBTestDocument.imp')
+    or die("Failed to load imp/REBTestDocument.imp! [@!]");
+sysread($fh_header,$headerdata,48);
+sysread($fh_header,$bookpropdata,$imp->bookproplength);
+close($fh_header);
+
+is($imp->pack_imp_header,$headerdata,
+   'pack_imp_header() creates the correct data');
+is($imp->pack_imp_book_properties,$bookpropdata,
+   'pack_imp_book_properties() creates the correct data');
+
 ok($imp->write_resdir,
    "write_resdir() returns successfully");
 ok(-d 'REBtestdoc.RES',
@@ -43,6 +58,7 @@ while(<imp/REBtestdoc-ETI.RES/*>)
     ok($md5->digest eq $md5eti->digest,
        "write_resdir correctly unpacks '$filename'");
 }
+
 
 ########## CLEANUP ##########
 

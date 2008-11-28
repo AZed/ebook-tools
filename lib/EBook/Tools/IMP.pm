@@ -231,6 +231,207 @@ sub load :method
 ########## ACCESSOR METHODS ##########
 ######################################
 
+
+=head2 C<bookproplength()>
+
+Returns the total length in bytes of the book properties data,
+including the trailing null used to pack the C-style strings, but
+excluding any ETI server data appended to the end of the standard book
+properties.
+
+=cut
+
+sub bookproplength :method
+{
+    my $self = shift;
+    my $subname = (caller(0))[3];
+    croak($subname . "() called as a procedure!\n") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+
+    my $length = 0;
+    $length += length($self->{identifier})  + 1;
+    $length += length($self->{category})    + 1;
+    $length += length($self->{subcategory}) + 1;
+    $length += length($self->{title})       + 1;
+    $length += length($self->{lastname})    + 1;
+    $length += length($self->{middlename})  + 1;
+    $length += length($self->{firstname})   + 1;
+
+    return $length;
+}
+
+
+=head2 C<pack_imp_book_properties()>
+
+Packs object attributes into the 7 null-terminated strings that
+constitute the book properties section of the header.  Returns that
+string.
+
+Note that this does NOT pack the ETI server data appended to this
+section in encrypted books downloaded directly from the ETI servers,
+even if that data was found when the .imp file was loaded.  This is
+because the extra data can confuse the GEBLibrarian application, and
+is not needed to read the book.  The L</bookproplength()> and
+L</pack_imp_header()> methods also assume that this data will not be
+present.
+
+=cut
+
+sub pack_imp_book_properties
+{
+    my $self = shift;
+    my $subname = (caller(0))[3];
+    croak($subname . "() called as a procedure!\n") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+
+    my $bookpropdata = pack("Z*Z*Z*Z*Z*Z*Z*",
+                            $self->{identifier},
+                            $self->{category},
+                            $self->{subcategory},
+                            $self->{title},
+                            $self->{lastname},
+                            $self->{middlename},
+                            $self->{firstname});
+
+    return $bookpropdata;
+}
+
+
+=head2 C<pack_imp_header()>
+
+Packs object attributes into the 48-byte string representing the IMP
+header.  Returns that string on success, carps a warning and returns
+undef if a required attribute did not contain valid data.
+
+Note that in the case of an encrypted e-book with ETI server data in
+it, this header will not be identical to the original -- the
+resdiroffset value is recalculated for the position with the ETI
+server data stripped.  See L</bookproplength()> and
+L</pack_imp_book_properties()>.
+
+=cut
+
+sub pack_imp_header :method
+{
+    my $self = shift;
+    my $subname = (caller(0))[3];
+    croak($subname . "() called as a procedure!\n") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+
+    my $header;
+    my $filecount = scalar(keys %{$self->{resources}});
+    my $resdir = $self->{resdirname};
+
+    if(!$filecount)
+    {
+        carp($subname,"():\n",
+             " No resources found (has a file been loaded?)\n");
+        return;
+    }
+
+    if(!$resdir)
+    {
+        carp($subname,"():\n",
+             " No resource directory name specified!\n");
+        return;
+    }
+
+    if(!$self->{version})
+    {
+        carp($subname,"():\n",
+             " No version specified (has a file been loaded?)\n");
+        return;
+    }
+    if($self->{version} > 2)
+    {
+        carp($subname,"():\n",
+             " invalid version ",$self->{version},"\n");
+        return;
+    }
+
+    $header = pack('n',$self->{version});
+    $header .= 'BOOKDOUG';
+    if(length($self->{unknown0x0a}) != 8)
+    {
+        carp($subname,"():\n",
+             " unknown data at 0x0a has incorrect length",
+             " - substituting nulls");
+        $self->{unknown0x0a} = "\x00\x00\x00\x00\x00\x00\x00\x00";
+    }
+    $header .= $self->{unknown0x0a};
+    $header .= pack('nn',$filecount,length($resdir));
+    $header .= pack('n',$self->bookproplength + 24);
+    $header .= pack('NN',$self->{unknown0x18},$self->{unknown0x1c});
+    $header .= pack('NN',$self->{compression},$self->{encryption});
+    $header .= pack('nC',$self->{unknown0x28},$self->{unknown0x2a});
+    $header .= pack('C',$self->{type} * 16 + $self->{zoomstates});
+    $header .= pack('N',$self->{unknown0x2c});
+
+    if(length($header) != 48)
+    {
+        croak($subname,"():\n",
+              " total header length not 48 bytes (found ",
+              length($header),")\n");
+    }
+    return $header;
+}
+
+
+=head2 C<pack_imp_rsrc_inf()>
+
+Packs object variables into the data string that would be the content
+of the RSRC.INF file.  Returns that string.
+
+Currently does no sanity checking at all on the values it uses.
+
+=cut
+
+sub pack_imp_rsrc_inf :method
+{
+    my $self = shift;
+    my $subname = (caller(0))[3];
+    croak($subname . "() called as a procedure!\n") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+
+    my $rsrc;
+    my $length;
+    my $pad;
+
+    $rsrc = pack('na[8]n',1,'BOOKDOUG',$self->{resdiroffset});
+    $rsrc .= pack('NNNNnCCN',
+                  $self->{unknown0x18},$self->{unknown0x1c},
+                  $self->{compression},$self->{encryption},
+                  $self->{unknown0x28},$self->{unknown0x2a},
+                  ($self->{type} * 16) + $self->{zoomstates},
+                  $self->{unknown0x2c});
+    $rsrc .= pack('Z*',$self->{identifier});
+    $rsrc .= pack('Z*Z*Z*',
+                  $self->{category},$self->{subcategory},$self->{title});
+    $rsrc .= pack('Z*Z*Z*',
+                  $self->{lastname},$self->{middlename},$self->{firstname});
+    
+    # Make sure next record is 4-byte aligned (omit; breaks existing tools)
+    #$length = length($rsrc);
+    #$pad = $length % 4;
+    #if($pad)
+    #{
+    #    $pad = 4 - $pad;
+    #    $rsrc .= pack("a[$pad]","\0");
+    #}
+    #
+    # Use ISSUE_NUMBER here for periodicals, but periodicals not yet handled
+    #$rsrc .= pack('NN',2,0xffffffff);
+    # CONTENT_FEED periodical data not used
+    #$rsrc .= pack('Z*','');
+    # SOURCE_ID:SOURCE_TYPE:None
+    #$rsrc .= pack('Z*','3:B:None');
+    # Unknown 4 bytes
+    #$rsrc .= pack('N',0);
+
+    return $rsrc;
+}
+
+
 sub text :method
 {
     my $self = shift;
@@ -238,6 +439,54 @@ sub text :method
     croak($subname . "() called as a procedure!\n") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
     return $self->{text};
+}
+
+
+sub write_imp :method
+{
+    my $self = shift;
+    my ($filename) = @_;
+    my $subname = (caller(0))[3];
+    croak($subname . "() called as a procedure!\n") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+    
+    return unless($filename);
+
+    my $fh_imp;
+    open($fh_imp,'>:raw',$filename)
+        or croak($subname,"():\n",
+                 " unable to open '",$filename,"' for writing!\n");
+
+    my $headerdata = $self->pack_imp_header();
+    my $bookpropdata = $self->pack_imp_book_properties();
+
+    if(!$headerdata or length($headerdata != 48))
+    {
+        carp($subname,"(): invalid header data!\n");
+        return;
+    }
+    if(!$bookpropdata)
+    {
+        carp($subname,"(): invalid book properties data!\n");
+        return;
+    }
+    if(!$self->{resdirname})
+    {
+        carp($subname,"(): invalid .RES directory name!\n");
+        return;
+    }
+    if(!scalar(keys %{$self->{resources}}))
+    {
+        carp($subname,"(): no resources found!\n");
+        return;
+    }
+
+    print {*fh_imp} $self->pack_imp_header();
+    print {*fh_imp} $self->pack_imp_book_properties();
+    print {*fh_imp} $self->{resdirname};
+
+    print {*STDERR} "## UNFINISHED METHOD!\n";
+    return;
 }
 
 
@@ -309,61 +558,6 @@ sub write_resdir :method
 ########## MODIFIER METHODS ##########
 ######################################
 
-=head2 C<pack_imp_rsrc_inf()>
-
-Packs object variables into the data string that would be the content
-of the RSRC.INF file.  Returns that string.
-
-Currently does no sanity checking at all on the values it uses.
-
-=cut
-
-sub pack_imp_rsrc_inf :method
-{
-    my $self = shift;
-    my $subname = (caller(0))[3];
-    croak($subname . "() called as a procedure!\n") unless(ref $self);
-    debug(2,"DEBUG[",$subname,"]");
-
-    my $rsrc;
-    my $length;
-    my $pad;
-
-    $rsrc = pack('na[8]n',1,'BOOKDOUG',$self->{resdiroffset});
-    $rsrc .= pack('NNNNnCCN',
-                  $self->{unknown0x18},$self->{unknown0x1c},
-                  $self->{compression},$self->{encryption},
-                  $self->{unknown0x28},$self->{unknown0x2a},
-                  ($self->{type} * 16) + $self->{zoomstates},
-                  $self->{unknown0x2c});
-    $rsrc .= pack('Z*',$self->{identifier});
-    $rsrc .= pack('Z*Z*Z*',
-                  $self->{category},$self->{subcategory},$self->{title});
-    $rsrc .= pack('Z*Z*Z*',
-                  $self->{lastname},$self->{middlename},$self->{firstname});
-    
-    # Make sure next record is 4-byte aligned (omit; breaks existing tools)
-    #$length = length($rsrc);
-    #$pad = $length % 4;
-    #if($pad)
-    #{
-    #    $pad = 4 - $pad;
-    #    $rsrc .= pack("a[$pad]","\0");
-    #}
-    #
-    # Use ISSUE_NUMBER here for periodicals, but periodicals not yet handled
-    #$rsrc .= pack('NN',2,0xffffffff);
-    # CONTENT_FEED periodical data not used
-    #$rsrc .= pack('Z*','');
-    # SOURCE_ID:SOURCE_TYPE:None
-    #$rsrc .= pack('Z*','3:B:None');
-    # Unknown 4 bytes
-    #$rsrc .= pack('N',0);
-
-    return $rsrc;
-}
-
-
 =head2 C<parse_imp_book_properties($propdata)>
 
 Takes as a single argument a string containing the book properties
@@ -431,15 +625,7 @@ sub parse_imp_book_properties :method
     debug(2,"  First Name:   ",$self->{firstname});
 
     # Check for leftover data
-    my $length = 0;
-    $length += (length($properties[0]) + 1) if(defined $properties[0]);
-    $length += (length($properties[1]) + 1) if(defined $properties[1]);
-    $length += (length($properties[2]) + 1) if(defined $properties[2]);
-    $length += (length($properties[3]) + 1) if(defined $properties[3]);
-    $length += (length($properties[4]) + 1) if(defined $properties[4]);
-    $length += (length($properties[5]) + 1) if(defined $properties[5]);
-    $length += (length($properties[6]) + 1) if(defined $properties[6]);
-    
+    my $length = $self->bookproplength;
     if($length != length($propdata))
     {
         carp($subname,"():\n parsed ",$length,
@@ -487,10 +673,11 @@ C<< $self->{resdirlength} >>.
 =item * Offset 0x16 [2 bytes, big-endian unsigned short int]
 
 Offset from the point after this value to the .RES directory name,
-which also marks the end of the book properties.  Note that this is
-NOT the length of the book properties.  To get the length of the book
-properties, subtract 24 from this value (the number of bytes remaining
-in the header after this point).
+which also marks the end of the book properties, stored in 
+C<< $self->{resdiroffset} >>.  Note that this is NOT the length of the
+book properties.  To get the length of the book properties, subtract
+24 from this value (the number of bytes remaining in the header after
+this point).
 
 =item * Offset 0x18 [4 bytes, big-endian unsigned long int?]
 
