@@ -143,7 +143,7 @@ sub load :method
     my $resource;       # Hashref
 
 
-    open($fh_imp,'<',$filename)
+    open($fh_imp,'<:raw',$filename)
         or croak($subname,"(): unable to open '",$filename,
                  "' for reading!\n");
     sysread($fh_imp,$headerdata,48);
@@ -173,8 +173,6 @@ sub load :method
 
     debug(1,"DEBUG: resource directory = '",$self->{resdirname},"'");
     
-    $self->{'RSRC.INF'} = $self->pack_imp_rsrc_inf;
-
     if($self->{version} == 1)
     {
         $toc_size = 10 * $self->{filecount};
@@ -268,13 +266,14 @@ sub write_resdir :method
     }
     chdir($self->{resdirname});
     
+    $self->{'RSRC.INF'} = $self->pack_imp_rsrc_inf;
+
     if($self->{'RSRC.INF'})
     {
-        open($fh_resource,'>','RSRC.INF')
+        open($fh_resource,'>:raw','RSRC.INF')
             or croak($subname,"():\n",
                      " unable to open 'RSRC.INF' for writing!\n");
 
-        binmode ($fh_resource);
         print {*$fh_resource} $self->{'RSRC.INF'};
         close($fh_resource)
             or croak($subname,"():\n",
