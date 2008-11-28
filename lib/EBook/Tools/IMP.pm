@@ -1288,6 +1288,33 @@ sub parse_imp_text :method
 }
 
 
+=head2 C<parse_imp_toc_v1($tocdata)>
+
+Takes as a single argument a string containing the table of contents
+data, and parses it into object attributes following the version 1
+format (10 bytes per entry).
+
+=head3 Format
+
+=over
+
+=item * Offset 0x00 [4 bytes, text]
+
+Resource name.  Stored in hash key C<name>.  In the case of the
+'DATA.FRK' text resource, this will be four spaces (C<' '>).
+
+=item * Offset 0x04 [2 bytes, big-endian unsigned short int]
+
+Unknown, but always zero or one.  Stored in hash key C<unknown1>.
+
+=item * Offset 0x08 [4 bytes, big-endian unsigned long int]
+
+Size of the resource data in bytes.  Stored in hash key C<size>.
+
+=back
+
+=cut
+
 sub parse_imp_toc_v1 :method
 {
     my $self = shift;
@@ -1323,7 +1350,6 @@ sub parse_imp_toc_v1 :method
         @list = unpack('a[4]nN',$tocentrydata);
 
         $tocentry{name}     = $list[0];
-        $tocentry{type}     = $list[0];
         $tocentry{unknown1} = $list[1];
         $tocentry{size}     = $list[2];
 
@@ -1336,6 +1362,42 @@ sub parse_imp_toc_v1 :method
     return 1;
 }
 
+
+=head2 C<parse_imp_toc_v2($tocdata)>
+
+Takes as a single argument a string containing the table of contents
+data, and parses it into object attributes following the version 2
+format (20 bytes per entry).
+
+=head3 Format
+
+=over
+
+=item * Offset 0x00 [4 bytes, text]
+
+Resource name.  Stored in C<name>.  In the case of the 'DATA.FRK' text
+resource, this will be four spaces (C<' '>).
+
+=item * Offset 0x04 [4 bytes, big-endian unsigned long int]
+
+Unknown, but always zero.  Stored in C<unknown1>.
+
+=item * Offset 0x08 [4 bytes, big-endian unsigned long int]
+
+Size of the resource data in bytes.  Stored in C<size>.
+
+=item * Offset 0x0C [4 bytes, text]
+
+Resource type.  Stored in C<type>, and used as the key for the stored
+resource hash.
+
+=item * Offset 0x10 [4 bytes, big-endian unsigned long int]
+
+Unknown, but always either zero or one.  Stored in C<unknown2>.
+
+=back
+
+=cut
 
 sub parse_imp_toc_v2 :method
 {
