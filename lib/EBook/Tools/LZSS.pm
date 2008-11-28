@@ -57,6 +57,51 @@ use constant UNCODED => 1;
 
 All procedures are exportable, but none are exported by default.
 
+
+=head2 C<uncompress_lzss(%args)>
+
+Takes a reference to a compressed data string and the compression
+parameters as arguments, uncompresses the data string and returns a
+reference to the uncompressed string.
+
+=head3 Arguments
+
+All uncompression parameters must match the parameters used to
+compress.
+
+=over
+
+=item * C<dataref>
+
+The reference to the compressed data
+
+=item * C<lengthbits>
+
+The number of bits used to encode the length of a LZSS reference.  If
+not specified defaults to 4 bits (a maximum reference length of 18
+bytes, as the actual length is always 3 bytes more than specified).
+
+The eBookwise .IMP format typically compresses with 3 length bits
+(maximum reference length of 10 bytes).
+
+=item * C<offsetbits>
+
+The number of bits used to encode the offset to a LZSS reference.
+This also determines the size of the sliding window of reference data.
+If not specified, it defaults to 12 bits (4096-byte window).
+
+The eBookwise .IMP format typically compresses with 14 offset bits
+(16384-byte window).
+
+=item * C<windowinit>
+
+A string used to initalize the sliding window.  If specified, this
+string MUST be the same length as the window size, or the procedure
+will croak.  If not specified, the window will be initialized with
+spaces.
+
+=back
+
 =cut
 
 sub uncompress_lzss
@@ -195,9 +240,9 @@ sub uncompress_lzss
 
 =over
 
-=item * Undocumented.
-
 =item * Compression not yet implemented.
+
+=item * The LZSS algorithm isn't documented in the POD.
 
 =back
 
