@@ -640,7 +640,7 @@ sub init :method    ## no critic (Always unpack @_ first)
     debug(2,"DEBUG: init using '",$self->{opffile},"'");
 
     # Initialize the twig before use
-    $$self{twig} = XML::Twig->new(
+    $self->{twig} = XML::Twig->new(
 	keep_atts_order => 1,
 	output_encoding => 'utf-8',
 	pretty_print => 'record'
@@ -672,8 +672,8 @@ sub init :method    ## no critic (Always unpack @_ first)
 #          )
 #         / decode_entities($1) /gex;
 
-    $$self{twig}->parse($opfstring);
-    $$self{twigroot} = $$self{twig}->root;
+    $self->{twig}->parse($opfstring);
+    $self->{twigroot} = $self->{twig}->root;
     $self->twigcheck;
     debug(2,"DEBUG[/",$subname,"]");
     return $self;
@@ -743,17 +743,17 @@ sub init_blank :method    ## no critic (Always unpack @_ first)
     my $metadata;
     my $element;
 
-    $$self{opffile} = $args{opffile};
-    $$self{twig} = XML::Twig->new(
+    $self->{opffile} = $args{opffile};
+    $self->{twig} = XML::Twig->new(
 	keep_atts_order => 1,
 	output_encoding => 'utf-8',
 	pretty_print => 'record'
         );
 
     $element = XML::Twig::Elt->new('package');
-    $$self{twig}->set_root($element);
-    $$self{twigroot} = $$self{twig}->root;
-    $metadata = $$self{twigroot}->insert_new_elt('first_child','metadata');
+    $self->{twig}->set_root($element);
+    $self->{twigroot} = $self->{twig}->root;
+    $metadata = $self->{twigroot}->insert_new_elt('first_child','metadata');
 
     # dc:identifier
     $self->fix_packageid;
@@ -797,7 +797,7 @@ sub adult :method
     debug(2,"DEBUG[",$subname,"]");
     $self->twigcheck;
     
-    my $twigroot = $$self{twigroot};
+    my $twigroot = $self->{twigroot};
 
     my $element = $twigroot->first_descendant(qr/^adult$/ix);
     return unless($element);
@@ -825,7 +825,7 @@ sub contributor_list :method
     $self->twigcheck;
 
     my @retval = ();
-    my $twigroot = $$self{twigroot};
+    my $twigroot = $self->{twigroot};
 
     my @elements = $twigroot->descendants(qr/dc:contributor/ix);
     return unless(@elements);
@@ -884,7 +884,7 @@ sub date_list :method    ## no critic (Always unpack @_ first)
             if(!$valid_args{$arg});
     }
 
-    my @elements = $$self{twigroot}->descendants(qr/^ dc:date $/ix);
+    my @elements = $self->{twigroot}->descendants(qr/^ dc:date $/ix);
     my @list = ();
     my $id;
     my $scheme;
@@ -931,7 +931,7 @@ sub description :method
     debug(2,"DEBUG[",$subname,"]");
     $self->twigcheck;
     
-    my $twigroot = $$self{twigroot};
+    my $twigroot = $self->{twigroot};
 
     my $element = $twigroot->first_descendant(qr/^dc:description$/ix);
     return unless($element);
@@ -1007,7 +1007,7 @@ sub element_list :method    ## no critic (Always unpack @_ first)
         return;
     }
 
-    my @elements = $$self{twigroot}->descendants($args{cond});
+    my @elements = $self->{twigroot}->descendants($args{cond});
     my @list = ();
     my $id;
     my $scheme;
@@ -1061,7 +1061,7 @@ sub errors :method
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
-    return $$self{errors};
+    return $self->{errors};
 }
 
 
@@ -1081,10 +1081,10 @@ sub identifier :method
     debug(2,"DEBUG[",$subname,"]");
     $self->twigcheck;
 
-    my $identid = $$self{twigroot}->att('unique-identifier');
+    my $identid = $self->{twigroot}->att('unique-identifier');
     return unless($identid);
 
-    my $identifier = $$self{twig}->first_elt("*[\@id='$identid']");
+    my $identifier = $self->{twig}->first_elt("*[\@id='$identid']");
     return unless($identifier);
 
     my $idtext = $identifier->text;
@@ -1206,7 +1206,7 @@ sub isbns :method    ## no critic (Always unpack @_ first)
             if(!$valid_args{$arg});
     }
 
-    my @elements = $$self{twigroot}->descendants(\&twigelt_is_isbn);
+    my @elements = $self->{twigroot}->descendants(\&twigelt_is_isbn);
     my @list = ();
     my $id;
     my $scheme;
@@ -1273,7 +1273,7 @@ sub languages :method
     $self->twigcheck;
 
     my @retval = ();
-    my @elements = $$self{twigroot}->descendants(qr/^dc:language$/ix);
+    my @elements = $self->{twigroot}->descendants(qr/^dc:language$/ix);
     foreach my $el (@elements)
     {
         push(@retval,$el->text) if($el->text);
@@ -1389,7 +1389,7 @@ sub manifest :method    ## no critic (Always unpack @_ first)
     if($cond) { $cond .= "]"; }
     else { $cond = "item"; }
 
-    my $manifest = $$self{twigroot}->first_child('manifest');
+    my $manifest = $self->{twigroot}->first_child('manifest');
     return unless($manifest);
 
     debug(1,"DEBUG: manifest search condition = '",$cond,"'");
@@ -1434,7 +1434,7 @@ sub manifest_hrefs :method
     my $manifest;
     my @retval = ();
 
-    $manifest = $$self{twigroot}->first_child('manifest');
+    $manifest = $self->{twigroot}->first_child('manifest');
     if(! $manifest) { return @retval; }
 
     @items = $manifest->descendants('item');
@@ -1464,8 +1464,8 @@ sub opffile :method
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
-    return unless($$self{opffile});
-    return $$self{opffile};
+    return unless($self->{opffile});
+    return $self->{opffile};
 }
 
 
@@ -1502,7 +1502,7 @@ sub primary_author :method
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
 
-    my $twigroot = $$self{twigroot};
+    my $twigroot = $self->{twigroot};
     my $element;
     my $fileas;
 
@@ -1531,7 +1531,7 @@ sub print_errors :method
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
 
-    my $errorref = $$self{errors};
+    my $errorref = $self->{errors};
 
     if(!$self->errors)
     {
@@ -1561,7 +1561,7 @@ sub print_warnings :method
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
 
-    my $warningref = $$self{warnings};
+    my $warningref = $self->{warnings};
 
     if(!$self->warnings)
     {
@@ -1592,8 +1592,8 @@ sub print_opf :method
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
 
-    if(defined $filehandle) { $$self{twig}->print($filehandle); }
-    else { $$self{twig}->print; }
+    if(defined $filehandle) { $self->{twig}->print($filehandle); }
+    else { $self->{twig}->print; }
     return 1;
 }
 
@@ -1616,7 +1616,7 @@ sub publishers :method
     $self->twigcheck;
 
     my @pubs = ();
-    my @elements = $$self{twigroot}->descendants(qr/^dc:publisher$/ix);
+    my @elements = $self->{twigroot}->descendants(qr/^dc:publisher$/ix);
     foreach my $el (@elements)
     {
         push(@pubs,$el->text) if($el->text);
@@ -1647,7 +1647,7 @@ sub retailprice :method
     debug(2,"DEBUG[",$subname,"]");
     $self->twigcheck;
     
-    my $twigroot = $$self{twigroot};
+    my $twigroot = $self->{twigroot};
 
     my $element = $twigroot->first_descendant(qr/^ SRP $/ix);
     return unless($element);
@@ -1671,7 +1671,7 @@ sub review :method
     debug(2,"DEBUG[",$subname,"]");
     $self->twigcheck;
     
-    my $twigroot = $$self{twigroot};
+    my $twigroot = $self->{twigroot};
 
     my $element = $twigroot->first_descendant(qr/^review$/ix);
     return unless($element);
@@ -1718,7 +1718,7 @@ sub rights :method    ## no critic (Always unpack @_ first)
 
     my @rights = ();
     my $id = $args{id};
-    my @elements = $$self{twigroot}->descendants(qr/^dc:(copy)?rights$/ix);
+    my @elements = $self->{twigroot}->descendants(qr/^dc:(copy)?rights$/ix);
 
     foreach my $element (@elements)
     {
@@ -1761,7 +1761,7 @@ sub search_knownuids :method    ## no critic (Always unpack @_ first)
 
     my @elements;
 
-    @elements = $$self{twigroot}->descendants(\&twigelt_is_knownuid);
+    @elements = $self->{twigroot}->descendants(\&twigelt_is_knownuid);
     return unless(@elements);
     debug(1,"DEBUG: found known UID '",$elements[0]->id,"'");
     return $elements[0]->id;
@@ -1793,7 +1793,7 @@ sub search_knownuidschemes :method   ## no critic (Always unpack @_ first)
     debug(2,"DEBUG[",$subname,"]");
     $self->twigcheck;
 
-    my $topelement = $$self{twigroot};
+    my $topelement = $self->{twigroot};
 
     my @knownuidschemes = (
         'GUID',
@@ -1867,7 +1867,7 @@ sub spec :method
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
-    return $$self{spec};
+    return $self->{spec};
 }
 
 
@@ -1897,14 +1897,14 @@ sub spine :method
     debug(2,"DEBUG[",$subname,"]");
     $self->twigcheck();
 
-    my $spine = $$self{twigroot}->first_child('spine');
+    my $spine = $self->{twigroot}->first_child('spine');
     return unless($spine);
     my @spinerefs;
     my $idref;
     my $element;
     my @retarray;
 
-    my $manifest = $$self{twigroot}->first_child('manifest');
+    my $manifest = $self->{twigroot}->first_child('manifest');
     if(!$manifest)
     {
         $self->add_error(
@@ -1968,7 +1968,7 @@ sub spine_idrefs :method
     debug(2,"DEBUG[",$subname,"]");
     $self->twigcheck();
 
-    my $spine = $$self{twigroot}->first_child('spine');;
+    my $spine = $self->{twigroot}->first_child('spine');;
     my @retval = ();
     my @itemrefs;
     my $idref;
@@ -2004,7 +2004,7 @@ sub subject_list :method
     $self->twigcheck;
 
     my @retval = ();
-    my $twigroot = $$self{twigroot};
+    my $twigroot = $self->{twigroot};
 
     my @subjects = $twigroot->descendants(qr/dc:subject/ix);
     return unless(@subjects);
@@ -2035,7 +2035,7 @@ sub title :method
     debug(2,"DEBUG[",$subname,"]");
     $self->twigcheck;
     
-    my $twigroot = $$self{twigroot};
+    my $twigroot = $self->{twigroot};
 
     my $element = $twigroot->first_descendant(qr/^dc:title$/ix);
     return unless($element);
@@ -2061,7 +2061,7 @@ sub twig :method
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
-    return $$self{twig};
+    return $self->{twig};
 }
 
 
@@ -2084,16 +2084,16 @@ sub twigcheck :method
     croak("twigcheck called from unknown location") if(!@calledfrom);
 
     croak($calledfrom[3],"(): undefined twig")
-        if(!$$self{twig});
+        if(!$self->{twig});
     croak($calledfrom[3],"(): twig isn't a XML::Twig")
-        if( (ref $$self{twig}) ne 'XML::Twig' );
+        if( (ref $self->{twig}) ne 'XML::Twig' );
     croak($calledfrom[3],"(): twig root missing")
-        if(!$$self{twigroot});
+        if(!$self->{twigroot});
     croak($calledfrom[3],"(): twig root isn't a XML::Twig::Elt")
-        if( (ref $$self{twigroot}) ne 'XML::Twig::Elt' );
-    croak($calledfrom[3],"(): twig root is '" . $$self{twigroot}->gi 
+        if( (ref $self->{twigroot}) ne 'XML::Twig::Elt' );
+    croak($calledfrom[3],"(): twig root is '" . $self->{twigroot}->gi 
           . "' (needs to be 'package')")
-        if($$self{twigroot}->gi ne 'package');
+        if($self->{twigroot}->gi ne 'package');
     debug(3,"DEBUG[/",$subname,"]");
     return 1;
 }
@@ -2118,7 +2118,7 @@ sub twigroot :method
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
-    return $$self{twigroot};
+    return $self->{twigroot};
 }
 
 
@@ -2134,7 +2134,7 @@ sub warnings :method
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
-    return $$self{warnings};
+    return $self->{warnings};
 }
 
 
@@ -2199,8 +2199,8 @@ sub add_document :method   ## no critic (Always unpack @_ first)
     $href = trim($href);
     return unless($href);
 
-    my $twig = $$self{twig};
-    my $topelement = $$self{twigroot};
+    my $twig = $self->{twig};
+    my $topelement = $self->{twigroot};
     my $element;
 
     $id = $href unless($id);
@@ -2265,7 +2265,7 @@ sub add_error :method   ## no critic (Always unpack @_ first)
     debug(3,"DEBUG[",$subname,"]");
 
     my $currenterrors;
-    $currenterrors = $$self{errors} if($$self{errors});
+    $currenterrors = $self->{errors} if($self->{errors});
 
     if(@newerror)
     {
@@ -2273,7 +2273,7 @@ sub add_error :method   ## no critic (Always unpack @_ first)
 	debug(1,"ERROR: ",$error);
 	push(@$currenterrors,$error);
     }
-    $$self{errors} = $currenterrors;
+    $self->{errors} = $currenterrors;
     return 1;
 }
 
@@ -2333,12 +2333,12 @@ sub add_identifier :method    ## no critic (Always unpack @_ first)
         unless($args{text});
 
     $self->fix_metastructure_basic();
-    my $meta = $$self{twigroot}->first_child('metadata');
+    my $meta = $self->{twigroot}->first_child('metadata');
     my $dcmeta = $meta->first_child('dc-metadata');
     my $element;
     my $idelem;
     my $newid = $args{id};
-    $idelem = $$self{twig}->first_elt("*[\@id='$newid']") if($newid);
+    $idelem = $self->{twig}->first_elt("*[\@id='$newid']") if($newid);
 
     if($dcmeta)
     {
@@ -2414,8 +2414,8 @@ sub add_item :method   ## no critic (Always unpack @_ first)
     $href = trim($href);
     return unless($href);
 
-    my $twig = $$self{twig};
-    my $topelement = $$self{twigroot};
+    my $twig = $self->{twig};
+    my $topelement = $self->{twigroot};
     my $element;
 
     $id = $href unless($id);
@@ -2441,7 +2441,7 @@ sub add_item :method   ## no critic (Always unpack @_ first)
 	debug(2,"DEBUG: '",$href,"' has mimetype '",$mediatype,"'");
     }
 
-    my $manifest = $$self{twigroot}->first_child('manifest');
+    my $manifest = $self->{twigroot}->first_child('manifest');
     $manifest = $topelement->insert_new_elt('last_child','manifest')
         if(!$manifest);
 
@@ -2574,9 +2574,9 @@ sub add_metadata :method    ## no critic (Always unpack @_ first)
     my %dcatts;
     
     $self->fix_metastructure_basic();
-    $parent =  $$self{twigroot}->first_descendant(qr/^ $args{parent} $/ix)
+    $parent =  $self->{twigroot}->first_descendant(qr/^ $args{parent} $/ix)
         if($args{parent});
-    $meta = $$self{twigroot}->first_child('metadata');
+    $meta = $self->{twigroot}->first_child('metadata');
     $dcmeta = $meta->first_child('dc-metadata');
     $parent = $parent || $dcmeta || $meta;
     if($parent->gi eq 'metadata')
@@ -2606,7 +2606,7 @@ sub add_metadata :method    ## no critic (Always unpack @_ first)
         if($args{scheme});
     $element->set_text($text);
 
-    $idelem = $$self{twig}->first_elt("*[\@id='$newid']") if($newid);
+    $idelem = $self->{twig}->first_elt("*[\@id='$newid']") if($newid);
     if($idelem && $idelem->cmp($element) )
     {
         $self->add_warning(
@@ -2686,12 +2686,12 @@ sub add_subject :method     ## no critic (Always unpack @_ first)
         unless($args{text});
 
     $self->fix_metastructure_basic();
-    my $meta = $$self{twigroot}->first_child('metadata');
+    my $meta = $self->{twigroot}->first_child('metadata');
     my $dcmeta = $meta->first_child('dc-metadata');
     my $element;
     my $idelem;
     my $newid = $args{id};
-    $idelem = $$self{twig}->first_elt("*[\@id='$newid']") if($newid);
+    $idelem = $self->{twig}->first_elt("*[\@id='$newid']") if($newid);
 
     if($dcmeta)
     {
@@ -2738,7 +2738,7 @@ sub add_warning :method   ## no critic (Always unpack @_ first)
     debug(3,"DEBUG[",$subname,"]");
             
     my @currentwarnings;
-    @currentwarnings = @{$$self{warnings}} if($$self{warnings});
+    @currentwarnings = @{$self->{warnings}} if($self->{warnings});
     
     if(@newwarning)
     {
@@ -2746,7 +2746,7 @@ sub add_warning :method   ## no critic (Always unpack @_ first)
 	debug(1,"WARNING: ",$warning);
 	push(@currentwarnings,$warning);
     }
-    $$self{warnings} = \@currentwarnings;
+    $self->{warnings} = \@currentwarnings;
 
     debug(3,"DEBUG[/",$subname,"]");
     return 1;
@@ -2826,7 +2826,7 @@ sub delete_meta_filepos :method
     debug(2,"DEBUG[",$subname,"]");
     $self->twigcheck();
 
-    my @elements = $$self{twigroot}->descendants('metadata[@filepos]');
+    my @elements = $self->{twigroot}->descendants('metadata[@filepos]');
     foreach my $el (@elements)
     {
 	$el->delete;
@@ -2855,14 +2855,15 @@ sub fix_dates :method
     my @dates;
     my $newdate;
 
-    @dates = $$self{twigroot}->descendants('dc:date');
-    push(@dates,$$self{twigroot}->descendants('dc:Date'));
+    @dates = $self->{twigroot}->descendants('dc:date');
+    push(@dates,$self->{twigroot}->descendants('dc:Date'));
     
     foreach my $dcdate (@dates)
     {
 	if(!$dcdate->text)
 	{
-	    $self->add_warning("WARNING: found dc:date with no value -- skipping");
+	    $self->add_warning(
+                "WARNING: found dc:date with no value -- skipping");
 	}
 	else
 	{
@@ -2870,7 +2871,8 @@ sub fix_dates :method
 	    if(!$newdate)
 	    {
 		$self->add_warning(
-		    sprintf("fixmisc(): can't deal with date '%s' -- skipping.",$dcdate->text)
+		    sprintf("fixmisc(): can't deal with date '%s' -- skipping",
+                            $dcdate->text)
 		    );
 	    }
 	    elsif($dcdate->text ne $newdate)
@@ -2916,7 +2918,7 @@ sub fix_guide :method
     debug(2,"DEBUG[",$subname,"]");
     $self->twigcheck();
 
-    my $twigroot = $$self{twigroot};
+    my $twigroot = $self->{twigroot};
     my $guide = $twigroot->first_descendant('guide');
     my $parent;
     my $href;
@@ -3023,7 +3025,7 @@ sub fix_languages :method
             if(!$valid_args{$arg});
     }
 
-    my $twigroot = $$self{twigroot};
+    my $twigroot = $self->{twigroot};
     my $defaultlang = $args{default} || 'en';
     my $langel;
     my @elements = $twigroot->descendants(qr/dc:language/ix);
@@ -3065,7 +3067,7 @@ sub fix_links :method
     debug(2,"DEBUG[",$subname,"]");
     $self->twigcheck();
 
-    my $twigroot = $$self{twigroot};
+    my $twigroot = $self->{twigroot};
 
     my $manifest = $twigroot->first_child('manifest');
     my @unchecked;
@@ -3195,7 +3197,7 @@ sub fix_manifest :method
     debug(2,"DEBUG[",$subname,"]");
     $self->twigcheck();
 
-    my $twigroot = $$self{twigroot};
+    my $twigroot = $self->{twigroot};
 
     my $manifest = $twigroot->first_descendant('manifest');
     my @elements;
@@ -3268,8 +3270,7 @@ sub fix_manifest :method
         else
         {
             # We have an ID and a href
-            print {*STDERR} "DEBUG: processing item '",$id,"' (href='",$href,"')\n"
-                if($debug >= 3);
+            debug(3,"DEBUG: processing item '",$id,"' (href='",$href,"')");
             $el->move('last_child',$manifest);
         }
     }
@@ -3294,7 +3295,7 @@ sub fix_metastructure_basic :method
     debug(3,"DEBUG[",$subname,"]");
     $self->twigcheck();
 
-    my $twigroot = $$self{twigroot};
+    my $twigroot = $self->{twigroot};
     my $metadata = $twigroot->first_descendant('metadata');
 
     if(! $metadata)
@@ -3327,7 +3328,7 @@ sub fix_metastructure_oeb12 :method
     debug(3,"DEBUG[",$subname,"]");
     $self->twigcheck();
 
-    my $twigroot = $$self{twigroot};
+    my $twigroot = $self->{twigroot};
 
     my $metadata;
     my $dcmeta;
@@ -3439,7 +3440,7 @@ sub fix_mobi :method
     debug(2,"DEBUG[",$subname,"]");
     $self->twigcheck();
 
-    my $twigroot = $$self{twigroot};
+    my $twigroot = $self->{twigroot};
 
     my %mobicontenttypes = (
 	'text/x-oeb1-document' => 'text/x-oeb1-document',
@@ -3590,7 +3591,7 @@ sub fix_oeb12 :method
     debug(2,"DEBUG[",$subname,"]");
     $self->twigcheck();
     
-    my $twigroot = $$self{twigroot};
+    my $twigroot = $self->{twigroot};
     my $metadata;
     my $dcmeta;
     my $xmeta;
@@ -3656,7 +3657,7 @@ sub fix_oeb12 :method
     $self->fix_spine;
 
     # Set the OEB 1.2 doctype
-    $$self{twig}->set_doctype('package',
+    $self->{twig}->set_doctype('package',
                               "http://openebook.org/dtds/oeb-1.2/oebpkg12.dtd",
                               "+//ISBN 0-9673008-1-9//DTD OEB 1.2 Package//EN");
     
@@ -3666,7 +3667,7 @@ sub fix_oeb12 :method
         'xmlns' => 'http://openebook.org/namespaces/oeb-package/1.0/');
     $self->fix_packageid;
 
-    $$self{spec} = $validspecs{'OEB12'};
+    $self->{spec} = $validspecs{'OEB12'};
     debug(2,"DEBUG[/",$subname,"]");
     return 1;
 }
@@ -3694,7 +3695,7 @@ sub fix_oeb12_dcmetatags :method
     debug(2,"DEBUG[",$subname,"]");
     $self->twigcheck();
 
-    my $topelement = $$self{twigroot};
+    my $topelement = $self->{twigroot};
 
     my @elements;
 
@@ -3719,11 +3720,13 @@ Specifically, this involves:
 
 =over
 
-=item * moving all of the dc-metadata and x-metadata elements directly underneath <metadata>
+=item * moving all of the dc-metadata and x-metadata elements directly
+underneath <metadata>
 
 =item * removing the <dc-metadata> and <x-metadata> elements themselves
 
-=item * lowercasing the dc-metadata tags (and fixing dc:copyrights to dc:rights)
+=item * lowercasing the dc-metadata tags (and fixing dc:copyrights to
+dc:rights)
 
 =item * setting namespaces on dc-metata OPF attributes
 
@@ -3746,7 +3749,7 @@ sub fix_opf20 :method
     # Ensure a sane structure
     $self->fix_metastructure_basic();
 
-    my $twigroot = $$self{twigroot};
+    my $twigroot = $self->{twigroot};
     my $metadata = $twigroot->first_descendant('metadata');
     my @elements;
 
@@ -3816,10 +3819,10 @@ sub fix_opf20 :method
     $self->fix_spine;
 
     # Clobber the doctype, if present
-    $$self{twig}->set_doctype(0,0,0,0);
+    $self->{twig}->set_doctype(0,0,0,0);
 
     # Set the specification
-    $$self{spec} = $validspecs{'OPF20'};
+    $self->{spec} = $validspecs{'OPF20'};
 
     debug(2,"DEBUG[/",$subname,"]");
     return 1;
@@ -3848,7 +3851,7 @@ sub fix_opf20_dcmetatags :method
     debug(2,"DEBUG[",$subname,"]");
     $self->twigcheck();
 
-    my $topelement = $$self{twigroot};
+    my $topelement = $self->{twigroot};
     my @elements;
 
     foreach my $dcmetatag (keys %dcelements20)
@@ -3887,7 +3890,7 @@ sub fix_packageid :method
 
     # Start by enforcing the basic structure needed
     $self->fix_metastructure_basic();
-    my $twigroot = $$self{twigroot};
+    my $twigroot = $self->{twigroot};
     my $packageid = $twigroot->att('unique-identifier');
     
     my $meta = $twigroot->first_child('metadata')
@@ -3908,22 +3911,26 @@ sub fix_packageid :method
         # As of Twig 3.32, this will cause 'uninitialized value'
         # warnings to be spewed for each time no descendants are
         # found.
-	#$element = $$self{twig}->elt_id($packageid);
-	$element = $$self{twig}->first_elt("*[\@id='$packageid']");
+	#$element = $self->{twig}->elt_id($packageid);
+	$element = $self->{twig}->first_elt("*[\@id='$packageid']");
     
 	if($element)
 	{
 	    if(lc($element->tag) ne 'dc:identifier')
 	    {
 		debug(1,"DEBUG: packageid '",$packageid,
-                      "' points to a non-identifier element ('",$element->tag,"')");
-                debug(1,"DEBUG: undefining existing packageid '",$packageid,"'");
+                      "' points to a non-identifier element ('",
+                      $element->tag,"')");
+                debug(1,"DEBUG: undefining existing packageid '",
+                      $packageid,"'");
 		undef($packageid);
 	    }
 	    elsif(!$element->text)
 	    {
-		debug(1,"DEBUG: packageid '",$packageid,"' points to an empty identifier.");
-		debug(1,"DEBUG: undefining existing packageid '",$packageid,"'");
+		debug(1,"DEBUG: packageid '",$packageid,
+                      "' points to an empty identifier.");
+		debug(1,"DEBUG: undefining existing packageid '",
+                      $packageid,"'");
 		undef($packageid);
 	    }
 	}
@@ -4020,7 +4027,7 @@ sub fix_spine :method
     debug(2,"DEBUG[",$subname,"]");
     $self->twigcheck();
 
-    my $twigroot = $$self{twigroot};
+    my $twigroot = $self->{twigroot};
     my $spine = $twigroot->first_descendant('spine');
     my @elements;
     my $parent;
@@ -4122,20 +4129,20 @@ sub gen_epub :method    ## no critic (Always unpack @_ first)
     my $member;
 
     $self->gen_epub_files();
-    if(! $$self{opffile} )
+    if(! $self->{opffile} )
     {
 	$self->add_error(
 	    "Cannot create epub without an OPF (did you forget to init?)");
         debug(1,"Cannot create epub without an OPF");
 	return;
     }
-    if(! -f $$self{opffile} )
+    if(! -f $self->{opffile} )
     {
 	$self->add_error(
 	    sprintf("OPF '%s' does not exist (did you forget to save?)",
-		    $$self{opffile})
+		    $self->{opffile})
 	    );
-        debug(1,"OPF '",$$self{opffile},"' does not exist");
+        debug(1,"OPF '",$self->{opffile},"' does not exist");
 	return;
     }
 
@@ -4145,7 +4152,7 @@ sub gen_epub :method    ## no critic (Always unpack @_ first)
     $member = $zip->addFile('META-INF/container.xml');
     $member->desiredCompressionLevel(9);
 
-    $member = $zip->addFile($$self{opffile});
+    $member = $zip->addFile($self->{opffile});
     $member->desiredCompressionLevel(9);
 
     foreach my $file ($self->manifest_hrefs())
@@ -4166,7 +4173,7 @@ sub gen_epub :method    ## no critic (Always unpack @_ first)
 
     if(! $filename)
     {
-	($filename) = fileparse($$self{opffile},'\.\w+$');
+	($filename) = fileparse($self->{opffile},'\.\w+$');
 	$filename .= ".epub";
     }
 
@@ -4207,7 +4214,7 @@ sub gen_epub_files :method
     debug(2,"DEBUG[",$subname,"]");
 
     create_epub_mimetype();
-    create_epub_container($$self{opffile});
+    create_epub_container($self->{opffile});
     return 1;
 }
 
@@ -4255,7 +4262,7 @@ sub gen_ncx :method    ## no critic (Always unpack @_ first)
 
     $filename = 'toc.ncx' if(!$filename);
 
-    my $twigroot = $$self{twigroot};
+    my $twigroot = $self->{twigroot};
     my $identifier = $self->identifier;
     my $element;            # Generic element container
     my $parent;             # Generic parent element container
@@ -4271,14 +4278,14 @@ sub gen_ncx :method    ## no critic (Always unpack @_ first)
     my @spinelist;          # List of hashrefs containing spine data
     my $manifest;           # OPF manifest element
 
-    if($$self{spec} ne 'OPF20')
+    if($self->{spec} ne 'OPF20')
     {
         $self->add_error(
             $subname . "(): specification is currently set to '"
-            . $$self{spec} . "' -- need 'OPF20'"
+            . $self->{spec} . "' -- need 'OPF20'"
             );
         debug(1,"DEBUG: gen_ncx() FAILED: wrong specification ('",
-              $$self{spec},"')!");
+              $self->{spec},"')!");
         return;
     }
 
@@ -4442,10 +4449,10 @@ sub save :method
     debug(2,"DEBUG[",$subname,"]");
 
     croak($subname,"(): no opffile specified (did you forget to init?)")
-        if(!$$self{opffile});
+        if(!$self->{opffile});
 
     my $fh_opf;
-    my $filename = $$self{opffile};
+    my $filename = $self->{opffile};
 
     # Backup existing file
     if(-e $filename)
@@ -4457,16 +4464,16 @@ sub save :method
 
     # Twig handles utf8 on its own.  If you open this file with
     # binmode :utf8, it will double-convert.
-    if(!open($fh_opf,">",$$self{opffile}))
+    if(!open($fh_opf,">",$self->{opffile}))
     {
-	add_error(sprintf("Could not open '%s' to save to!",$$self{opffile}));
+	add_error(sprintf("Could not open '%s' to save to!",$self->{opffile}));
 	return;
     }
-    $$self{twig}->print(\*$fh_opf);
+    $self->{twig}->print(\*$fh_opf);
 
     if(!close($fh_opf))
     {
-	add_error(sprintf("Failure while closing '%s'!",$$self{opffile}));
+	add_error(sprintf("Failure while closing '%s'!",$self->{opffile}));
 	return;
     }
     return 1;
@@ -4504,18 +4511,18 @@ sub set_adult :method
 
     if($adult)
     {
-        $element = $$self{twigroot}->first_descendant(qr/^adult$/ix);
+        $element = $self->{twigroot}->first_descendant(qr/^adult$/ix);
         unless($element)
         {
             $self->fix_metastructure_oeb12();
-            $xmeta = $$self{twigroot}->first_descendant('x-metadata');
+            $xmeta = $self->{twigroot}->first_descendant('x-metadata');
             $element = $xmeta->insert_new_elt('last_child','Adult');
         }
         $element->set_text('yes');
     }
     else
     {
-        @elements = $$self{twigroot}->descendants(qr/^adult$/ix);
+        @elements = $self->{twigroot}->descendants(qr/^adult$/ix);
         foreach my $el (@elements)
         {
             debug(2,"DEBUG: deleting <Adult> flag");
@@ -4597,16 +4604,16 @@ sub set_date :method    ## no critic (Always unpack @_ first)
         return;
     }
 
-    my $meta = $$self{twigroot}->first_child('metadata');
+    my $meta = $self->{twigroot}->first_child('metadata');
     my $dcmeta = $meta->first_child('dc-metadata');
     my $idelem;
-    $idelem = $$self{twig}->first_elt("*[\@id='$newid']") if($newid);
+    $idelem = $self->{twig}->first_elt("*[\@id='$newid']") if($newid);
 
     $self->fix_metastructure_basic();
 
-    my $element = $$self{twigroot}->first_descendant(
+    my $element = $self->{twigroot}->first_descendant(
         "dc:date[\@opf:event=~/$event/ix or \@event=~/$event/ix]");
-    $element = $$self{twigroot}->first_descendant(
+    $element = $self->{twigroot}->first_descendant(
         "dc:Date[\@opf:event=~/$event/ix or \@event=~/$event/ix]")
         unless($element);
 
@@ -4702,8 +4709,8 @@ sub set_description :method    ## no critic (Always unpack @_ first)
     }
 
     $self->fix_metastructure_basic();
-    my $element = $$self{twigroot}->first_descendant(qr/^dc:description$/ix);
-    my $meta = $$self{twigroot}->first_child('metadata');
+    my $element = $self->{twigroot}->first_descendant(qr/^dc:description$/ix);
+    my $meta = $self->{twigroot}->first_child('metadata');
     my $dcmeta = $meta->first_child('dc-metadata');
 
     my $gi = ($dcmeta) ? 'dc:Description' : 'dc:description';
@@ -4776,8 +4783,8 @@ sub set_language :method    ## no critic (Always unpack @_ first)
     }
 
     $self->fix_metastructure_basic();
-    my $element = $$self{twigroot}->first_descendant(qr/^dc:language$/ix);
-    my $meta = $$self{twigroot}->first_child('metadata');
+    my $element = $self->{twigroot}->first_descendant(qr/^dc:language$/ix);
+    my $meta = $self->{twigroot}->first_child('metadata');
     my $dcmeta = $meta->first_child('dc-metadata');
 
     my $gi = ($dcmeta) ? 'dc:Language' : 'dc:language';
@@ -4899,18 +4906,18 @@ sub set_metadata :method    ## no critic (Always unpack @_ first)
 
     my $newid = $args{id};
     my $idelem;
-    $idelem = $$self{twig}->first_elt("*[\@id='$newid']") if($newid);
+    $idelem = $self->{twig}->first_elt("*[\@id='$newid']") if($newid);
 
-    my $element = $$self{twigroot}->first_descendant(qr/^ $gi $/ix);
+    my $element = $self->{twigroot}->first_descendant(qr/^ $gi $/ix);
     my $meta;
     my $dcmeta;
     my $parent;
     my %dcatts;
     
     $self->fix_metastructure_basic();
-    $parent =  $$self{twigroot}->first_descendant(qr/^ $args{parent} $/ix)
+    $parent =  $self->{twigroot}->first_descendant(qr/^ $args{parent} $/ix)
         if($args{parent});
-    $meta = $$self{twigroot}->first_child('metadata');
+    $meta = $self->{twigroot}->first_child('metadata');
     $dcmeta = $meta->first_child('dc-metadata');
     $parent = $parent || $dcmeta || $meta;
     if($parent->gi eq 'metadata')
@@ -5023,7 +5030,7 @@ sub set_opffile :method    ## no critic (Always unpack @_ first)
         $self->add_warning($subname,"(): no filename specified!");
         return;
     }
-    $$self{opffile} = $filename;
+    $self->{opffile} = $filename;
     return 1;
 }
 
@@ -5088,11 +5095,11 @@ sub set_retailprice :method    ## no critic (Always unpack @_ first)
 
     if($args{text})
     {
-        $element = $$self{twigroot}->first_descendant(qr/^ SRP $/ix);
+        $element = $self->{twigroot}->first_descendant(qr/^ SRP $/ix);
         unless($element)
         {
             $self->fix_metastructure_oeb12();
-            $xmeta = $$self{twigroot}->first_descendant('x-metadata');
+            $xmeta = $self->{twigroot}->first_descendant('x-metadata');
             $element = $xmeta->insert_new_elt('last_child','SRP');
         }
         $element->set_text($args{text});
@@ -5100,7 +5107,7 @@ sub set_retailprice :method    ## no critic (Always unpack @_ first)
     }
     else
     {
-        @elements = $$self{twigroot}->descendants(qr/^ SRP $/ix);
+        @elements = $self->{twigroot}->descendants(qr/^ SRP $/ix);
         foreach my $el (@elements)
         {
             debug(2,"DEBUG: deleting <SRP>");
@@ -5191,7 +5198,7 @@ sub set_primary_author :method    ## no critic (Always unpack @_ first)
             if(!$valid_args{$arg});
     }
 
-    my $twigroot = $$self{twigroot};
+    my $twigroot = $self->{twigroot};
     $self->fix_metastructure_basic();
     my $meta = $twigroot->first_child('metadata');
     my $dcmeta = $meta->first_child('dc-metadata');
@@ -5200,7 +5207,7 @@ sub set_primary_author :method    ## no critic (Always unpack @_ first)
     my $newfileas = $args{fileas};
     my $newid = $args{id};
     my $idelem;
-    $idelem = $$self{twig}->first_elt("*[\@id='$newid']") if($newid);
+    $idelem = $self->{twig}->first_elt("*[\@id='$newid']") if($newid);
 
     $element = $twigroot->first_descendant(\&twigelt_is_author);
     $element = $twigroot->first_descendant(qr/dc:creator/ix) if(!$element);
@@ -5301,11 +5308,11 @@ sub set_publisher :method    ## no critic (Always unpack @_ first)
 
     my $newid = $args{id};
     my $idelem;
-    $idelem = $$self{twig}->first_elt("*[\@id='$newid']") if($newid);
+    $idelem = $self->{twig}->first_elt("*[\@id='$newid']") if($newid);
 
     $self->fix_metastructure_basic();
-    my $element = $$self{twigroot}->first_descendant(qr/^dc:publisher$/ix);
-    my $meta = $$self{twigroot}->first_child('metadata');
+    my $element = $self->{twigroot}->first_descendant(qr/^dc:publisher$/ix);
+    my $meta = $self->{twigroot}->first_child('metadata');
     my $dcmeta = $meta->first_child('dc-metadata');
 
     if(!$element && $dcmeta)
@@ -5452,11 +5459,11 @@ sub set_rights :method    ## no critic (Always unpack @_ first)
     return unless($rights);
     my $newid = $args{id};
     my $idelem;
-    $idelem = $$self{twig}->first_elt("*[\@id='$newid']") if($newid);
+    $idelem = $self->{twig}->first_elt("*[\@id='$newid']") if($newid);
 
     $self->fix_metastructure_basic();
-    my $element = $$self{twigroot}->first_descendant(qr/^dc:(copy)?rights$/ix);
-    my $meta = $$self{twigroot}->first_child('metadata');
+    my $element = $self->{twigroot}->first_descendant(qr/^dc:(copy)?rights$/ix);
+    my $meta = $self->{twigroot}->first_child('metadata');
     my $dcmeta = $meta->first_child('dc-metadata');
     my $parent = $dcmeta || $meta;
 
@@ -5500,7 +5507,7 @@ sub set_spec :method    ## no critic (Always unpack @_ first)
         $self->add_error($subname,"(): invalid specification '",$spec,"'");
         return;
     }
-    $$self{spec} = $validspecs{$spec};
+    $self->{spec} = $validspecs{$spec};
     return 1;
 }
 
@@ -5557,18 +5564,19 @@ sub set_title :method    ## no critic (Always unpack @_ first)
     my $title = $args{text};
     my $newid = $args{id};
     my $idelem;
-    $idelem = $$self{twig}->first_elt("*[\@id='$newid']") if($newid);
+    $idelem = $self->{twig}->first_elt("*[\@id='$newid']") if($newid);
 
     $self->fix_metastructure_basic();
-    my $element = $$self{twigroot}->first_descendant(qr/^dc:title$/ix);
-    my $meta = $$self{twigroot}->first_child('metadata');
+    my $element = $self->{twigroot}->first_descendant(qr/^dc:title$/ix);
+    my $meta = $self->{twigroot}->first_child('metadata');
     my $dcmeta = $meta->first_child('dc-metadata');
     my $parent = $dcmeta || $meta;
     unless($element)
     {
         unless($title)
         {
-            add_error($subname,"(): no title specified, but no existing title found");
+            add_error($subname,
+                      "(): no title specified, but no existing title found");
             return;
         }
         $element = $parent->insert_new_elt('last_child','dc:title');
@@ -5647,11 +5655,11 @@ sub set_type :method    ## no critic (Always unpack @_ first)
 
     my $newid = $args{id};
     my $idelem;
-    $idelem = $$self{twig}->first_elt("*[\@id='$newid']") if($newid);
+    $idelem = $self->{twig}->first_elt("*[\@id='$newid']") if($newid);
 
     $self->fix_metastructure_basic();
-    my $element = $$self{twigroot}->first_descendant(qr/^dc:type$/ix);
-    my $meta = $$self{twigroot}->first_child('metadata');
+    my $element = $self->{twigroot}->first_descendant(qr/^dc:type$/ix);
+    my $meta = $self->{twigroot}->first_child('metadata');
     my $dcmeta = $meta->first_child('dc-metadata');
 
     if(!$element && $dcmeta)
@@ -6509,7 +6517,8 @@ END
         foreach my $pre (@preblocks)
         {
             $count++;
-            debug(1,"DEBUG: split_pre() splitting block ",sprintf("%03d",$count));
+            debug(1,"DEBUG: split_pre() splitting block ",
+                  sprintf("%03d",$count));
             $prefile = sprintf("%s-%03d.html",$outfilebase,$count);
             if(-f $prefile)
             {
@@ -6717,7 +6726,8 @@ sub system_tidy_xhtml
     else
     {
 	# Something unexpected happened (program crash, sigint, other)
-	croak("Tidy did something unexpected (return value=",$retval,").  Check all output.");
+	croak("Tidy did something unexpected (return value=",$retval,
+              ").  Check all output.");
     }
     return $retval;
 }
@@ -6824,7 +6834,8 @@ sub system_tidy_xml
     else
     {
 	# Something unexpected happened (program crash, sigint, other)
-	croak("Tidy did something unexpected (return value=",$retval,").  Check all output.");
+	croak("Tidy did something unexpected (return value=",$retval,
+              ").  Check all output.");
     }
     return $retval;
 }
