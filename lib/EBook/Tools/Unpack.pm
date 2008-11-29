@@ -628,9 +628,6 @@ sub gen_opf :method   ## no critic (Always unpack @_ first)
     my $code;
     my $index;
 
-    my @test = [ '1', '2' ];
-    my $testref = \@test;
-
     croak($subname,"(): could not determine OPF filename\n")
         unless($opffile);
     $$self{opffile} ||= $opffile;
@@ -837,8 +834,7 @@ sub unpack_ereader :method
 
     unless($$self{nosave})
     {
-        $self->usedir;
-        
+        my $cwd = usedir($self->{dir});
         if($$self{htmlconvert})
         {
             $textname = $pdb->write_html();
@@ -850,6 +846,7 @@ sub unpack_ereader :method
         $pdb->write_images;
         $pdb->write_unknown_records if($$self{raw});
         $self->gen_opf(textfile => $textname);
+        chdir($cwd);
     }
     return 1;
 }
@@ -870,11 +867,17 @@ sub unpack_imp
     my $imp = EBook::Tools::IMP->new();
     $imp->load($self->{file});
     
+    $self->{detected}->{author} = $imp->author;
+    $self->{detected}->{title} = $imp->title;
+
     if($self->{raw})
     {
         $imp->write_resdir();
     }
-    print {*STDERR} "IMP support not yet functional!\n";
+    
+    $imp->write_text(dir => $self->{dir});
+
+    print {*STDERR} "WARNING: IMP support not yet functional!\n";
     return 0;
 }
 
@@ -908,7 +911,6 @@ sub unpack_mobi :method
                       # record is examined
 
     $mobi->Load($$self{file});
-    $self->usedir unless($$self{nosave});
 
     @records = @{$mobi->{records}};
     croak($subname,"(): no pdb records found!") unless(@records);
@@ -939,6 +941,7 @@ sub unpack_mobi :method
 
     unless($$self{nosave})
     {
+        my $cwd = usedir($self->{dir});
         $mobi->write_text($htmlname);
         $mobi->write_images();
         $self->gen_opf(textfile => $htmlname);
@@ -948,6 +951,7 @@ sub unpack_mobi :method
             debug(1,"Tidying '",$htmlname,"'");
             system_tidy_xhtml($htmlname);
         }
+        chdir($cwd);
     }
     return 1;
 }
@@ -1048,30 +1052,6 @@ sub unpack_palmdoc :method
         $ebook->save;
     }
     return $$self{opffile};
-}
-
-
-=head2 usedir()
-
-Changes the current working directory to the directory specified by
-the object, creating it if necessary.
-
-=cut
-
-sub usedir :method
-{
-    my $self = shift;
-    my $subname = ( caller(0) )[3];
-    debug(2,"DEBUG[",$subname,"]");
-    unless(-d $$self{dir})
-    {
-        debug(2,"  Creating directory '",$$self{dir},"'");
-        mkpath($$self{dir})
-            or croak("Unable to create output directory '",$$self{dir},"'!\n");
-    }
-    chdir($$self{dir})
-        or croak("Unable to change working directory to '",$$self{dir},"'!\n");
-    return 1;
 }
 
 
