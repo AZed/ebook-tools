@@ -124,6 +124,7 @@ our @EXPORT_OK;
     &twigelt_fix_oeb12_atts
     &twigelt_fix_opf20_atts
     &twigelt_is_author
+    &usedir
     &userconfigdir
     &ymd_validate
     );
@@ -7230,7 +7231,9 @@ sub twigelt_is_knownuid
 Changes the current working directory to the one specified, creating
 it if necessary.
 
-Returns the current working directory before the change.
+Returns the current working directory before the change.  If no
+directory is specified, returns the current working directory without
+changing anything.
 
 Croaks on any failure.
 
@@ -7238,12 +7241,13 @@ Croaks on any failure.
 
 sub usedir
 {
-    my $self = shift;
     my ($dir) = @_;
     my $subname = ( caller(0) )[3];
     debug(2,"DEBUG[",$subname,"]");
 
     my $cwd = getcwd();
+    return $cwd unless($dir);
+
     unless(-d $dir)
     {
         debug(2,"  Creating directory '",$dir,"'");
