@@ -1394,11 +1394,9 @@ sub parse_imp_text :method
     
     my $lengthbits = $self->{lzsslengthbits} || 3;
     my $offsetbits = $self->{lzssoffsetbits} || 14;
-
-    my $textref = uncompress_lzss(
-        dataref => \$self->{resources}->{'    '}->{data},
-        lengthbits => $lengthbits,
-        offsetbits => $offsetbits);
+    my $lzss = EBook::Tools::LZSS->new(lengthbits => $lengthbits,
+                                       offsetbits => $offsetbits);
+    my $textref = $lzss->uncompress(\$self->{resources}->{'    '}->{data});
         
     $self->{text} = $$textref;
 

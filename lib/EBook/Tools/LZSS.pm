@@ -18,11 +18,11 @@ EBook::Tools::LZSS - Lempel-Ziv-Storer-Szymanski compression and decompression
 
 =head1 SYNOPSIS
 
- use EBook::Tools::LZSS qw(:all)
- my $textref = uncompress_lzss(dataref => \$data,
-                               lengthbits => 3,
-                               offsetbits => 14,
-                               windowinit => 'the man');
+ use EBook::Tools::LZSS;
+ my $lzss = EBook::Tools::LZSS->new(lengthbits => 3,
+                                    offsetbits => 14,
+                                    windowinit => 'the man');
+ my $textref = $lzss->uncompress(\$data);
 
 =cut
 
@@ -31,7 +31,6 @@ use base qw(Exporter);
 
 our @EXPORT_OK;
 @EXPORT_OK = qw (
-    &uncompress_lzss
     );
 our %EXPORT_TAGS = ('all' => [@EXPORT_OK]);
 
@@ -49,31 +48,43 @@ use constant ENCODED => 0;
 use constant UNCODED => 1;
 
 
-################################
-########## PROCEDURES ##########
-################################
 
-=head1 PROCEDURES
+####################################################
+########## CONSTRUCTOR AND INITIALIZATION ##########
+####################################################
 
-All procedures are exportable, but none are exported by default.
+my %rwfields = (
+    'lengthbits' => 'integer',
+    'offsetbits' => 'integer',
+    'windowinit' => 'string',
+    'windowsize' => 'integer',
+    'verbose'    => 'boolean',
+    );
+my %rofields = (
+    );
+my %privatefields = (
+);
+
+# A simple 'use fields' will not work here: use takes place inside
+# BEGIN {}, so the @...fields variables won't exist.
+require fields;
+fields->import(
+    keys(%rwfields),keys(%rofields),keys(%privatefields)
+    );
 
 
-=head2 C<uncompress_lzss(%args)>
+=head1 CONSTRUCTOR AND INITIALIZATION
 
-Takes a reference to a compressed data string and the compression
-parameters as arguments, uncompresses the data string and returns a
-reference to the uncompressed string.
+=head2 C<new(%args)>
+
+Instantiates a new EBook::Tools::LZSS object.
 
 =head3 Arguments
 
-All uncompression parameters must match the parameters used to
-compress.
+All arguments are optional, but must be identical between compression
+and decompression for the result to be valid.
 
 =over
-
-=item * C<dataref>
-
-The reference to the compressed data
 
 =item * C<lengthbits>
 
@@ -96,25 +107,32 @@ The eBookwise .IMP format typically compresses with 14 offset bits
 =item * C<windowinit>
 
 A string used to initalize the sliding window.  If specified, this
-string MUST be the same length as the window size, or the procedure
+string MUST be the same length as the window size, or the subroutine
 will croak.  If not specified, the window will be initialized with
 spaces.
+
+=item * C<verbose>
+
+If set to true, compression and uncompression will provide additional
+status feedback on STDOUT.
 
 =back
 
 =cut
 
-sub uncompress_lzss
+sub new   ## no critic (Always unpack @_ first)
 {
+    my $self = shift;
+    my $class = ref($self) || $self;
     my %args = @_;
     my $subname = (caller(0))[3];
     debug(2,"DEBUG[",$subname,"]");
 
     my %valid_args = (
-        'dataref' => 1,
         'lengthbits' => 1,
         'offsetbits' => 1,
         'windowinit' => 1,
+        'verbose' => 1,
         );
 
     foreach my $arg (keys %args)
@@ -123,19 +141,57 @@ sub uncompress_lzss
             if(!$valid_args{$arg});
     }
 
-    my $dataref = $args{dataref};
-    croak($subname,"(): no data provided!\n")
-        unless($args{dataref});
-    croak($subname,"(): data is not a reference!\n")
-        unless(ref $args{dataref});
+    $self = fields::new($class);
+    $self->{lengthbits} = $args{lengthbits} || 4;
+    $self->{offsetbits} = $args{offsetbits} || 12;
+    $self->{windowsize} = 1 << $self->{offsetbits};
+    $self->{windowinit} = $args{windowinit} || ' ' x $self->{windowsize};
+    $self->{verbose} = $args{verbose};
 
-    my $lengthbits = $args{lengthbits} || 4;
-    my $offsetbits = $args{offsetbits} || 12;
-    my $windowsize = 1 << $offsetbits;
-    my $window = $args{windowinit} || ' ' x $windowsize;
+    if($self->{windowinit}
+       and length($self->{windowinit}) != $self->{windowsize})
+    {
+        croak($subname,"(): \n window initialization string size (",
+              length($self->{windowinit}),
+              " does not match specified number of offset bits (",
+              $self->{windowsize},")\n")
+    }
+
+    return $self;
+}
+
+
+#############################
+########## METHODS ##########
+#############################
+
+=head1 METHODS
+
+=head2 C<uncompress(\$dataref)>
+
+Takes a reference to a compressed data string, uncompresses the data
+string and returns a reference to the uncompressed string.
+
+=cut
+
+sub uncompress :method
+{
+    my $self = shift;
+    my ($dataref) = @_;
+    my $subname = (caller(0))[3];
+    debug(2,"DEBUG[",$subname,"]");
+
+    croak($subname,"(): no data provided!\n")
+        unless($dataref);
+    croak($subname,"(): data is not a reference!\n")
+        unless(ref $dataref);
+
+    my $lengthbits = $self->{lengthbits} || 4;
+    my $offsetbits = $self->{offsetbits} || 12;
+    my $windowsize = $self->{windowsize};
+    my $window = $self->{windowinit};
     my $max_uncoded = 2;
     my $max_encoded = (1 << $lengthbits) + $max_uncoded;
-
 
     if(length($window) != $windowsize)
     {
@@ -178,6 +234,13 @@ sub uncompress_lzss
         # If there are less than 8 bits left, there's nothing to
         # decode and we can stop.  Otherwise, uncompress.
 
+        if($self->{verbose} or $EBook::Tools::debug > 0)
+        {
+            my $percent = int( ($bitpos / $bitsize) * 100);
+            
+            print("Uncompressing text... [",$percent,"%]\r")
+                if($percent % 5 == 0);
+        }
         $bitoffset = $bitsize - $bitpos;
         $encflag = $bitvector->Chunk_Read(1,$bitoffset-1);
         $bitpos++;
@@ -198,6 +261,7 @@ sub uncompress_lzss
             $uncompressed .= chr($byte);
             substr($window,$windowpos,1,chr($byte));
             $windowpos++;
+            $windowpos %= $windowsize;
         }
         else
         {
@@ -227,11 +291,22 @@ sub uncompress_lzss
             $lzss_text = substr($window,$lzss_offset,$lzss_length);
             substr($window,$windowpos,$lzss_length,$lzss_text);
             $windowpos += $lzss_length;
+            $windowpos %= $windowsize;
             $uncompressed .= $lzss_text;
         }
     }
+
+    if($self->{verbose} or $EBook::Tools::debug > 0)
+    {
+        print("Finished uncompressing text.\n");
+    }
     return \$uncompressed;
 }
+
+
+################################
+########## PROCEDURES ##########
+################################
 
 
 ########## END CODE ##########
