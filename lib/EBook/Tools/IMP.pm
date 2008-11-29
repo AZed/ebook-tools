@@ -1018,7 +1018,7 @@ sub write_text :method
 
     my $dirname = $args{dir} || $self->resdirbase;
     my $textfile = $args{textfile} || $self->resdirbase . '.txt';
-    $textfile = $dirname . '/' . $opffile;
+    $textfile = $dirname . '/' . $textfile;
     my $fh_text;
 
     mkpath($dirname) if(! -d $dirname);
