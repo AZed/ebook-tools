@@ -233,6 +233,46 @@ sub load :method
 ######################################
 
 
+=head2 C<author()>
+
+Returns the full name of the author of the book.
+
+Author information can either be found entirely in the
+C<< $self->{firstname} >> attribute or split up into
+C<< $self->{firstname} >>, C<< $self->{middlename} >>, and
+C<< $self->{lastname} >>.  If the last name is found separately,
+the full name is returned in the format "Last, First Middle".
+Otherwise, the full name is returned in the format "First Middle".
+
+=cut
+
+sub author :method
+{
+    my $self = shift;
+    my $subname = (caller(0))[3];
+    croak($subname . "() called as a procedure!\n") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+
+    my $author;
+    if($self->{lastname})
+    {
+        $author = $self->{lastname};
+        if($self->{firstname})
+        {
+            $author .= ", " . $self->{firstname};
+            $author .= " " . $self->{middlename} if($self->{middlename});
+        }
+    }
+    else
+    {
+        $author = $self->{firstname};
+        $author .= " " . $self->{middlename} if($self->{middlename});
+    }
+        
+    return $author;
+}
+
+
 =head2 C<bookproplength()>
 
 Returns the total length in bytes of the book properties data,
@@ -663,6 +703,21 @@ sub pack_imp_toc
 }
 
 
+=head2 C<resdirbase()>
+
+In scalar context, this returns the basename of C<< $self->{resdirname} >>.
+In list context, it actually returns the basename, directory, and
+extension as per C<fileparse> from L<File::Basename>.
+
+=cut
+
+sub resdirbase :method
+{
+    my $self = shift;
+    return fileparse($self->{resdirname},'\.\w+$');
+}
+
+
 =head2 C<resdirlength()>
 
 Returns the length of the .RES directory name as stored in
@@ -751,6 +806,22 @@ sub text :method
     croak($subname . "() called as a procedure!\n") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
     return $self->{text};
+}
+
+
+=head2 C<title()>
+
+Returns the book title as stored in C<< $self->{title} >>.
+
+=cut
+
+sub title :method
+{
+    my $self = shift;
+    my $subname = (caller(0))[3];
+    croak($subname . "() called as a procedure!\n") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+    return $self->{title};
 }
 
 
@@ -923,6 +994,53 @@ sub write_resdir :method
     }
 
     chdir($cwd);
+    return 1;
+}
+
+
+sub write_text :method
+{
+    my $self = shift;
+    my %args = @_;
+    my $subname = (caller(0))[3];
+    croak($subname . "() called as a procedure!\n") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+
+    my %valid_args = (
+        'dir' => 1,
+        'textfile' => 1,
+        );
+    foreach my $arg (keys %args)
+    {
+        croak($subname,"(): invalid argument '",$arg,"'")
+            if(!$valid_args{$arg});
+    }
+
+    my $dirname = $args{dir} || $self->resdirbase;
+    my $textfile = $args{textfile} || $self->resdirbase . '.txt';
+    $textfile = $dirname . '/' . $opffile;
+    my $fh_text;
+
+    mkpath($dirname) if(! -d $dirname);
+
+    if(! -d $dirname)
+    {
+        warn($subname,"(): unable to create directory '",$dirname,"'!\n");
+        return;
+    }
+
+    if(!open($fh_text,'>:raw',$textfile))
+    {
+        warn($subname,"(): unable to open '",$textfile,"' for writing!\n");
+        return;
+    }
+    print {*$fh_text} $self->text;
+    if(!close($fh_text))
+    {
+        warn($subname,"(): unable to close '",$textfile,"'!\n");
+        return;
+    }
+
     return 1;
 }
 
