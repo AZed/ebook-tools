@@ -7196,6 +7196,7 @@ sub twigelt_is_knownuid
     return unless($id);
 
     my %knownuids = (
+        'package-id' => 56,
         'overdriveguid' => 48,
         'guid' => 40,
         'uuid' => 32,
