@@ -7225,6 +7225,37 @@ sub twigelt_is_knownuid
 }
 
 
+=head2 C<usedir($dir)>
+
+Changes the current working directory to the one specified, creating
+it if necessary.
+
+Returns the current working directory before the change.
+
+Croaks on any failure.
+
+=cut
+
+sub usedir
+{
+    my $self = shift;
+    my ($dir) = @_;
+    my $subname = ( caller(0) )[3];
+    debug(2,"DEBUG[",$subname,"]");
+
+    my $cwd = getcwd();
+    unless(-d $dir)
+    {
+        debug(2,"  Creating directory '",$dir,"'");
+        mkpath($dir)
+            or croak("Unable to create output directory '",$dir,"'!\n");
+    }
+    chdir($dir)
+        or croak("Unable to change working directory to '",$dir,"'!\n");
+    return $cwd;
+}
+
+
 =head2 C<userconfigdir()>
 
 Returns the directory in which user configuration files and helper
