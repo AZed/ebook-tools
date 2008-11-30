@@ -1025,6 +1025,12 @@ sub write_text :method
             if(!$valid_args{$arg});
     }
 
+    if(!$self->{text})
+    {
+        carp($subname,"(): no text to write!\n");
+        return;
+    }
+
     my $dirname = $args{dir} || $self->resdirbase;
     my $textfile = $args{textfile} || $self->resdirbase . '.txt';
     $textfile = $dirname . '/' . $textfile;
