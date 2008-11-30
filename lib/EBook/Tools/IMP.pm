@@ -53,6 +53,11 @@ eval
 unless($@){ $drmsupport = 1; }
 
 
+# Constants for $self->{device},
+use constant DEVICE_SB200 => 0;         # SoftBook 200/250
+use constant DEVICE_REB1200 => 1;       # REB 1200/GEB 1200
+use constant DEVICE_EBW1150 => 2;       # EBW 1150/GEB 1150
+
 
 ####################################################
 ########## CONSTRUCTOR AND INITIALIZATION ##########
