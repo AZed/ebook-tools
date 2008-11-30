@@ -66,7 +66,7 @@ my %rwfields = (
     'resdiroffset'   => 'integer',
     'compression'    => 'integer',
     'encryption'     => 'integer',
-    'type'           => 'integer',
+    'device'         => 'integer',
     'zoomstates'     => 'integer',
     'identifier'     => 'string',
     'category'       => 'string',
@@ -453,7 +453,7 @@ sub pack_imp_header :method
     $header .= pack('NN',$self->{unknown0x18},$self->{unknown0x1c});
     $header .= pack('NN',$self->{compression},$self->{encryption});
     $header .= pack('nC',$self->{unknown0x28},$self->{unknown0x2a});
-    $header .= pack('C',$self->{type} * 16 + $self->{zoomstates});
+    $header .= pack('C',$self->{device} * 16 + $self->{zoomstates});
     $header .= pack('N',$self->{unknown0x2c});
 
     if(length($header) != 48)
@@ -604,7 +604,7 @@ sub pack_imp_rsrc_inf :method
                   $self->{unknown0x18},$self->{unknown0x1c},
                   $self->{compression},$self->{encryption},
                   $self->{unknown0x28},$self->{unknown0x2a},
-                  ($self->{type} * 16) + $self->{zoomstates},
+                  ($self->{device} * 16) + $self->{zoomstates},
                   $self->{unknown0x2c});
     $rsrc .= pack('Z*',$self->{identifier});
     $rsrc .= pack('Z*Z*Z*',
@@ -1218,8 +1218,8 @@ caution -- this value may be renamed if more information is obtained.
 
 =item * Offset 0x2B [2 nybbles (1 byte)]
 
-The upper nybble at this position is the IMP reader type for which the
-e-book was designed, stored in C<< $self->{type} >>.  Expected values
+The upper nybble at this position is the IMP reader device for which the
+e-book was designed, stored in C<< $self->{device} >>.  Expected values
 are 0 (Softbook 200/250e), 1 (REB 1200/GEB 2150), and 2 (EBW
 1150/GEB1150).
 
@@ -1295,11 +1295,11 @@ sub parse_imp_header :method
 
     # Zoom State, and Unknown
     @list = unpack('CN',substr($headerdata,0x2B,5));
-    $self->{type}        = $list[0] >> 4;
+    $self->{device}        = $list[0] >> 4;
     $self->{zoomstates}   = $list[0] & 0x0f;
     $self->{unknown0x2c} = $list[1];
 
-    debug(2,"DEBUG: IMP type = ",$self->{type});
+    debug(2,"DEBUG: IMP device = ",$self->{device});
     debug(2,"DEBUG: IMP zoom state = ",$self->{zoomstates});
     debug(2,"DEBUG: Unknown long int at offset 0x2c = ",$self->{unknown0x2c});
 
