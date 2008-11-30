@@ -80,6 +80,7 @@ my %rwfields = (
     'lastname'       => 'string',
     'middlename'     => 'string',
     'firstname'      => 'string',
+    'etiserverdata'  => 'hash',         # Extra data after book properties
     'resdirname'     => 'string',
     'RSRC.INF'       => 'string',
     'resfiles'       => 'array',        # Array of hashrefs
@@ -604,6 +605,7 @@ sub pack_imp_rsrc_inf :method
     my $length;
     my $pad;
 
+    # Data from header
     $rsrc = pack('na[8]n',1,'BOOKDOUG',$self->{resdiroffset});
     $rsrc .= pack('NNNNnCCN',
                   $self->{unknown0x18},$self->{unknown0x1c},
@@ -611,6 +613,8 @@ sub pack_imp_rsrc_inf :method
                   $self->{unknown0x28},$self->{unknown0x2a},
                   ($self->{device} * 16) + $self->{zoomstates},
                   $self->{unknown0x2c});
+
+    # Data from book properties
     $rsrc .= pack('Z*',$self->{identifier});
     $rsrc .= pack('Z*Z*Z*',
                   $self->{category},$self->{subcategory},$self->{title});
@@ -1096,6 +1100,36 @@ Note that the entire name is frequently placed into the "First Name"
 component, and the "Last Name" and "Middle Name" components are left
 blank.
 
+In addition, ETI server data may be appended to this data on encrypted
+books downloaded from ETI servers.  If present, that data will be
+stored in the hash C<< $self->{etiserverdata}.
+
+That data has the following format and keys:
+
+=over
+
+=item * [0-3 bytes]: padding data to make sure the following data is
+4-byte aligned, stored in key C<pad>.
+
+=item * [4 bytes, big-endian unsigned long int]: unknown value,
+usually = 2, stored in key C<unknown1>
+
+=item * [4 bytes, big-endian unsigned long int]: issue number for
+periodicals (always 0xffffffff for books), stored in key
+C<issuenumber>.
+
+=item * [variable-length null-terminated string]: content feed for
+periodicals, null string for books, stored in key C<contentfeed>.
+
+=item * [variable-length null-terminated string]: source string in the
+format C<'SOURCE_ID:SOURCE_TYPE:None'>, where C<SOURCE_ID> is usually
+'3' and C<SOURCE_TYPE> is usually 'B'.
+
+=item * [4 bytes, big-endian unsigned long int]: unknown value, stored
+in key C<unknown2>.  This value may not be present at all.
+
+=back
+
 A warning will be carped if the length of the parsed properties
 (including the C null string terminators) is not equal to the length
 of the data passed.
@@ -1134,13 +1168,37 @@ sub parse_imp_book_properties :method
     debug(2,"  Middle Name:  ",$self->{middlename});
     debug(2,"  First Name:   ",$self->{firstname});
 
-    # Check for leftover data
-    my $length = $self->bookproplength;
-    if($length != length($propdata))
+
+    # On encrypted files, there may be addtional ETI server data
+    # appended
+    my $proplength = $self->bookproplength;
+    if($proplength < length($propdata))
     {
-        carp($subname,"():\n parsed ",$length,
-             " bytes of book properties, but was passed ",length($propdata),
-             " bytes of data!\n");
+        debug(1,"Book properties data has extra ETI server data appended");
+        $self->{etiserverdata} = {};
+
+        # Up to 3 bytes of padding to make sure that the following
+        # data is 4-byte aligned.
+        my $padlength = $proplength % 4;
+        my @list;
+        if($padlength)
+        {
+            $padlength = 4 - $padlength;
+            $self->{etiserverdata}->{pad} = 
+                substr($propdata,$proplength,$padlength);
+            $proplength += $padlength;
+        }
+
+        @list = unpack('NNZ*Z*N',substr($propdata,$proplength));
+        $self->{etiserverdata}->{unknown1}    = $list[0];
+        $self->{etiserverdata}->{issuenumber} = $list[1];
+        $self->{etiserverdata}->{contentfeed} = $list[2];
+        $self->{etiserverdata}->{source}      = $list[3];
+        $self->{etiserverdata}->{unknown2}    = $list[4];
+        debug(2,
+              "  unknown1=",$list[0]," \t\tissuenumber=",$list[1],"\n",
+              "  contentfeed='",$list[2],"' \tsource='",$list[3],"'");
+        debug(2,"  unknown2=",$list[4]) if(defined $list[4]);
     }
     return 1;
 }
