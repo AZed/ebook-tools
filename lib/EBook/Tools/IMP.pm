@@ -1442,7 +1442,7 @@ C<< $self->{lzssoffsetbits} >> attributes if present, and default to 3
 length bits and 14 offset bits otherwise.
 
 Returns the length of the uncompressed text, or undef if no text
-resource was found.
+resource was found or the text was encrypted.
 
 =cut
 
@@ -1460,6 +1460,12 @@ sub parse_imp_text :method
     my $lzss = EBook::Tools::LZSS->new(lengthbits => $lengthbits,
                                        offsetbits => $offsetbits);
     my $textref;
+
+    if($self->{encryption})
+    {
+        warn($subname,"(): encrypted text not supported!\n");
+        return;
+    }
 
     if($self->{compression})
     {
