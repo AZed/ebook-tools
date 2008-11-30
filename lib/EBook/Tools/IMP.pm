@@ -1401,10 +1401,17 @@ sub parse_imp_text :method
     my $offsetbits = $self->{lzssoffsetbits} || 14;
     my $lzss = EBook::Tools::LZSS->new(lengthbits => $lengthbits,
                                        offsetbits => $offsetbits);
-    my $textref = $lzss->uncompress(\$self->{resources}->{'    '}->{data});
-        
-    $self->{text} = $$textref;
+    my $textref;
 
+    if($self->{compression})
+    {
+        $textref = $lzss->uncompress(\$self->{resources}->{'    '}->{data});
+        $self->{text} = $$textref;
+    }
+    else
+    {
+        $self->{text} = $self->{resources}->{'    '}->{data};
+    }
     return length($self->{text});
 }
 
