@@ -1201,6 +1201,8 @@ sub parse_imp_book_properties :method
         $self->{etiserverdata}->{contentfeed} = $list[2];
         $self->{etiserverdata}->{source}      = $list[3];
         $self->{etiserverdata}->{unknown2}    = $list[4];
+        debug(2,"  pad=",hexstring($self->{etiserverdata}->{pad}))
+            if($self->{etiserverdata}->{pad});
         debug(2,
               "  unknown1=",$list[0]," \t\tissuenumber=",$list[1],"\n",
               "  contentfeed='",$list[2],"' \tsource='",$list[3],"'");
