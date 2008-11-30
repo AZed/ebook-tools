@@ -590,8 +590,6 @@ sub pack_imp_resource :method
 Packs object attributes into the data string that would be the content
 of the RSRC.INF file.  Returns that string.
 
-Currently does no sanity checking at all on the values it uses.
-
 =cut
 
 sub pack_imp_rsrc_inf :method
@@ -602,8 +600,6 @@ sub pack_imp_rsrc_inf :method
     debug(2,"DEBUG[",$subname,"]");
 
     my $rsrc;
-    my $length;
-    my $pad;
 
     # Data from header
     $rsrc = pack('na[8]n',1,'BOOKDOUG',$self->{resdiroffset});
@@ -621,23 +617,36 @@ sub pack_imp_rsrc_inf :method
     $rsrc .= pack('Z*Z*Z*',
                   $self->{lastname},$self->{middlename},$self->{firstname});
     
-    # Make sure next record is 4-byte aligned (omit; breaks existing tools)
-    #$length = length($rsrc);
-    #$pad = $length % 4;
-    #if($pad)
-    #{
-    #    $pad = 4 - $pad;
-    #    $rsrc .= pack("a[$pad]","\0");
-    #}
-    #
-    # Use ISSUE_NUMBER here for periodicals, but periodicals not yet handled
-    #$rsrc .= pack('NN',2,0xffffffff);
-    # CONTENT_FEED periodical data not used
-    #$rsrc .= pack('Z*','');
-    # SOURCE_ID:SOURCE_TYPE:None
-    #$rsrc .= pack('Z*','3:B:None');
-    # Unknown 4 bytes
-    #$rsrc .= pack('N',0);
+    if($self->{etiserverdata})
+    {
+        my $length = length($rsrc);
+        my $padsize = length($self->{etiserverdata}->{pad});
+
+        # Pad must result in the following record being 4-byte aligned
+        if( ($length + $padsize) % 4 )
+        {
+            carp($subname,"():\n",
+                 " ETI server data has invalid pad, regenerating it...\n");
+            undef($self->{etiserverdata}->{pad});
+            $padsize = $length % 4;
+            if($padsize)
+            {
+                $padsize = 4 - $padsize;
+                $self->{etiserverdata}->{pad} = pack("a[$padsize]","\0");
+            }
+        }
+
+        $rsrc .= $self->{etiserverdata}->{pad};
+        $rsrc .= pack('NNZ*Z*',
+                      $self->{etiserverdata}->{unknown1},
+                      $self->{etiserverdata}->{issuenumber},
+                      $self->{etiserverdata}->{contentfeed},
+                      $self->{etiserverdata}->{source});
+        if($self->{etiserverdata}->{unknown2})
+        {
+            $rsrc .= pack('N',$self->{etiserverdata}->{unknown2});
+        }
+    } # if($self->{etiserverdata}
 
     return $rsrc;
 }
