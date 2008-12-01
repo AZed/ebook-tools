@@ -14,7 +14,7 @@ use version; our $VERSION = qv("0.4.0");
 
 =head1 NAME
 
-EBook::Tools::IMP - Components related to the SoftBook/GEB/REB/eBookWise C<.IMP> e-book format 
+EBook::Tools::IMP - Object class for manipulating the SoftBook/GEB/REB/eBookWise C<.IMP> and C<.RES> e-book formats
 
 =head1 SYNOPSIS
 

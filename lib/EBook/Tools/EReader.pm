@@ -12,7 +12,7 @@ use version; our $VERSION = qv("0.3.3");
 
 =head1 NAME
 
-EBook::Tools::EReader - Components related to the Fictionwise/PeanutPress eReader format.
+EBook::Tools::EReader - Palm::PDB handler for manipulating the Fictionwise/PeanutPress eReader format.
 
 =head1 SYNOPSIS
 

@@ -21,8 +21,7 @@ our $debug = 0;
 
 =head1 NAME
 
-EBook::Tools - An object class for the manipulation and generation of
-E-books based on IDPF standards
+EBook::Tools - Object class for manipulating and generating E-books
 
 
 =head1 DESCRIPTION
