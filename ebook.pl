@@ -46,13 +46,17 @@ use constant EXIT_HELPERERROR   => 31;  # Helper command exited improperly
 my $defaultconfig = slurp(\*DATA);
 my $configdir = userconfigdir();
 my $configfile = $configdir . '/config.ini';
-my $config = Config::IniFiles->new( -file => $configfile );
+my $config;
+if(-f $configfile)
+{ 
+    $config = Config::IniFiles->new( -file => $configfile );
+}
 $config = Config::IniFiles->new() unless($config);
 #$config->read($configfile);
 
 # Tidysafety requires special handling, since 0 is a valid value
 my $tidysafety = $config->val('config','tidysafety');
-undef($tidysafety) if($tidysafety eq '');
+undef($tidysafety) if(defined($tidysafety) and $tidysafety eq '');
 
 
 #####################################
