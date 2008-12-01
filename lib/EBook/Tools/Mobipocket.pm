@@ -45,7 +45,7 @@ sub import   ## no critic (Always unpack @_ first)
 
 =head1 NAME
 
-EBook::Tools::Mobipocket - Components related to the Mobipocket format.
+EBook::Tools::Mobipocket - Palm::PDB handler for manipulating the Mobipocket format.
 
 =head1 SYNOPSIS
 

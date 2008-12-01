@@ -10,7 +10,7 @@ use version; our $VERSION = qv("0.3.3");
 
 =head1 NAME
 
-EBook::Tools::PalmDoc - Components related to the PalmDoc/PilotDoc/AportisDoc format
+EBook::Tools::PalmDoc - Palm::PDB handler for manipulating the PalmDoc/PilotDoc/AportisDoc format
 
 =head1 SYNOPSIS
 
