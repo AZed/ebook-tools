@@ -20,6 +20,7 @@ See also L</EXAMPLES>.
 
 use Config::IniFiles;
 use EBook::Tools qw(:all);
+use EBook::Tools::IMP qw(:all);
 use EBook::Tools::Mobipocket qw(:all);
 use EBook::Tools::MSReader qw(:all);
 use EBook::Tools::Unpack;
@@ -83,6 +84,7 @@ my %opt = (
     'opf20'       => 0,
     'opffile'     => '',
     'raw'         => 0,
+    'resdir'      => '',
     'tidy'        => 0,
     'tidycmd'     => $config->val('helpers','tidy'),
     'tidysafety'  => $tidysafety,
@@ -108,6 +110,7 @@ GetOptions(
     'nosave',
     'noscript',
     'raw',
+    'resdir=s',
     'oeb12',
     'opf20',
     'opffile|opf=s',
@@ -145,6 +148,7 @@ my %dispatch = (
     'config'      => \&config,
     'fix'         => \&fix,
     'genepub'     => \&genepub,
+    'genimp'      => \&genimp,
     'genmobi'     => \&genmobi,
     'setmeta'     => \&setmeta,
     'splitmeta'   => \&splitmeta,
@@ -832,6 +836,87 @@ sub genepub
         exit(EXIT_BADOUTPUT);
     }
     $ebook->print_warnings if($ebook->warnings);
+    exit(EXIT_SUCCESS);
+}
+
+
+=head2 C<genimp>
+
+Generate a eBookwise .imp book from a .RES directory
+
+=head3 Options
+
+=over
+
+=item C<--resdir>
+
+Specifies the resource directory to use for input.  A valid resource
+directory will contain at least a C<RSRC.INF> file, a C<DATA.FRK>
+file, and several other files with four-capital-letter filenames.
+
+This can also be specified as the first non-option argument, which
+will override this option if it exists.  If not specified, the current
+directory will be used.
+
+=item C<--filename bookname.epub>
+
+=item C<--file bookname.epub>
+
+=item C<-f bookname.epub>
+
+Use the specified name for the final output file.  If not specified,
+the book will have the same filename as the input, with the extension
+changed to C<.imp>.
+
+=back
+
+=head3 Examples
+
+ ebook genimp MyUnpackedBook.RES MyBook.imp
+ ebook genimp --resdir ../MyUnpackedBook.RES -f imp/MyBook.imp
+
+=cut
+
+sub genimp
+{
+    my ($input,$output) = @_;
+    my $ebook;
+    my $retval;
+
+    $input ||= $opt{resdir};
+    $input ||= '.';
+    $output ||= $opt{filename};
+
+    if(! $input)
+    {
+        print {*STDERR} "Resource directory not specified!\n";
+        exit(EXIT_BADOPTION);
+    }
+
+    if(! -d $input)
+    {
+        print {*STDERR} "Resource directory '",$input,"' not found!\n";
+        exit(EXIT_BADOPTION);
+    }
+
+    if(! $output)
+    {
+        print {*STDERR} "Output file not specified!\n";
+        exit(EXIT_BADOPTION);
+    }
+
+    my $imp = EBook::Tools::IMP->new();
+    if(! $imp->load_resdir($input) )
+    {
+        print {*STDERR} ("Failed to load from resource directory '",
+                         $input,"'!\n");
+        exit(EXIT_BADINPUT);
+    }
+    if(! $imp->write_imp($output) or ! -f $output)
+    {
+        print {*STDERR} ("Failed to generate '",$output,"'!\n");
+        exit(EXIT_BADOUTPUT);
+    }
     exit(EXIT_SUCCESS);
 }
 
