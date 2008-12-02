@@ -859,7 +859,7 @@ result to be added to the list
 =item * C<event> 'opf:event' or 'event' attribute that must be
 matched exactly for the result to be added to the list
 
-=over
+=back
 
 If both arguments are specified a value is added to the list if it
 matches either one (i.e. the logic is OR).
@@ -975,7 +975,7 @@ matched exactly for the result to be added to the list
 'opf:event' or 'event' attribute that must be matched exactly for the
 result to be added to the list
 
-=over
+=back
 
 If more than one of the arguments C<id>, C<scheme>, or C<event> are
 specified a value is added to the list if it matches any one (i.e. the
@@ -1120,7 +1120,7 @@ result to be added to the list
 'opf:scheme' or 'scheme' attribute that must be
 matched exactly for the result to be added to the list
 
-=over
+=back
 
 If both arguments are specified a value is added to the list if it
 matches either one (i.e. the logic is OR).
@@ -1181,7 +1181,7 @@ result to be added to the list
 =item * C<scheme> - 'opf:scheme' or 'scheme' attribute that must be
 matched exactly for the result to be added to the list
 
-=over
+=back
 
 If both arguments are specified a value is added to the list if it
 matches either one (i.e. the logic is OR).
@@ -2307,7 +2307,7 @@ the id is already in use, a warning will be added but the method will
 continue, removing the id attribute from the element that previously
 contained it.
 
-=over
+=back
 
 =cut
 
@@ -2659,7 +2659,7 @@ specified, and the id is already in use, a warning will be added but
 the method will continue, removing the id attribute from the element
 that previously contained it.
 
-=over
+=back
 
 =cut
 
@@ -3004,6 +3004,8 @@ TODO: Also convert language names to IANA language and region codes.
 
 The default language string to use when creating a new language
 element.  If not specified, defaults to 'en'.
+
+=back
 
 =cut
 
@@ -7268,7 +7270,7 @@ but on MSWin32 systems if that directory does not already exist,
 C<"$ENV{USERPROFILE}/ApplicationData/EBook-Tools"> is returned (and
 potentially created) instead.
 
-If C<$ENV{HOME}> (and C<$ENV{USERPROFILE} on MSWin32) are not set, the
+If C<$ENV{HOME}> (and C<$ENV{USERPROFILE}> on MSWin32) are not set, the
 sub returns undef.
 
 =cut
