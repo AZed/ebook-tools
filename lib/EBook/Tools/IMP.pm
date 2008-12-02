@@ -109,6 +109,17 @@ fields->import(
     keys(%rwfields),keys(%rofields),keys(%privatefields)
     );
 
+
+=head1 CONSTRUCTOR AND INITIALIZATION
+
+=head2 C<new($filename)>
+
+Instantiates a new EBook::Tools::IMP object.  If C<$filename> is
+specified, it will also immediately initialize itself via the C<load>
+method.
+
+=cut
+
 sub new   ## no critic (Always unpack @_ first)
 {
     my $self = shift;
@@ -126,6 +137,13 @@ sub new   ## no critic (Always unpack @_ first)
     return $self;
 }
 
+
+=head2 C<load($filename)>
+
+Loads a .imp file, parsing it into the various object attributes.
+Returns 1 on success, or undef on failure.
+
+=cut
 
 sub load :method
 {
@@ -242,6 +260,13 @@ sub load :method
     return 1;
 }
 
+
+=head2 C<load_resdir($dirname)>
+
+Loads a C<.RES> resource directory, parsing it into the object
+attributes.  Returns 1 on success, or undef on failure.
+
+=cut
 
 sub load_resdir
 {
@@ -1137,6 +1162,13 @@ sub write_imp :method
 }
 
 
+=head2 C<write_resdir()>
+
+Writes a C<.RES> resource directory from the object attribute data,
+using C<< $self->{resdirname} >> as the directory name.
+
+=cut
+
 sub write_resdir :method
 {
     my $self = shift;
@@ -1201,6 +1233,29 @@ sub write_resdir :method
 }
 
 
+=head2 C<write_text(%args)>
+
+Writes the uncompressed text, if any, to the specified output
+directory and file.
+
+=head3 Arguments
+
+=over
+
+=item * C<dir>
+
+The output directory in which to write the file.  This will be created
+if it does not exist.  Defaults to the current working directory.
+
+=item * C<filename>
+
+The filename of the output file to write.  If not specified, a warning
+will be carped and the method will return undef.
+
+=back
+
+=cut
+
 sub write_text :method
 {
     my $self = shift;
@@ -1211,7 +1266,7 @@ sub write_text :method
 
     my %valid_args = (
         'dir' => 1,
-        'textfile' => 1,
+        'filename' => 1,
         );
     foreach my $arg (keys %args)
     {
@@ -1226,27 +1281,27 @@ sub write_text :method
     }
 
     my $dirname = $args{dir} || $self->resdirbase;
-    my $textfile = $args{textfile} || $self->resdirbase . '.txt';
-    $textfile = $dirname . '/' . $textfile;
+    my $filename = $args{filename} || $self->resdirbase . '.txt';
+    $filename = $dirname . '/' . $filename;
     my $fh_text;
 
     mkpath($dirname) if(! -d $dirname);
 
     if(! -d $dirname)
     {
-        warn($subname,"(): unable to create directory '",$dirname,"'!\n");
+        carp($subname,"(): unable to create directory '",$dirname,"'!\n");
         return;
     }
 
-    if(!open($fh_text,'>:raw',$textfile))
+    if(!open($fh_text,'>:raw',$filename))
     {
-        warn($subname,"(): unable to open '",$textfile,"' for writing!\n");
+        carp($subname,"(): unable to open '",$filename,"' for writing!\n");
         return;
     }
     print {*$fh_text} $self->text;
     if(!close($fh_text))
     {
-        warn($subname,"(): unable to close '",$textfile,"'!\n");
+        carp($subname,"(): unable to close '",$filename,"'!\n");
         return;
     }
 
