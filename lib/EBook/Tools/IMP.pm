@@ -40,7 +40,7 @@ use Cwd qw(getcwd realpath);
 use EBook::Tools qw(:all);
 use EBook::Tools::LZSS qw(:all);
 use Encode;
-use File::Basename qw(dirname fileparse);
+use File::Basename qw(basename dirname fileparse);
 use File::Path;     # Exports 'mkpath' and 'rmtree'
 binmode(STDERR,":utf8");
 
@@ -55,7 +55,7 @@ unless($@){ $drmsupport = 1; }
 
 # Constants for $self->{device},
 use constant DEVICE_SB200 => 0;         # SoftBook 200/250
-use constant DEVICE_REB1200 => 1;       # REB 1200/GEB 1200
+use constant DEVICE_REB1200 => 1;       # REB 1200/GEB 2150
 use constant DEVICE_EBW1150 => 2;       # EBW 1150/GEB 1150
 
 
@@ -118,7 +118,11 @@ sub new   ## no critic (Always unpack @_ first)
     debug(2,"DEBUG[",$subname,"]");
 
     $self = fields::new($class);
-    $self->{filename} = $filename if($filename);
+    if($filename)
+    {
+        $self->{filename} = $filename;
+        $self->load();
+    }
     return $self;
 }
 
@@ -149,6 +153,12 @@ sub load :method
     my $entrydata;
     my $resource;       # Hashref
 
+
+    if(! -f $filename)
+    {
+        carp($subname,"(): '",$filename,"' not found!\n");
+        return;
+    }
 
     open($fh_imp,'<:raw',$filename)
         or croak($subname,"(): unable to open '",$filename,
@@ -199,7 +209,6 @@ sub load :method
                      $resource->{type},"' resource!\n");
             }
             $self->{resources}->{$resource->{type}} = $resource;
-
         }
     }
     elsif($self->{version} == 2)
@@ -233,6 +242,181 @@ sub load :method
     return 1;
 }
 
+
+sub load_resdir
+{
+    my $self = shift;
+    my ($dirname) = @_;
+    my $subname = (caller(0))[3];
+    croak($subname . "() called as a procedure!\n") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+
+    if(!$dirname)
+    {
+        carp($subname,"(): no resource directory specified!\n");
+        return;
+    }
+
+    if(! -d $dirname)
+    {
+        carp($subname,"(): resource directory '",$dirname,"' not found!\n");
+        return;
+    }
+
+    if(! -f $dirname . '/DATA.FRK')
+    {
+        carp($subname,"():\n",
+             " resource directory '",$dirname,"' has no text resource!\n");
+        return;
+    }
+    if(! -f $dirname . '/RSRC.INF')
+    {
+        carp($subname,"()\n",
+             " resource directory '",$dirname,"' has no RSRC.INF!\n");
+        return;
+    }
+
+    my $fh_resource;
+    my $rsrcinf;
+    my @list;
+
+    open($fh_resource,'<:raw',$dirname . '/RSRC.INF')
+        or croak($subname,"():\n",
+                 " unable to open '$dirname/RSRC.INF' for reading!\n");
+    sysread($fh_resource,$rsrcinf,-s "$dirname/RSRC.INF");
+    close($fh_resource)
+        or croak($subname,"():\n",
+                 " unable to close '$dirname/RSRC.INF'!\n");
+    
+    if(length($rsrcinf) < 48)
+    {
+        carp($subname,"():\n",
+             " RSRC.INF is too short (only ",length($rsrcinf)," bytes)!\n");
+        return;
+    }
+
+    if(substr($rsrcinf,2,8) ne 'BOOKDOUG')
+    {
+        carp($subname,"():\n",
+             " RSRC.INF does not contain a valid header!\n");
+        return;
+    }
+
+    $self->{resdirname} = basename($dirname);
+    $self->{resdirlength} = length($self->{resdirname});
+    debug(2,"DEBUG: IMP resdir name = ",$self->{resdirname});
+
+    # We have no idea what to put here, so fill it with nulls
+    $self->{unknown0x0a} = "\x00\x00\x00\x00\x00\x00\x00\x00";
+
+    # No matter what the RSRC.INF says, we're going to use a v2 format
+    $self->{version} = 2;
+    @list = unpack('nNNNNnCCN',substr($rsrcinf,10,26));
+    $self->{resdiroffset} = $list[0];
+    $self->{unknown0x18}  = $list[1];
+    $self->{unknown0x1c}  = $list[2];
+    $self->{compression}  = $list[3];
+    $self->{encryption}   = $list[4];
+    $self->{unknown0x28}  = $list[5];
+    $self->{unknown0x2a}  = $list[6];
+    $self->{device}       = $list[7] >> 4;
+    $self->{zoomstates}   = $list[7] & 0x0f;
+    $self->{unknown0x2c}  = $list[8];
+    
+    debug(2,"DEBUG: IMP resdir offset = ",$self->{resdiroffset});
+    debug(2,"DEBUG: Unknown 0x18 = ",$self->{unknown0x18});
+    debug(2,"DEBUG: Unknown 0x1c = ",$self->{unknown0x1c});
+    debug(2,"DEBUG: IMP compression = ",$self->{compression});
+    debug(2,"DEBUG: IMP encryption = ",$self->{encryption});
+    debug(2,"DEBUG: Unknown 0x28 = ",$self->{unknown0x28});
+    debug(2,"DEBUG: Unknown 0x2A = ",$self->{unknown0x2a});
+    debug(2,"DEBUG: IMP device = ",$self->{device});
+    debug(2,"DEBUG: IMP zoom state = ",$self->{zoomstates});
+    debug(2,"DEBUG: Unknown 0x2c = ",$self->{unknown0x2c});
+
+    @list = unpack('Z*Z*Z*Z*Z*Z*Z*',substr($rsrcinf,36));
+    $self->{identifier}  = $list[0];
+    $self->{category}    = $list[1];
+    $self->{subcategory} = $list[2];
+    $self->{title}       = $list[3];
+    $self->{lastname}    = $list[4];
+    $self->{middlename}  = $list[5];
+    $self->{firstname}   = $list[6];
+
+    my $proplength = $self->bookproplength;
+    if(length($rsrcinf) > $proplength + 36)
+    {
+        debug(1,"Book properties data has extra ETI server data appended");
+        $self->parse_eti_server_data(substr($rsrcinf,$proplength + 36));
+    }
+
+    my $cwd = getcwd();
+
+    if(! chdir($dirname))
+    {
+        carp($subname,"(): unable to enter directory '",$dirname,"'!\n");
+        return;
+    }
+        
+    my @filelist = <*>;
+    $self->{resources} = {};
+    $self->{toc} = ();
+    foreach my $file (@filelist)
+    {
+        my $resdata;
+        my %resource;
+        my %tocentry;
+
+        next if($file eq 'RSRC.INF');
+        unless($file =~ /^ ([A-Z]{4} | DATA\.FRK) $/x)
+        {
+            debug(1,"DEBUG: invalid resource filename '",$file,
+                  "' -- skipping");
+            next;
+        }
+        if(-z $file)
+        {
+            debug(1,"DEBUG: resource file '",$file,
+                  "' has zero size -- skipping");
+            next;
+        }
+        open($fh_resource,'<:raw',$file)
+            or croak($subname,"():\n",
+                     " unable to open '",$file,"' for reading!\n");
+        sysread($fh_resource,$resdata,-s $file);
+        close($fh_resource)
+            or croak($subname,"(): unable to close '",$file,"'!\n");
+        if($file eq 'DATA.FRK')
+        {
+            $resource{name} = '    ';
+            $resource{type} = '    ';
+        }
+        else
+        {
+            $resource{name} = $file;
+            $resource{type} = detect_resource_type(\$resdata);
+        }
+        if(! $resource{type})
+        {
+            debug(1,"DEBUG: unable to determine resource type for file '",
+                  $file,"' -- skipping");
+            next;
+        }
+        $resource{unknown1} = 0;
+        $resource{unknown2} = 0;
+        $resource{size} = length($resdata);
+        %tocentry = %resource;
+        push(@{$self->{toc}},\%tocentry);
+
+        $resource{data} = $resdata;
+        $self->{resources}->{$resource{type}} = \%resource;
+        debug(2,"DEBUG: found resource '",$resource{name},
+              "', type '",$resource{type},"' [",$resource{size}," bytes]");
+    }
+
+    chdir($cwd);
+    return 1;
+}
 
 ######################################
 ########## ACCESSOR METHODS ##########
@@ -446,11 +630,12 @@ sub pack_imp_header :method
 
     $header = pack('n',$self->{version});
     $header .= 'BOOKDOUG';
-    if(length($self->{unknown0x0a}) != 8)
+    if(! $self->{unknown0x0a}
+       or length($self->{unknown0x0a}) != 8)
     {
         carp($subname,"():\n",
              " unknown data at 0x0a has incorrect length",
-             " - substituting nulls");
+             " -- substituting nulls\n");
         $self->{unknown0x0a} = "\x00\x00\x00\x00\x00\x00\x00\x00";
     }
     $header .= $self->{unknown0x0a};
@@ -685,7 +870,7 @@ sub pack_imp_toc
         return;
     }
 
-    if(!@{$self->{toc}})
+    if(!$self->{toc})
     {
         carp($subname,"(): no TOC data found!\n");
         return;
@@ -1077,13 +1262,130 @@ sub write_text :method
 
 Creates appropriate table of contents data from the metadata in
 C<< $self->{resources} >>, in the format specified by
-C<< $self->{version} >>.  This will also set C<< $self->{filecount} >> to
-match the actual number of resources.
+C<< $self->{version} >>.  This will also set C<< $self->{filecount} >>
+to match the actual number of resources.
+
+Returns the number of resources found.
 
 =cut
 
-sub create_toc_from_resources
+sub create_toc_from_resources :method
 {
+    my $self = shift;
+    my $subname = (caller(0))[3];
+    croak($subname . "() called as a procedure!\n") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+
+    $self->{toc} = ();
+    return 0 unless($self->{resources});
+
+    foreach my $type (sort keys %{$self->{resources}})
+    {
+        my %tocentry;
+        $tocentry{name}     = $self->{resources}->{$type}->{name};
+        $tocentry{type}     = $type;
+        $tocentry{size}     = length($self->{resources}->{$type}->{data});
+        $tocentry{unknown1} = $self->{resources}->{$type}->{unknown1};
+        $tocentry{unknown2} = $self->{resources}->{$type}->{unknown2};
+        push(@{$self->{toc}},\%tocentry);
+    }
+   
+    $self->{filecount} = scalar($self->{toc});
+    debug(2,"DEBUG: created TOC data from ",$self->{filecount}," records");
+    return $self->{filecount};
+}
+
+
+=head2 C<parse_eti_server_data($data)>
+
+Parses ETI server data, as potentially found appended to the end of
+.imp book properties or a RSRC.INF resource file on encrypted books
+downloaded directly from ETI servers.
+
+Takes as a single argument a string containing just the extra appended
+data, and stores the parsed values in C<< $self->{etiserverdata} >> as
+a hash.  Note that parsing requires knowledge of the length of the
+book properties at the time this data was inserted; if the book
+properties have not been properly parsed or have been modified, the
+resulting behaviour of this method is not defined.
+
+Returns the number of bytes handled, zero if no data was provided.
+
+The data has the following format and keys:
+
+=over
+
+=item * [0-3 bytes]: padding data to make sure the following data is
+4-byte aligned, stored in key C<pad>.
+
+=item * [4 bytes, big-endian unsigned long int]: unknown value,
+usually = 2, stored in key C<unknown1>
+
+=item * [4 bytes, big-endian unsigned long int]: issue number for
+periodicals (always 0xffffffff for books), stored in key
+C<issuenumber>.
+
+=item * [variable-length null-terminated string]: content feed for
+periodicals, null string for books, stored in key C<contentfeed>.
+
+=item * [variable-length null-terminated string]: source string in the
+format C<'SOURCE_ID:SOURCE_TYPE:None'>, where C<SOURCE_ID> is usually
+'3' and C<SOURCE_TYPE> is usually 'B'.
+
+=item * [4 bytes, big-endian unsigned long int]: unknown value, stored
+in key C<unknown2>.  This value may not be present at all.
+
+=back
+
+=cut
+
+sub parse_eti_server_data :method
+{
+    my $self = shift;
+    my ($data) = @_;
+    my $subname = (caller(0))[3];
+    croak($subname . "() called as a procedure!\n") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+
+    return 0 unless($data);
+
+    my $proplength = $self->bookproplength;
+    my $length = length($data);
+    if($length < 10)
+    {
+        carp($subname,"():\n",
+             " data is too short to contain ETI server data! [",
+             $length," bytes]\n");
+        return 0;
+    }
+
+    $self->{etiserverdata} = {};
+
+    # Up to 3 bytes of padding to make sure that the following data is
+    # 4-byte aligned.
+    my $padlength = $proplength % 4;
+    my @list;
+    if($padlength)
+    {
+        $padlength = 4 - $padlength;
+        $self->{etiserverdata}->{pad} = substr($data,0,$padlength);
+        $proplength += $padlength;
+    }
+    
+    @list = unpack('NNZ*Z*N',substr($data,$padlength));
+    $self->{etiserverdata}->{unknown1}    = $list[0];
+    $self->{etiserverdata}->{issuenumber} = $list[1];
+    $self->{etiserverdata}->{contentfeed} = $list[2];
+    $self->{etiserverdata}->{source}      = $list[3];
+    $self->{etiserverdata}->{unknown2}    = $list[4];
+    debug(2,"  pad=",hexstring($self->{etiserverdata}->{pad}))
+        if($self->{etiserverdata}->{pad});
+    debug(2,
+          "  unknown1=",$list[0]," \t\tissuenumber=",$list[1],"\n",
+          "  contentfeed='",$list[2],"' \tsource='",$list[3],"'");
+    debug(2,"  unknown2=",$list[4]) if(defined $list[4]);
+
+    return($length);
 }
 
 
@@ -1117,33 +1419,8 @@ blank.
 
 In addition, ETI server data may be appended to this data on encrypted
 books downloaded from ETI servers.  If present, that data will be
-stored in the hash C<< $self->{etiserverdata}.
-
-That data has the following format and keys:
-
-=over
-
-=item * [0-3 bytes]: padding data to make sure the following data is
-4-byte aligned, stored in key C<pad>.
-
-=item * [4 bytes, big-endian unsigned long int]: unknown value,
-usually = 2, stored in key C<unknown1>
-
-=item * [4 bytes, big-endian unsigned long int]: issue number for
-periodicals (always 0xffffffff for books), stored in key
-C<issuenumber>.
-
-=item * [variable-length null-terminated string]: content feed for
-periodicals, null string for books, stored in key C<contentfeed>.
-
-=item * [variable-length null-terminated string]: source string in the
-format C<'SOURCE_ID:SOURCE_TYPE:None'>, where C<SOURCE_ID> is usually
-'3' and C<SOURCE_TYPE> is usually 'B'.
-
-=item * [4 bytes, big-endian unsigned long int]: unknown value, stored
-in key C<unknown2>.  This value may not be present at all.
-
-=back
+stored in the hash C<< $self->{etiserverdata} >>.  See
+L</parse_eti_server_data($data)> for details.
 
 A warning will be carped if the length of the parsed properties
 (including the C null string terminators) is not equal to the length
@@ -1190,32 +1467,7 @@ sub parse_imp_book_properties :method
     if($proplength < length($propdata))
     {
         debug(1,"Book properties data has extra ETI server data appended");
-        $self->{etiserverdata} = {};
-
-        # Up to 3 bytes of padding to make sure that the following
-        # data is 4-byte aligned.
-        my $padlength = $proplength % 4;
-        my @list;
-        if($padlength)
-        {
-            $padlength = 4 - $padlength;
-            $self->{etiserverdata}->{pad} = 
-                substr($propdata,$proplength,$padlength);
-            $proplength += $padlength;
-        }
-
-        @list = unpack('NNZ*Z*N',substr($propdata,$proplength));
-        $self->{etiserverdata}->{unknown1}    = $list[0];
-        $self->{etiserverdata}->{issuenumber} = $list[1];
-        $self->{etiserverdata}->{contentfeed} = $list[2];
-        $self->{etiserverdata}->{source}      = $list[3];
-        $self->{etiserverdata}->{unknown2}    = $list[4];
-        debug(2,"  pad=",hexstring($self->{etiserverdata}->{pad}))
-            if($self->{etiserverdata}->{pad});
-        debug(2,
-              "  unknown1=",$list[0]," \t\tissuenumber=",$list[1],"\n",
-              "  contentfeed='",$list[2],"' \tsource='",$list[3],"'");
-        debug(2,"  unknown2=",$list[4]) if(defined $list[4]);
+        $self->parse_eti_server_data(substr($propdata,$proplength));
     }
     return 1;
 }
@@ -1669,7 +1921,7 @@ sub parse_imp_toc_v2 :method
 All procedures are exportable, but none are exported by default.
 
 
-=head2 C<detect_resource_type(\$data)
+=head2 C<detect_resource_type(\$data)>
 
 Takes as a sole argument a reference to the data component of a
 resource.  Returns a 4-byte string containing the resource type if
@@ -1872,17 +2124,10 @@ sub parse_imp_resource_v2
 
 =item * Not finished.  Do not try to use yet.
 
+=item * load_resdir() needs refactoring
+
 =item * Support for v1 files is completely untested and implemented
 with some guesswork.  Bug reports welcome.
-
-=item * Encrypted .IMP files provided by the eBookwise servers may
-have additional data inside the book properties header area,
-corresponding to the data from the padding bytes through the
-SOURCE_ID:SOURCE_TYPE:None string in the RSRC.INF file.  Currently,
-this information is completely ignored (preset values will be used
-when writing the RSRC.INF in all cases), and a warning will be carped
-if it exists.  This should only happen inside encrypted books,
-however.
 
 =back
 
