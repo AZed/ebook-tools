@@ -1758,8 +1758,8 @@ sub parse_imp_resource_cm :method
 =head2 C<parse_imp_resource_jpeg()>
 
 Parses the C<JPEG> resource loaded into C<< $self->{resources} >>,
-if present, extracting the count C<< $self->{jpg_count} >> and
-.jpg images C<< $self->{jpg_image} >>.
+if present, extracting the count C<< $self->{jpeg_count} >> and
+.jpg images C<< $self->{jpeg_image} >>.
 
 Returns 1 on success, or undef if no C<JPEG> resource has been loaded
 yet or the resource data is invalid.
@@ -1883,7 +1883,7 @@ sub parse_imp_resource_jpeg :method
         }
     }
 
-    #$self->{JPEG_image} = @jpeg_image;
+    #$self->{jpeg_image} = @jpeg_image;
     debug(2,"DEBUG: JPEG specifies ",$jpeg_count," .jpg images");
     return 1;
 }
