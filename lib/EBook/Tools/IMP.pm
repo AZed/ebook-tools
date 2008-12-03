@@ -1755,6 +1755,138 @@ sub parse_imp_resource_cm :method
     return 1;
 }
 
+=head2 C<parse_imp_resource_jpeg()>
+
+Parses the C<JPEG> resource loaded into C<< $self->{resources} >>,
+if present, extracting the count C<< $self->{jpg_count} >> and
+.jpg images C<< $self->{jpg_image} >>.
+
+Returns 1 on success, or undef if no C<JPEG> resource has been loaded
+yet or the resource data is invalid.
+
+=cut
+
+sub parse_imp_resource_jpeg :method
+{
+    my $self = shift;
+    my $subname = (caller(0))[3];
+    croak($subname . "() called as a procedure!\n") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+
+    return unless($self->{resources}->{'JPEG'});
+
+    my @list;
+    my $version;
+    my $ident;          # Must be constant string 'JPEG'
+    my $unknown1;
+    my $indexoffset;
+    my $unknown2;
+    my $unknown3;
+    my $unknown4;
+    my $unknown5;
+    my $unknown6;
+    
+    my $toc_index1;
+    my $index1_const1;
+    my $index1_unknown;
+    my $index1_len;
+    my $index1_len1;
+    my $index1_len2;
+    my $index1_offset;
+    my $index1_offset1;
+    my $index1_offset2;
+    my $index1_const0;
+    
+    my $jpeg_data;
+    my $jpeg_count;
+    my @jpeg_image;
+
+    my $reb1200 = 0;
+    my $debug = 0;
+    my $extraction = 1;
+    
+    if($self->{device} == DEVICE_REB1200 || $self->{device} == DEVICE_SB200)
+    {
+        $reb1200 = 1;
+    }
+
+    @list = unpack('na[4]NNnNNNN',$self->{resources}->{'JPEG'}->{data});
+    $version     = $list[0];
+    $ident       = $list[1];
+    $unknown1    = $list[2];
+    $indexoffset = $list[3];
+    $unknown2    = $list[4];
+    $unknown3    = $list[5];
+    $unknown4    = $list[6];
+    $unknown5    = $list[7];
+    $unknown6    = $list[8];
+    
+    if($ident ne 'JPEG')
+    {
+        carp($subname,"():\n",
+             " Invalid 'JPEG' record!\n");
+        return;
+    }
+    debug(2,"DEBUG: parsing JPEG v",$version,", index offset ",$indexoffset);
+            
+    if ($self->{resources}->{'JPEG'}->{size} == 32)
+    {
+        return 0;
+    }
+    
+    $jpeg_count = ($self->{resources}->{'JPEG'}->{size}-$indexoffset)/12;
+    if (!$reb1200)
+    {
+        $jpeg_count = ($self->{resources}->{'JPEG'}->{size}-$indexoffset)/14;
+    }
+    debug(2,"DEBUG: Number of JPEG images is ",$jpeg_count);
+    
+    $jpeg_data = substr($self->{resources}->{'JPEG'}->{data},32,$indexoffset-32);
+   
+    for(my $j=0;$j<$jpeg_count;$j++)
+    {
+        if ($reb1200)
+        {
+            #Standard 1200 Header (12 bytes)
+            $toc_index1 = substr($self->{resources}->{'JPEG'}->{data},$indexoffset+12*$j,12);          
+            @list = unpack("nNNn",$toc_index1);
+            $index1_const1 = $list[0];
+            $index1_len    = $list[1];
+            $index1_offset = $list[2];
+            $index1_const0 = $list[3];
+            if ($debug) { printf " Index1:index1_const1:%04X, len:%6d, offset:%7d, const0:%04X\n", $index1_const1, $index1_len, $index1_offset, $index1_const0; }
+        }
+        else
+        {
+            #Standard 1150 Header (14 bytes)
+            $toc_index1 = substr($self->{resources}->{'JPEG'}->{data},$indexoffset+14*$j,14);
+            @list = unpack("vvvvvvv",$toc_index1);
+            $index1_const1  = $list[0];
+            $index1_unknown = $list[1];
+            $index1_len1    = $list[2];
+            $index1_len2    = $list[3];
+            $index1_offset1 = $list[4];
+            $index1_offset2 = $list[5];
+            $index1_const0  = $list[6];
+            $index1_len = $index1_len2*65536 + $index1_len1;
+            $index1_offset = $index1_offset2*65536 + $index1_offset1;
+            if ($debug) { printf " Index1:index1_const1:%04X,  \$%04X, len:%6d, offset:%7d, \$%04X\n", $index1_const1, $index1_unknown, $index1_len, $index1_offset, $index1_const0; }
+        }
+        my $pic_id = uc(unpack("H4", pack("n",$index1_const1))); 
+        $jpeg_image[$j] = unpack("a${index1_len}", substr($jpeg_data, $index1_offset-32, $index1_len));
+        if ($extraction)
+        {
+            open BINFILE, ">JPEG_${pic_id}.jpg" or die "Cannot create .jpg file";
+            binmode (BINFILE);
+            print BINFILE $jpeg_image[$j];
+            close BINFILE;
+        }
+    }
+
+    #$self->{JPEG_image} = @jpeg_image;
+    debug(2,"DEBUG: JPEG specifies ",$jpeg_count," .jpg images");
+    return 1;
+}
 
 =head2 C<parse_imp_text()>
 
