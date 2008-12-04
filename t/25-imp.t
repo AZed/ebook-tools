@@ -3,7 +3,8 @@ use Cwd qw(chdir getcwd);
 use Digest::MD5 qw(md5);
 use File::Basename qw(basename);
 use File::Path;    # Exports 'mkpath' and 'rmtree'
-use Test::More tests => 78;
+use Image::Size;
+use Test::More tests => 83;
 BEGIN { use_ok('EBook::Tools::IMP',':all') };
 
 my $cwd;
@@ -20,6 +21,8 @@ my $fh_imp;
 my $fh_res;
 my $md5 = Digest::MD5->new();
 my $md5check = Digest::MD5->new();
+my ($imagex,$imagey,$imagetype);
+my $scalar;
 my @list;
 
 
@@ -47,6 +50,24 @@ foreach my $type (keys %{$imp->resources})
     ok(detect_resource_type(\$resdata) eq $type,
        "detect_resource_type() correctly detects '$type'");
 }
+
+is($imp->jpeg(),undef,'jpeg() returns undef');
+
+$scalar = $imp->jpeg(3918);
+($imagex,$imagey,$imagetype) = imgsize(\$scalar);
+is($imagetype,'JPG','jpeg($id) finds JPG data');
+
+@list = sort {$a <=> $b} keys %{$imp->jpeg_hashref()};
+is_deeply(\@list, [ 128,3918,19840,35354,36173,47032 ],
+          'jpeg_hashref() finds expected image ids');
+
+@list = sort keys %{$imp->jpeg_hashref(3918)};
+is_deeply(\@list, [ 'const0','data','length','offset','unknown' ],
+          'jpeg_hashref($id) finds expected hash keys');
+
+@list = sort {$a <=> $b} $imp->jpeg_ids();
+is_deeply(\@list, [ 128,3918,19840,35354,36173,47032 ],
+          'jpeg_ids() finds expected image ids');
 
 is($imp->pack_imp_header,$headerdata,
    'pack_imp_header() creates the correct data');

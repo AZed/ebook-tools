@@ -594,6 +594,99 @@ sub is_1150
 }
 
 
+=head2 C<jpeg($id)>
+
+Returns the JPEG image data stored in the JPEG resource (specifically,
+stored in C<< $self->{jpeg}->{$id}->{data} >> as parsed from the JPEG
+resource) corresponding to the 16-bit identifier provided as the sole
+argument.
+
+Returns undef if C<$id> is not provided.
+
+=cut
+
+sub jpeg :method
+{
+    my $self = shift;
+    my ($id) = @_;
+    my $subname = (caller(0))[3];
+    croak($subname . "() called as a procedure!\n") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+    return unless($id);
+    return $self->{jpeg}->{$id}->{data};
+}
+
+
+=head2 C<jpeg_hashref($id)>
+
+Returns the raw object hashref used to store parsed JPEG image data,
+as stored in C<< $self->{jpeg} >>.  The keys of this hash are the JPEG
+image IDs, and the values are hashrefs pointing to hashes containing
+the following keys:
+
+=over
+
+=item * C<unknown>
+
+A 16-bit integer only available on EBW 1150 resources.  Use with
+caution.  This key may be renamed if more information is found.
+
+=item * C<length>
+
+The length of the actual image data
+
+=item * C<offset>
+
+The byte offset inside of the raw resource data in which the JPEG
+image data can be found.
+
+=item * C<const0>
+
+An unknown value, but it appears to always be zero.  Use with caution.
+This key may be renamed if more information is found.
+
+=back
+
+If the argument C<$id> is specified, only the hash for that specific
+ID is returned, rather than the entire hash of hashrefs.
+
+=cut
+
+sub jpeg_hashref :method
+{
+    my $self = shift;
+    my ($id) = @_;
+    my $subname = (caller(0))[3];
+    croak($subname . "() called as a procedure!\n") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+
+    if($id)
+    {
+        return $self->{jpeg}->{$id};
+    }
+    return $self->{jpeg};
+}
+
+
+=head2 C<jpeg_ids()>
+
+Returns a list of the 16-bit integer IDs of the the JPEG image data
+stored in the JPEG resource (specifically, stored in
+C<< $self->{jpeg} >> as parsed from the JPEG resource).
+
+=cut
+
+sub jpeg_ids :method
+{
+    my $self = shift;
+    my $subname = (caller(0))[3];
+    croak($subname . "() called as a procedure!\n") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+
+    return keys %{$self->{jpeg}};
+}
+
+
 =head2 C<pack_imp_book_properties()>
 
 Packs object attributes into the 7 null-terminated strings that
@@ -1794,7 +1887,9 @@ C<< $self->{jpeg} >> keyed by 16-bit JPEG resource ID.
 Returns 1 on success, or undef if no C<JPEG> resource has been loaded
 yet or the resource data is invalid.
 
-See also accessor methods L</jpeg($id)> and L<jpegindex($id)>
+This method is called automatically by L</load()> and L</load_resdir()>.
+
+See also accessor methods L</jpeg($id)> and L</jpeg_hashref($id)>.
 
 =cut
 
@@ -1823,9 +1918,6 @@ sub parse_resource_jpeg :method
     my $jpeg_count;
     my @jpeg_image;
 
-    my $debug = 0;
-    my $extraction = 1;
-    
     @list = unpack('na[4]NNnNNNN',$self->{resources}->{'JPEG'}->{data});
     $version     = $list[0];
     $ident       = $list[1];
