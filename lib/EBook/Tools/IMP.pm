@@ -42,6 +42,7 @@ use EBook::Tools::LZSS qw(:all);
 use Encode;
 use File::Basename qw(basename dirname fileparse);
 use File::Path;     # Exports 'mkpath' and 'rmtree'
+use Image::Size;
 binmode(STDERR,":utf8");
 
 my $drmsupport = 0;
@@ -89,6 +90,7 @@ my %rwfields = (
     'lzsslengthbits' => 'integer',
     'lzssoffsetbits' => 'integer',      
     'text'           => 'string',       # Uncompressed text
+    'jpeg'           => 'hash',         # Hash of hashes of jpeg image data
     );
 
 my %rofields = (
@@ -251,6 +253,7 @@ sub load :method
     }
 
     $self->parse_imp_resource_cm();
+    $self->parse_imp_resource_jpeg();
     $self->parse_imp_text();
 
     close($fh_imp)
@@ -438,8 +441,12 @@ sub load_resdir
         debug(2,"DEBUG: found resource '",$resource{name},
               "', type '",$resource{type},"' [",$resource{size}," bytes]");
     }
-
     chdir($cwd);
+    
+    $self->parse_imp_resource_cm();
+    $self->parse_imp_resource_jpeg();
+    $self->parse_imp_text();
+    
     return 1;
 }
 
@@ -562,6 +569,28 @@ sub find_resource_by_name :method
         return $type if($self->{resources}->{$type}->{name} eq $name);
     }
     return;
+}
+
+
+=head2 C<is_1150()>
+
+Returns 1 if C<< $self->{device} == 2 >>, return 0 if it is some other
+value, and undef it is undefined.  This has value because resources
+packed for a EBW 1150 or GEB 1150 are in a different format than
+resources packed for other IMP readers.
+
+=cut
+
+sub is_1150
+{
+    my $self = shift;
+    my $subname = (caller(0))[3];
+    croak($subname . "() called as a procedure!\n") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+
+    return if(!defined $self->{device});
+    return 1 if($self->{device} == 2);
+    return 0;
 }
 
 
@@ -1755,14 +1784,17 @@ sub parse_imp_resource_cm :method
     return 1;
 }
 
+
 =head2 C<parse_imp_resource_jpeg()>
 
 Parses the C<JPEG> resource loaded into C<< $self->{resources} >>,
-if present, extracting the count C<< $self->{jpeg_count} >> and
-.jpg images C<< $self->{jpeg_image} >>.
+if present, placing the image data and metadata of each image found into 
+C<< $self->{jpeg} >> keyed by 16-bit JPEG resource ID.
 
 Returns 1 on success, or undef if no C<JPEG> resource has been loaded
 yet or the resource data is invalid.
+
+See also accessor methods L</jpeg($id)> and L<jpegindex($id)>
 
 =cut
 
@@ -1777,44 +1809,28 @@ sub parse_imp_resource_jpeg :method
 
     my @list;
     my $version;
+    my $headersize;
     my $ident;          # Must be constant string 'JPEG'
     my $unknown1;
-    my $indexoffset;
+    my $tocoffset;
     my $unknown2;
     my $unknown3;
     my $unknown4;
     my $unknown5;
     my $unknown6;
     
-    my $toc_index1;
-    my $index1_const1;
-    my $index1_unknown;
-    my $index1_len;
-    my $index1_len1;
-    my $index1_len2;
-    my $index1_offset;
-    my $index1_offset1;
-    my $index1_offset2;
-    my $index1_const0;
-    
     my $jpeg_data;
     my $jpeg_count;
     my @jpeg_image;
 
-    my $reb1200 = 0;
     my $debug = 0;
     my $extraction = 1;
     
-    if($self->{device} == DEVICE_REB1200 || $self->{device} == DEVICE_SB200)
-    {
-        $reb1200 = 1;
-    }
-
     @list = unpack('na[4]NNnNNNN',$self->{resources}->{'JPEG'}->{data});
     $version     = $list[0];
     $ident       = $list[1];
     $unknown1    = $list[2];
-    $indexoffset = $list[3];
+    $tocoffset   = $list[3];
     $unknown2    = $list[4];
     $unknown3    = $list[5];
     $unknown4    = $list[6];
@@ -1827,66 +1843,95 @@ sub parse_imp_resource_jpeg :method
              " Invalid 'JPEG' record!\n");
         return;
     }
-    debug(2,"DEBUG: parsing JPEG v",$version,", index offset ",$indexoffset);
+    debug(2,"DEBUG: parsing JPEG resource v",$version,", index offset ",$tocoffset);
             
-    if ($self->{resources}->{'JPEG'}->{size} == 32)
+    if ($self->{resources}->{'JPEG'}->{size} <= 32)
     {
-        return 0;
+        return;
     }
     
-    $jpeg_count = ($self->{resources}->{'JPEG'}->{size}-$indexoffset)/12;
-    if (!$reb1200)
-    {
-        $jpeg_count = ($self->{resources}->{'JPEG'}->{size}-$indexoffset)/14;
-    }
-    debug(2,"DEBUG: Number of JPEG images is ",$jpeg_count);
+    if($self->{device} == DEVICE_EBW1150) { $headersize = 14; }
+    else { $headersize = 12; }
+    $jpeg_count = ($self->{resources}->{'JPEG'}->{size} - $tocoffset) / $headersize;
+
+    debug(2,"DEBUG: ",$jpeg_count," JPEG images listed in header");
     
-    $jpeg_data = substr($self->{resources}->{'JPEG'}->{data},32,$indexoffset-32);
-   
-    for(my $j=0;$j<$jpeg_count;$j++)
+    $self->{jpeg} = {};
+    foreach my $pos (0 .. ($jpeg_count - 1))
     {
-        if ($reb1200)
+        my $tocdata;
+        my $id;         # Image ID -- this is only unique for JPEG images
+        my $hexid;      # 4-digit hexadecimal string version of $id
+    
+        if($self->{device} == DEVICE_EBW1150)
         {
-            #Standard 1200 Header (12 bytes)
-            $toc_index1 = substr($self->{resources}->{'JPEG'}->{data},$indexoffset+12*$j,12);          
-            @list = unpack("nNNn",$toc_index1);
-            $index1_const1 = $list[0];
-            $index1_len    = $list[1];
-            $index1_offset = $list[2];
-            $index1_const0 = $list[3];
-            if ($debug) { printf " Index1:index1_const1:%04X, len:%6d, offset:%7d, const0:%04X\n", $index1_const1, $index1_len, $index1_offset, $index1_const0; }
+            #Standard 1150 Header (14 bytes)
+            $tocdata = substr($self->{resources}->{'JPEG'}->{data},
+                              $tocoffset + (14 * $pos),14);
+            @list = unpack("vvVVv",$tocdata);
+            $id                             = $list[0];
+            $self->{jpeg}->{$id}->{unknown} = $list[1];
+            $self->{jpeg}->{$id}->{length}  = $list[2];
+            $self->{jpeg}->{$id}->{offset}  = $list[3];
+            $self->{jpeg}->{$id}->{const0}  = $list[4];
+            if($EBook::Tools::debug > 2)
+            {
+                printf("  id=%04X  unk1=0x%04X  length=%d  offset=%d, const0=0x%04X\n",
+                       $id, $self->{jpeg}->{$id}->{unknown},
+                       $self->{jpeg}->{$id}->{length}, $self->{jpeg}->{$id}->{offset},
+                       $self->{jpeg}->{$id}->{const0});
+            }
         }
         else
         {
-            #Standard 1150 Header (14 bytes)
-            $toc_index1 = substr($self->{resources}->{'JPEG'}->{data},$indexoffset+14*$j,14);
-            @list = unpack("vvvvvvv",$toc_index1);
-            $index1_const1  = $list[0];
-            $index1_unknown = $list[1];
-            $index1_len1    = $list[2];
-            $index1_len2    = $list[3];
-            $index1_offset1 = $list[4];
-            $index1_offset2 = $list[5];
-            $index1_const0  = $list[6];
-            $index1_len = $index1_len2*65536 + $index1_len1;
-            $index1_offset = $index1_offset2*65536 + $index1_offset1;
-            if ($debug) { printf " Index1:index1_const1:%04X,  \$%04X, len:%6d, offset:%7d, \$%04X\n", $index1_const1, $index1_unknown, $index1_len, $index1_offset, $index1_const0; }
+            #Standard 1200 Header (12 bytes)
+            $tocdata = substr($self->{resources}->{'JPEG'}->{data},
+                              $tocoffset + (12 * $pos),12);          
+            @list = unpack("nNNn",$tocdata);
+            $id                             = $list[0];
+            $self->{jpeg}->{$id}->{length}  = $list[1];
+            $self->{jpeg}->{$id}->{offset}  = $list[2];
+            $self->{jpeg}->{$id}->{const0}  = $list[3];
+            if($EBook::Tools::debug > 2)
+            {
+                printf("  id=%04X  unk1=0x%04X  length=%d  offset=%d, const0=0x%04X\n",
+                       $id, $self->{jpeg}->{$id}->{unknown},
+                       $self->{jpeg}->{$id}->{length}, $self->{jpeg}->{$id}->{offset},
+                       $self->{jpeg}->{$id}->{const0});
+            }
         }
-        my $pic_id = uc(unpack("H4", pack("n",$index1_const1))); 
-        $jpeg_image[$j] = unpack("a${index1_len}", substr($jpeg_data, $index1_offset-32, $index1_len));
-        if ($extraction)
+        $hexid = sprintf("%04X",$id);
+        
+        $self->{jpeg}->{$id}->{data} = substr($self->{resources}->{'JPEG'}->{data},
+                                             $self->{jpeg}->{$id}->{offset},
+                                             $self->{jpeg}->{$id}->{length});
+
+        my ($imagex,$imagey,$imagetype) = imgsize(\$self->{jpeg}->{$id}->{data});
+        if(defined($imagex) && $imagetype)
         {
-            open BINFILE, ">JPEG_${pic_id}.jpg" or die "Cannot create .jpg file";
-            binmode (BINFILE);
-            print BINFILE $jpeg_image[$j];
-            close BINFILE;
+            debug(2,"  jpeg image ",$pos," (ID '",$hexid,"') is valid ",
+                  $imagetype," image data (",$imagex," x ",$imagey,")");
         }
+        else
+        {
+            carp($subname,"():\n",
+                 " jpeg image ",$pos," (ID '",$id,
+                 "') is not valid image data!\n");
+            next;
+        }
+    } # foreach my $pos (0 .. ($jpeg_count - 1))
+
+    my $jpeg_found = scalar keys %{$self->{jpeg}};
+    if($jpeg_found != $jpeg_count)
+    {
+        carp($subname,"()\n",
+             " resource specified ",$jpeg_count," images, but only found ",
+             $jpeg_found,"!\n");
     }
 
-    #$self->{jpeg_image} = @jpeg_image;
-    debug(2,"DEBUG: JPEG specifies ",$jpeg_count," .jpg images");
     return 1;
 }
+
 
 =head2 C<parse_imp_text()>
 
