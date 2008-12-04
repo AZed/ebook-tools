@@ -252,9 +252,9 @@ sub load :method
         return;
     }
 
-    $self->parse_imp_resource_cm();
-    $self->parse_imp_resource_jpeg();
-    $self->parse_imp_text();
+    $self->parse_resource_cm();
+    $self->parse_resource_jpeg();
+    $self->parse_text();
 
     close($fh_imp)
         or croak($subname,"(): failed to close '",$filename,"'!\n");
@@ -443,9 +443,9 @@ sub load_resdir
     }
     chdir($cwd);
     
-    $self->parse_imp_resource_cm();
-    $self->parse_imp_resource_jpeg();
-    $self->parse_imp_text();
+    $self->parse_resource_cm();
+    $self->parse_resource_jpeg();
+    $self->parse_text();
     
     return 1;
 }
@@ -1723,7 +1723,7 @@ sub parse_imp_header :method
 }
 
 
-=head2 C<parse_imp_resource_cm()>
+=head2 C<parse_resource_cm()>
 
 Parses the C<!!cm> resource loaded into C<< $self->{resources} >>,
 if present, extracting the LZSS uncompression parameters into
@@ -1734,7 +1734,7 @@ yet or the resource data is invalid.
 
 =cut
 
-sub parse_imp_resource_cm :method
+sub parse_resource_cm :method
 {
     my $self = shift;
     my $subname = (caller(0))[3];
@@ -1785,7 +1785,7 @@ sub parse_imp_resource_cm :method
 }
 
 
-=head2 C<parse_imp_resource_jpeg()>
+=head2 C<parse_resource_jpeg()>
 
 Parses the C<JPEG> resource loaded into C<< $self->{resources} >>,
 if present, placing the image data and metadata of each image found into 
@@ -1798,7 +1798,7 @@ See also accessor methods L</jpeg($id)> and L<jpegindex($id)>
 
 =cut
 
-sub parse_imp_resource_jpeg :method
+sub parse_resource_jpeg :method
 {
     my $self = shift;
     my $subname = (caller(0))[3];
@@ -1933,7 +1933,7 @@ sub parse_imp_resource_jpeg :method
 }
 
 
-=head2 C<parse_imp_text()>
+=head2 C<parse_text()>
 
 Parses the C<'    '> (DATA.FRK) resource loaded into
 C<< $self->{resources} >>, if present, extracting the text into 
@@ -1947,7 +1947,7 @@ resource was found or the text was encrypted.
 
 =cut
 
-sub parse_imp_text :method
+sub parse_text :method
 {
     my $self = shift;
     my $subname = (caller(0))[3];
