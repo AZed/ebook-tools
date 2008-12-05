@@ -574,10 +574,10 @@ sub find_resource_by_name :method
 
 =head2 C<is_1150()>
 
-Returns 1 if C<< $self->{device} == 2 >>, return 0 if it is some other
-value, and undef it is undefined.  This has value because resources
-packed for a EBW 1150 or GEB 1150 are in a different format than
-resources packed for other IMP readers.
+Returns 1 if C<< $self->{device} == 2 >>, returns 0 if it is some
+other value, and undef it is undefined.  This has value because
+resources packed for a EBW 1150 or GEB 1150 are in a different format
+than resources packed for other IMP readers.
 
 =cut
 
@@ -995,7 +995,7 @@ found.
 
 =cut
 
-sub pack_imp_toc
+sub pack_imp_toc :method
 {
     my $self = shift;
     my $subname = (caller(0))[3];
@@ -1077,7 +1077,7 @@ for that, use L</set_resdirlength()>.
 
 =cut
 
-sub resdirlength
+sub resdirlength :method
 {
     my $self = shift;
     my $subname = (caller(0))[3];
@@ -1113,7 +1113,7 @@ is not found.
 
 =cut
 
-sub resource
+sub resource :method
 {
     my $self = shift;
     my ($type) = @_;
@@ -1202,7 +1202,7 @@ values are 1 (10-byte metadata) and 2 (20-byte metadata).
 
 =cut
 
-sub version
+sub version :method
 {
     my $self = shift;
     my $subname = (caller(0))[3];
@@ -2343,6 +2343,103 @@ sub parse_imp_toc_v2 :method
         push(@{$self->{toc}}, \%tocentry);
         $offset += 20;
     }
+
+    return 1;
+}
+
+
+=head2 C<set_book_properties(%args)>
+
+Sets the specified book properties.  Returns 1 on success, or undef if
+no properties were specified.
+
+=head3 Arguments
+
+=over
+
+=item * C<identifier>
+
+The book identifier, as might be provided as an OPF C<< <dc:identifier> >>
+element.
+
+=item * C<category>
+
+The main book category, as might be provided as an OPF C<< <dc:subject> >> 
+element.
+
+=item * C<subcategory>
+
+The subcategory, generally a set of search arguments for the ETI
+website.
+
+=item * C<title>
+
+The book title, as might be provided as an OPF C<< <dc:title> >>
+element.
+
+=item * C<lastname>
+
+The primary author's last name, but see the entry for C<firstname>
+before deciding how to handle name storage.
+
+=item * C<middlename>
+
+The primary author's middle name, but see the entry for C<firstname>
+before deciding how to handle name storage.
+
+=item * C<firstname>
+
+The primary author's first name, but this field is also used by a
+great many .imp books to store the entire name in "First Last" format.
+If this field is to be used this way, C<lastname> and C<middlename>
+must be blank.
+
+=back
+
+=head3 Example
+
+ $imp->set_book_properties(title => 'My Best Book',
+                           category => 'Fiction',
+                           firstname => 'John Q. Public');
+
+=cut
+
+sub set_book_properties :method
+{
+    my $self = shift;
+    my %args = @_;
+    my $subname = (caller(0))[3];
+    croak($subname . "() called as a procedure!\n") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+
+    my %valid_args = (
+        'identifier'  => 1,
+        'category'    => 1,
+        'subcategory' => 1,
+        'title'       => 1,
+        'lastname'    => 1,
+        'middlename'  => 1,
+        'firstname'   => 1,
+        );
+    if(!%args)
+    {
+        carp($subname,"():\n",
+             " at least one property must be specified!\n");
+        return;
+    }
+    foreach my $arg (keys %args)
+    {
+        croak($subname,"(): invalid argument '",$arg,"'")
+            if(!$valid_args{$arg});
+    }
+
+    $self->{identifier}  = $args{identifier} if(defined $args{identifier});
+    $self->{category}    = $args{category} if(defined $args{category});
+    $self->{subcategory} = $args{subcategory} if(defined $args{subcategory});
+    $self->{title}       = $args{title} if(defined $args{title});
+    $self->{lastname}    = $args{lastname} if(defined $args{lastname});
+    $self->{middlename}  = $args{middlename} if(defined $args{middlename});
+    $self->{firstname}   = $args{firstname} if(defined $args{firstname});
 
     return 1;
 }
