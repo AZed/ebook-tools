@@ -1483,7 +1483,7 @@ sub write_text :method
     }
 
     my $dirname = $args{dir} || $self->resdirbase;
-    my $filename = $args{filename} || $self->resdirbase . '.txt';
+    my $filename = $args{filename} || $self->resdirbase . '.html';
     $filename = $dirname . '/' . $filename;
     my $fh_text;
 
@@ -2107,8 +2107,12 @@ will use the C<< $self->{lzsslengthbits} >> and
 C<< $self->{lzssoffsetbits} >> attributes if present, and default to 3
 length bits and 14 offset bits otherwise.
 
-Returns the length of the uncompressed text, or undef if no text
-resource was found or the text was encrypted.
+HTML headers and footers are then applied, and control codes replaced
+with appropriate tags.
+
+Returns the length of the raw uncompressed text before any HTML
+modification was done, or undef if no text resource was found or the
+text was encrypted.
 
 =cut
 
@@ -2120,12 +2124,24 @@ sub parse_text :method
     debug(2,"DEBUG[",$subname,"]");
 
     return unless($self->{resources}->{'    '});
-    
+
     my $lengthbits = $self->{lzsslengthbits} || 3;
     my $offsetbits = $self->{lzssoffsetbits} || 14;
     my $lzss = EBook::Tools::LZSS->new(lengthbits => $lengthbits,
                                        offsetbits => $offsetbits);
     my $textref;
+    my $textlength;
+    $self->{text} = <<'END';
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta http-equiv="CONTENT-TYPE" content="text/html; charset=windows-1252" />
+END
+
+    $self->{text} .= "  <title>$self->{title}</title>\n";
+    $self->{text} .= "</head>\n<body>\n";
 
     if($self->{encryption})
     {
@@ -2136,13 +2152,36 @@ sub parse_text :method
     if($self->{compression})
     {
         $textref = $lzss->uncompress(\$self->{resources}->{'    '}->{data});
-        $self->{text} = $$textref;
     }
     else
     {
-        $self->{text} = $self->{resources}->{'    '}->{data};
+        $textref = \($self->{resources}->{'    '}->{data});
     }
-    return length($self->{text});
+    $textlength = length($$textref);
+
+    my $pos = 0;
+    while($pos < $textlength)
+    {
+        my $char = substr($$textref,$pos,1);
+        if(ord($char) == 0x0A)
+        {
+            $self->{text} .= "\n";
+            $self->{text} .= '<br style="page-break-after: always" />';
+            $self->{text} .= "\n";
+        }
+        elsif(ord($char) == 0x0D)
+        {
+            $self->{text} .= "<br />\n";
+        }
+        else
+        {
+            $self->{text} .= $char;
+        }
+        $pos++;
+    }
+    $self->{text} .= $$textref;
+    $self->{text} .= "</body>\n</html>\n";
+    return $textlength;
 }
 
 
