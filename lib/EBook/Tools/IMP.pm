@@ -1955,43 +1955,36 @@ sub parse_resource_jpeg :method
         my $id;         # Image ID -- this is only unique for JPEG images
         my $hexid;      # 4-digit hexadecimal string version of $id
     
+        $tocdata = substr($self->{resources}->{'JPEG'}->{data},
+                          $tocoffset + ($headersize * $pos),$headersize);
         if($self->{device} == DEVICE_EBW1150)
         {
             #Standard 1150 Header (14 bytes)
-            $tocdata = substr($self->{resources}->{'JPEG'}->{data},
-                              $tocoffset + (14 * $pos),14);
             @list = unpack("vvVVv",$tocdata);
             $id                             = $list[0];
             $self->{jpeg}->{$id}->{unknown} = $list[1];
             $self->{jpeg}->{$id}->{length}  = $list[2];
             $self->{jpeg}->{$id}->{offset}  = $list[3];
             $self->{jpeg}->{$id}->{const0}  = $list[4];
-            if($EBook::Tools::debug > 2)
-            {
-                printf("  id=%04X  unk1=0x%04X  length=%d  offset=%d, const0=0x%04X\n",
-                       $id, $self->{jpeg}->{$id}->{unknown},
-                       $self->{jpeg}->{$id}->{length}, $self->{jpeg}->{$id}->{offset},
-                       $self->{jpeg}->{$id}->{const0});
-            }
         }
         else
         {
             #Standard 1200 Header (12 bytes)
-            $tocdata = substr($self->{resources}->{'JPEG'}->{data},
-                              $tocoffset + (12 * $pos),12);          
             @list = unpack("nNNn",$tocdata);
             $id                             = $list[0];
             $self->{jpeg}->{$id}->{length}  = $list[1];
             $self->{jpeg}->{$id}->{offset}  = $list[2];
             $self->{jpeg}->{$id}->{const0}  = $list[3];
-            if($EBook::Tools::debug > 2)
-            {
-                printf("  id=%04X  unk1=0x%04X  length=%d  offset=%d, const0=0x%04X\n",
-                       $id, $self->{jpeg}->{$id}->{unknown},
-                       $self->{jpeg}->{$id}->{length}, $self->{jpeg}->{$id}->{offset},
-                       $self->{jpeg}->{$id}->{const0});
-            }
         }
+
+        if($EBook::Tools::debug > 2)
+        {
+            printf("  id=%04X  unk1=0x%04X  length=%d  offset=%d, const0=0x%04X\n",
+                   $id, $self->{jpeg}->{$id}->{unknown},
+                   $self->{jpeg}->{$id}->{length}, $self->{jpeg}->{$id}->{offset},
+                   $self->{jpeg}->{$id}->{const0});
+        }
+
         $hexid = sprintf("%04X",$id);
         
         $self->{jpeg}->{$id}->{data} = substr($self->{resources}->{'JPEG'}->{data},
