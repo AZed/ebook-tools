@@ -876,6 +876,7 @@ sub unpack_imp
     }
     
     $imp->write_text(dir => $self->{dir});
+    $imp->write_images(dir => $self->{dir});
 
     print {*STDERR} "WARNING: IMP support not yet functional!\n";
     return 0;

@@ -1212,6 +1212,85 @@ sub version
 }
 
 
+=head2 C<write_images(%args)>
+
+Writes the images, if any, to the specified output directory.
+Filenames are in the format C<JPEG_XXXX.jpg> or C<PNG_XXXX.png> where
+C<XXXX> is the image ID for that image type formatted as four
+hexadecimal characters.
+
+=head3 Arguments
+
+=over
+
+=item * C<dir>
+
+The output directory in which to write the file.  This will be created
+if it does not exist.  Defaults to the basename of the stored resource
+directory (see also L</resdirname()>).
+
+=back
+
+=cut
+
+sub write_images :method
+{
+    my $self = shift;
+    my %args = @_;
+    my $subname = (caller(0))[3];
+    croak($subname . "() called as a procedure!\n") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+
+    my %valid_args = (
+        'dir' => 1,
+        );
+    foreach my $arg (keys %args)
+    {
+        croak($subname,"(): invalid argument '",$arg,"'")
+            if(!$valid_args{$arg});
+    }
+
+    my $dirname = $args{dir} || $self->resdirbase;
+    my $cwd = usedir($dirname);
+
+    foreach my $imagetype ('jpeg')
+    {
+        foreach my $id (keys %{$self->{$imagetype}})
+        {
+            my $hexid = sprintf('%04X',$id);
+            my $prefix = uc($imagetype) . '_';
+            my %ext = (
+                'jpeg' => '.jpg',
+                );
+            my $filename = $prefix . $hexid . $ext{$imagetype};
+            my $fh_image;
+
+            if(! $self->{$imagetype}->{$id})
+            {
+                carp($subname,"(): data for image 0x",$hexid," not found!\n");
+                next;
+            }
+
+            if(!open($fh_image,'>:raw',$filename))
+            {
+                carp($subname,"():\n",
+                     " unable to open '",$filename,"' for writing!\n");
+                return;
+            }
+            print {*$fh_image} $self->{$imagetype}->{$id}->{data};
+            if(!close($fh_image))
+            {
+                carp($subname,"():\n",
+                     " unable to close '",$filename,"'!\n");
+                return;
+            }        
+        } # foreach my $id (keys %{$self->{$imagetype}})
+    }
+    chdir($cwd);
+    return 1;
+}
+
+
 =head2 C<write_imp($filename)>
 
 Takes as a sole argument the name of a file to write to, and writes a
@@ -1367,7 +1446,8 @@ directory and file.
 =item * C<dir>
 
 The output directory in which to write the file.  This will be created
-if it does not exist.  Defaults to the current working directory.
+if it does not exist.  Defaults to the basename of the stored resource
+directory (see also L</resdirname()>).
 
 =item * C<filename>
 
