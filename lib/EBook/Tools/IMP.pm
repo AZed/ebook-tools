@@ -60,7 +60,7 @@ use constant DEVICE_SB200 => 0;         # SoftBook 200/250
 use constant DEVICE_REB1200 => 1;       # REB 1200/GEB 2150
 use constant DEVICE_EBW1150 => 2;       # EBW 1150/GEB 1150
 
-use constant IMAGETYPES => ('gif','jpg','png');
+use constant IMAGETYPES => ('gif','jpg','pic','png');
 
 ####################################################
 ########## CONSTRUCTOR AND INITIALIZATION ##########
@@ -94,6 +94,7 @@ my %rwfields = (
     'text'           => 'string',       # Uncompressed text
     'gif'            => 'hash',         # Hash of hashes of GIF image data
     'jpg'            => 'hash',         # Hash of hashes of JPEG image data
+    'pic'            => 'hash',         # Hash of hashes of PICT image data
     'png'            => 'hash',         # Hash of hashes of PNG image data
     );
 
@@ -2031,12 +2032,15 @@ sub parse_resource_images :method
     croak($subname . "() called as a procedure!\n") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
 
-    return unless($self->{resources}->{'JPEG'});
+    return unless($self->{resources}->{'GIF '} || $self->{resources}->{'JPEG'}
+               || $self->{resources}->{'PNG '} || $self->{resources}->{'PICT'}
+               || $self->{resources}->{'PIC2'});
 
     my %image_resources = (
         'GIF ' => 'gif',
         'JPEG' => 'jpg',
         'PNG ' => 'png',
+        'PICT' => 'pic',
         'PIC2' => 'png',
         );
         
