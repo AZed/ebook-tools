@@ -2732,9 +2732,9 @@ sub parse_imp_resource_v2
 
 =item * Not finished.  Do not try to use yet.
 
-=item * MacPaint PICT images are not supported.  If present in the
-book, they will be ignored, and errors may result during text
-processing.
+=item * MacPaint PICT images are not well-supported.  If present in
+the book, they will be saved, but a warning will be carped about
+invalid image data.
 
 =item * Support for v1 files is completely untested and implemented
 with some guesswork.  Bug reports welcome.
