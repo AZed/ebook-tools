@@ -2194,17 +2194,6 @@ sub parse_text :method
                                        offsetbits => $offsetbits);
     my $textref;
     my $textlength;
-    $self->{text} = <<'END';
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
-    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-
-<html xmlns="http://www.w3.org/1999/xhtml">
-<head>
-  <meta http-equiv="CONTENT-TYPE" content="text/html; charset=windows-1252" />
-END
-
-    $self->{text} .= "  <title>$self->{title}</title>\n";
-    $self->{text} .= "</head>\n<body>\n";
 
     if($self->{encryption})
     {
@@ -2218,23 +2207,47 @@ END
     }
     else
     {
-        $textref = \($self->{resources}->{'    '}->{data});
+        $textref = \$self->{resources}->{'    '}->{data};
     }
     $textlength = length($$textref);
 
+    if(!$textlength)
+    {
+        carp($subname,"(): no text extracted from DATA.FRK resource!\n");
+        return;
+    }
+
+    $self->{text} = <<'END';
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta http-equiv="CONTENT-TYPE" content="text/html; charset=windows-1252" />
+END
+
+    $self->{text} .= "  <title>$self->{title}</title>\n";
+    $self->{text} .= "</head>\n<body>\n";
+
     my $pos = 0;
+    my %ccharmap = (
+        0x0A => "\n" . '<br style="page-break-after: always" />' . "\n",
+        0x0B => "\n<p>",
+        0x0D => "<br />\n",
+        0xC7 => "&laquo;",
+        0xC8 => "&raquo;",
+        0xD0 => "&ndash;",
+        0xD1 => "&mdash;",
+        );
+
     while($pos < $textlength)
     {
         my $char = substr($$textref,$pos,1);
-        if(ord($char) == 0x0A)
+        my $ord = ord($char);
+        
+        if(defined $ccharmap{$ord})
         {
-            $self->{text} .= "\n";
-            $self->{text} .= '<br style="page-break-after: always" />';
-            $self->{text} .= "\n";
-        }
-        elsif(ord($char) == 0x0D)
-        {
-            $self->{text} .= "<br />\n";
+            $self->{text} .= $ccharmap{$ord};
         }
         else
         {
@@ -2242,7 +2255,6 @@ END
         }
         $pos++;
     }
-    $self->{text} .= $$textref;
     $self->{text} .= "</body>\n</html>\n";
     return $textlength;
 }
