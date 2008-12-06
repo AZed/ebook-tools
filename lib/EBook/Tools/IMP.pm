@@ -43,6 +43,7 @@ use Encode;
 use File::Basename qw(basename dirname fileparse);
 use File::Path;     # Exports 'mkpath' and 'rmtree'
 use Image::Size;
+use List::MoreUtils qw(none);
 binmode(STDERR,":utf8");
 
 my $drmsupport = 0;
@@ -59,6 +60,7 @@ use constant DEVICE_SB200 => 0;         # SoftBook 200/250
 use constant DEVICE_REB1200 => 1;       # REB 1200/GEB 2150
 use constant DEVICE_EBW1150 => 2;       # EBW 1150/GEB 1150
 
+use constant IMAGETYPES => ('gif','jpg','png');
 
 ####################################################
 ########## CONSTRUCTOR AND INITIALIZATION ##########
@@ -90,7 +92,9 @@ my %rwfields = (
     'lzsslengthbits' => 'integer',
     'lzssoffsetbits' => 'integer',      
     'text'           => 'string',       # Uncompressed text
-    'jpeg'           => 'hash',         # Hash of hashes of jpeg image data
+    'gif'            => 'hash',         # Hash of hashes of GIF image data
+    'jpg'            => 'hash',         # Hash of hashes of JPEG image data
+    'png'            => 'hash',         # Hash of hashes of PNG image data
     );
 
 my %rofields = (
@@ -252,8 +256,7 @@ sub load :method
         return;
     }
 
-    $self->parse_resource_cm();
-    $self->parse_resource_jpeg();
+    $self->parse_resource_images();
     $self->parse_text();
 
     close($fh_imp)
@@ -443,8 +446,7 @@ sub load_resdir
     }
     chdir($cwd);
     
-    $self->parse_resource_cm();
-    $self->parse_resource_jpeg();
+    $self->parse_resource_images();
     $self->parse_text();
     
     return 1;
@@ -572,57 +574,59 @@ sub find_resource_by_name :method
 }
 
 
-=head2 C<is_1150()>
+=head2 C<image($type,$id)>
 
-Returns 1 if C<< $self->{device} == 2 >>, returns 0 if it is some
-other value, and undef it is undefined.  This has value because
-resources packed for a EBW 1150 or GEB 1150 are in a different format
-than resources packed for other IMP readers.
+Returns the image data stored in the resource of the specified type
+(specifically, stored in C<< $self->{$type}->{$id}->{data} >> as
+parsed from the JPEG resource) corresponding to the 16-bit identifier
+provided as C<$id>.
+
+Valid values for C<$type> are 'gif','jpg', and 'png'.
+
+Carps a warning and returns undef if C<$type> is not provided or is
+not valid, or if C<$id> is not provided.
 
 =cut
 
-sub is_1150
+sub image :method
 {
     my $self = shift;
+    my ($type,$id) = @_;
     my $subname = (caller(0))[3];
     croak($subname . "() called as a procedure!\n") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
 
-    return if(!defined $self->{device});
-    return 1 if($self->{device} == 2);
-    return 0;
+    if(!$type)
+    {
+        carp($subname,"(): no image type specified!\n");
+        return;
+    }
+    if(none { $type eq $_ } IMAGETYPES)
+    {
+        carp($subname,"(): invalid image type '",$type,"'!\n");
+        return;
+    }
+    if(!$id)
+    {
+        carp($subname,"(): ID not specified!\n");
+        return;
+    }
+    return $self->{$type}->{$id}->{data};
 }
 
 
-=head2 C<jpeg($id)>
+=head2 C<image_hashref($type,$id)>
 
-Returns the JPEG image data stored in the JPEG resource (specifically,
-stored in C<< $self->{jpeg}->{$id}->{data} >> as parsed from the JPEG
-resource) corresponding to the 16-bit identifier provided as the sole
-argument.
+Returns the raw object hashref used to store parsed image data for the
+specified type, as stored in C<< $self->{$type} >>.  Valid types are
+'gif', 'jpg', and 'png'.
 
-Returns undef if C<$id> is not provided.
+Carps a warning and returns undef if C<$type> is not provided or is
+not valid.
 
-=cut
-
-sub jpeg :method
-{
-    my $self = shift;
-    my ($id) = @_;
-    my $subname = (caller(0))[3];
-    croak($subname . "() called as a procedure!\n") unless(ref $self);
-    debug(2,"DEBUG[",$subname,"]");
-    return unless($id);
-    return $self->{jpeg}->{$id}->{data};
-}
-
-
-=head2 C<jpeg_hashref($id)>
-
-Returns the raw object hashref used to store parsed JPEG image data,
-as stored in C<< $self->{jpeg} >>.  The keys of this hash are the JPEG
-image IDs, and the values are hashrefs pointing to hashes containing
-the following keys:
+If C<$id> is not specified, the keys of the returned hash are the
+image IDs for the specified image type, and the values are hashrefs
+pointing to hashes containing the following keys:
 
 =over
 
@@ -647,43 +651,93 @@ This key may be renamed if more information is found.
 
 =back
 
-If the argument C<$id> is specified, only the hash for that specific
-ID is returned, rather than the entire hash of hashrefs.
+If the optional argument C<$id> is specified, only the hash for that
+specific ID is returned, rather than the entire hash of hashrefs.
 
 =cut
 
-sub jpeg_hashref :method
+sub image_hashref :method
 {
     my $self = shift;
-    my ($id) = @_;
+    my ($type,$id) = @_;
     my $subname = (caller(0))[3];
     croak($subname . "() called as a procedure!\n") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
+
+    if(!$type)
+    {
+        carp($subname,"(): no image type specified!\n");
+        return;
+    }
+    if(none { $type eq $_ } IMAGETYPES)
+    {
+        carp($subname,"(): invalid image type '",$type,"'!\n");
+        return;
+    }
 
     if($id)
     {
-        return $self->{jpeg}->{$id};
+        return $self->{$type}->{$id};
     }
-    return $self->{jpeg};
+    return $self->{$type};
 }
 
 
-=head2 C<jpeg_ids()>
+=head2 C<image_ids($type)>
 
-Returns a list of the 16-bit integer IDs of the the JPEG image data
-stored in the JPEG resource (specifically, stored in
-C<< $self->{jpeg} >> as parsed from the JPEG resource).
+Returns a list of the 16-bit integer IDs of the the specified type of
+image data stored in the associated resource (specifically, stored in
+C<< $self->{$type} >> as parsed from the JPEG resource).
+
+Valid types are 'gif', 'jpg', and 'png'.  The method will carp a
+warning and return undef if another type is specified, or no type is
+specified.
 
 =cut
 
-sub jpeg_ids :method
+sub image_ids :method
+{
+    my $self = shift;
+    my ($type) = @_;
+    my $subname = (caller(0))[3];
+    croak($subname . "() called as a procedure!\n") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+
+    if(!$type)
+    {
+        carp($subname,"(): no image type specified!\n");
+        return;
+    }
+
+    if(none { $type eq $_ } IMAGETYPES)
+    {
+        carp($subname,"(): invalid image type '",$type,"'!\n");
+        return;
+    }
+
+    return keys %{$self->{$type}};
+}
+
+
+=head2 C<is_1150()>
+
+Returns 1 if C<< $self->{device} == 2 >>, returns 0 if it is some
+other value, and undef it is undefined.  This has value because
+resources packed for a EBW 1150 or GEB 1150 are in a different format
+than resources packed for other IMP readers.
+
+=cut
+
+sub is_1150
 {
     my $self = shift;
     my $subname = (caller(0))[3];
     croak($subname . "() called as a procedure!\n") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
 
-    return keys %{$self->{jpeg}};
+    return if(!defined $self->{device});
+    return 1 if($self->{device} == 2);
+    return 0;
 }
 
 
@@ -1253,16 +1307,13 @@ sub write_images :method
     my $dirname = $args{dir} || $self->resdirbase;
     my $cwd = usedir($dirname);
 
-    foreach my $imagetype ('jpeg')
+    foreach my $imagetype (IMAGETYPES)
     {
         foreach my $id (keys %{$self->{$imagetype}})
         {
             my $hexid = sprintf('%04X',$id);
             my $prefix = uc($imagetype) . '_';
-            my %ext = (
-                'jpeg' => '.jpg',
-                );
-            my $filename = $prefix . $hexid . $ext{$imagetype};
+            my $filename = "${prefix}${hexid}.${imagetype}";
             my $fh_image;
 
             if(! $self->{$imagetype}->{$id})
@@ -1958,22 +2009,22 @@ sub parse_resource_cm :method
 }
 
 
-=head2 C<parse_resource_jpeg()>
+=head2 C<parse_resource_images()>
 
-Parses the C<JPEG> resource loaded into C<< $self->{resources} >>,
-if present, placing the image data and metadata of each image found into 
-C<< $self->{jpeg} >> keyed by 16-bit JPEG resource ID.
+Parses the image data resources loaded into C<< $self->{resources} >>,
+if present, placing the image data and metadata of each image found
+into C<< $self->{jpg} >> and C<< $self->{png} >>, keyed by 16-bit
+image resource ID.
 
-Returns 1 on success, or undef if no C<JPEG> resource has been loaded
-yet or the resource data is invalid.
+Returns the total number of images found and parsed.
 
 This method is called automatically by L</load()> and L</load_resdir()>.
 
-See also accessor methods L</jpeg($id)> and L</jpeg_hashref($id)>.
+See also accessor methods L</image(%args)> and L</image_hashrefs(%args)>.
 
 =cut
 
-sub parse_resource_jpeg :method
+sub parse_resource_images :method
 {
     my $self = shift;
     my $subname = (caller(0))[3];
@@ -1982,119 +2033,126 @@ sub parse_resource_jpeg :method
 
     return unless($self->{resources}->{'JPEG'});
 
-    my @list;
-    my $version;
+    my %image_resources = (
+        'GIF ' => 'gif',
+        'JPEG' => 'jpg',
+        'PNG ' => 'png',
+        'PIC2' => 'png',
+        );
+        
     my $headersize;
-    my $ident;          # Must be constant string 'JPEG'
-    my $unknown1;
-    my $tocoffset;
-    my $unknown2;
-    my $unknown3;
-    my $unknown4;
-    my $unknown5;
-    my $unknown6;
-    
-    my $jpeg_data;
-    my $jpeg_count;
-    my @jpeg_image;
+    my $imgdata;
+    my $imgcount;
+    my $total = 0;
+    my @list;
 
-    @list = unpack('na[4]NNnNNNN',$self->{resources}->{'JPEG'}->{data});
-    $version     = $list[0];
-    $ident       = $list[1];
-    $unknown1    = $list[2];
-    $tocoffset   = $list[3];
-    $unknown2    = $list[4];
-    $unknown3    = $list[5];
-    $unknown4    = $list[6];
-    $unknown5    = $list[7];
-    $unknown6    = $list[8];
-    
-    if($ident ne 'JPEG')
-    {
-        carp($subname,"():\n",
-             " Invalid 'JPEG' record!\n");
-        return;
-    }
-    debug(2,"DEBUG: parsing JPEG resource v",$version,", index offset ",$tocoffset);
-            
-    if ($self->{resources}->{'JPEG'}->{size} <= 32)
-    {
-        return;
-    }
-    
     if($self->{device} == DEVICE_EBW1150) { $headersize = 14; }
     else { $headersize = 12; }
-    $jpeg_count = ($self->{resources}->{'JPEG'}->{size} - $tocoffset) / $headersize;
 
-    debug(2,"DEBUG: ",$jpeg_count," JPEG images listed in header");
-    
-    $self->{jpeg} = {};
-    foreach my $pos (0 .. ($jpeg_count - 1))
+    foreach my $resource (keys %image_resources)
     {
-        my $tocdata;
-        my $id;         # Image ID -- this is only unique for JPEG images
-        my $hexid;      # 4-digit hexadecimal string version of $id
+        next unless($self->{resources}->{$resource});
+        my $rsize = $self->{resources}->{$resource}->{size};
+        my $itype = $image_resources{$resource};
+        next if ($rsize <= 32);
     
-        $tocdata = substr($self->{resources}->{'JPEG'}->{data},
-                          $tocoffset + ($headersize * $pos),$headersize);
-        if($self->{device} == DEVICE_EBW1150)
-        {
-            #Standard 1150 Header (14 bytes)
-            @list = unpack("vvVVv",$tocdata);
-            $id                             = $list[0];
-            $self->{jpeg}->{$id}->{unknown} = $list[1];
-            $self->{jpeg}->{$id}->{length}  = $list[2];
-            $self->{jpeg}->{$id}->{offset}  = $list[3];
-            $self->{jpeg}->{$id}->{const0}  = $list[4];
-        }
-        else
-        {
-            #Standard 1200 Header (12 bytes)
-            @list = unpack("nNNn",$tocdata);
-            $id                             = $list[0];
-            $self->{jpeg}->{$id}->{length}  = $list[1];
-            $self->{jpeg}->{$id}->{offset}  = $list[2];
-            $self->{jpeg}->{$id}->{const0}  = $list[3];
-        }
-
-        if($EBook::Tools::debug > 2)
-        {
-            printf("  id=%04X  unk1=0x%04X  length=%d  offset=%d, const0=0x%04X\n",
-                   $id, $self->{jpeg}->{$id}->{unknown},
-                   $self->{jpeg}->{$id}->{length}, $self->{jpeg}->{$id}->{offset},
-                   $self->{jpeg}->{$id}->{const0});
-        }
-
-        $hexid = sprintf("%04X",$id);
-        
-        $self->{jpeg}->{$id}->{data} = substr($self->{resources}->{'JPEG'}->{data},
-                                             $self->{jpeg}->{$id}->{offset},
-                                             $self->{jpeg}->{$id}->{length});
-
-        my ($imagex,$imagey,$imagetype) = imgsize(\$self->{jpeg}->{$id}->{data});
-        if(defined($imagex) && $imagetype)
-        {
-            debug(2,"  jpeg image ",$pos," (ID '",$hexid,"') is valid ",
-                  $imagetype," image data (",$imagex," x ",$imagey,")");
-        }
-        else
+        @list = unpack('na[4]NNnNNNN',$self->{resources}->{$resource}->{data});
+        my $version     = $list[0];
+        my $ident       = $list[1];
+        my $unknown1    = $list[2];
+        my $tocoffset   = $list[3];
+        my $unknown2    = $list[4];
+        my $unknown3    = $list[5];
+        my $unknown4    = $list[6];
+        my $unknown5    = $list[7];
+        my $unknown6    = $list[8];
+    
+        if($ident ne $resource)
         {
             carp($subname,"():\n",
-                 " jpeg image ",$pos," (ID '",$id,
-                 "') is not valid image data!\n");
+                 " Invalid '",$resource,"' record!\n");
             next;
         }
-    } # foreach my $pos (0 .. ($jpeg_count - 1))
 
-    my $jpeg_found = scalar keys %{$self->{jpeg}};
-    if($jpeg_found != $jpeg_count)
-    {
-        carp($subname,"()\n",
-             " resource specified ",$jpeg_count," images, but only found ",
-             $jpeg_found,"!\n");
-    }
+        debug(2,"DEBUG: parsing ",$resource," resource v",$version,
+              ", index offset ",$tocoffset);
+            
+        $imgcount = ($rsize - $tocoffset) / $headersize;
 
-    return 1;
+        debug(2,"DEBUG: ",$imgcount," ",$itype," images listed in header");
+    
+        $self->{$itype} = {};
+        foreach my $pos (0 .. ($imgcount - 1))
+        {
+            my $tocdata;
+            my $id;         # Image ID -- this is only unique for JPEG images
+            my $hexid;      # 4-digit hexadecimal string version of $id
+    
+            $tocdata = substr($self->{resources}->{$resource}->{data},
+                              $tocoffset + ($headersize * $pos),$headersize);
+            if($self->{device} == DEVICE_EBW1150)
+            {
+                #Standard 1150 Header (14 bytes)
+                @list = unpack("vvVVv",$tocdata);
+                $id                               = $list[0];
+                $self->{$itype}->{$id}->{unknown} = $list[1];
+                $self->{$itype}->{$id}->{length}  = $list[2];
+                $self->{$itype}->{$id}->{offset}  = $list[3];
+                $self->{$itype}->{$id}->{const0}  = $list[4];
+            }
+            else
+            {
+                #Standard 1200 Header (12 bytes)
+                @list = unpack("nNNn",$tocdata);
+                $id                               = $list[0];
+                $self->{$itype}->{$id}->{length}  = $list[1];
+                $self->{$itype}->{$id}->{offset}  = $list[2];
+                $self->{$itype}->{$id}->{const0}  = $list[3];
+            }
+            
+            if($EBook::Tools::debug > 2)
+            {
+                printf("  id=%04X  unk1=0x%04X  length=%d  offset=%d, const0=0x%04X\n",
+                       $id, $self->{$itype}->{$id}->{unknown},
+                       $self->{$itype}->{$id}->{length},
+                       $self->{$itype}->{$id}->{offset},
+                       $self->{$itype}->{$id}->{const0});
+            }
+            
+            $hexid = sprintf("%04X",$id);
+            
+            $self->{$itype}->{$id}->{data} = 
+                substr($self->{resources}->{$resource}->{data},
+                       $self->{$itype}->{$id}->{offset},
+                       $self->{$itype}->{$id}->{length});
+            
+            my ($imagex,$imagey,$imagetype) = 
+                imgsize(\$self->{$itype}->{$id}->{data});
+            if(defined($imagex) && $imagetype)
+            {
+                debug(2,"  ",$itype," image ",$pos," (ID '",$hexid,"') is valid ",
+                      $imagetype," image data (",$imagex," x ",$imagey,")");
+            }
+            else
+            {
+                carp($subname,"():\n",
+                     " ",$itype," image ",$pos," (ID '",$id,
+                     "') is not valid image data!\n");
+                next;
+            }
+        } # foreach my $pos (0 .. ($imgcount - 1))
+
+        my $found = scalar keys %{$self->{$itype}};
+        if($found != $imgcount)
+        {
+            carp($subname,"()\n",
+                 " resource specified ",$imgcount," images, but found ",
+                 $found,"!\n");
+        }
+        $total += $found;
+    } # foreach my $resource (keys %image_resources)
+
+    return $total;
 }
 
 
@@ -2125,6 +2183,7 @@ sub parse_text :method
 
     return unless($self->{resources}->{'    '});
 
+    $self->parse_resource_cm();
     my $lengthbits = $self->{lzsslengthbits} || 3;
     my $offsetbits = $self->{lzssoffsetbits} || 14;
     my $lzss = EBook::Tools::LZSS->new(lengthbits => $lengthbits,
@@ -2657,7 +2716,9 @@ sub parse_imp_resource_v2
 
 =item * Not finished.  Do not try to use yet.
 
-=item * load_resdir() needs refactoring
+=item * MacPaint PICT images are not supported.  If present in the
+book, they will be ignored, and errors may result during text
+processing.
 
 =item * Support for v1 files is completely untested and implemented
 with some guesswork.  Bug reports welcome.
