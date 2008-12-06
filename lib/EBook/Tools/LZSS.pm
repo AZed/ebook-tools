@@ -58,6 +58,7 @@ my %rwfields = (
     'offsetbits' => 'integer',
     'windowinit' => 'string',
     'windowsize' => 'integer',
+    'maxuncoded' => 'integer',
     'verbose'    => 'boolean',
     );
 my %rofields = (
@@ -89,11 +90,13 @@ and decompression for the result to be valid.
 =item * C<lengthbits>
 
 The number of bits used to encode the length of a LZSS reference.  If
-not specified defaults to 4 bits (a maximum reference length of 18
-bytes, as the actual length is always 3 bytes more than specified).
+not specified defaults to 4 bits.
 
-The eBookwise .IMP format typically compresses with 3 length bits
-(maximum reference length of 10 bytes).
+The eBookwise .IMP format typically compresses with 3 length bits.
+
+Note that the actual length of the LZSS reference in bytes is greater
+than the value stored in the length bits.  The actual number of bytes
+returned is the decoded length bits value plus C<maxuncoded> plus 1, 
 
 =item * C<offsetbits>
 
@@ -110,6 +113,11 @@ A string used to initalize the sliding window.  If specified, this
 string MUST be the same length as the window size, or the subroutine
 will croak.  If not specified, the window will be initialized with
 spaces.
+
+=item * C<maxuncoded>
+
+The maximum number of uncoded bytes (?).  This currently isn't used
+for that purpose, but determines the actual length of a LZSS reference.
 
 =item * C<verbose>
 
@@ -132,6 +140,7 @@ sub new   ## no critic (Always unpack @_ first)
         'lengthbits' => 1,
         'offsetbits' => 1,
         'windowinit' => 1,
+        'maxuncoded' => 1,
         'verbose' => 1,
         );
 
@@ -146,7 +155,8 @@ sub new   ## no critic (Always unpack @_ first)
     $self->{offsetbits} = $args{offsetbits} || 12;
     $self->{windowsize} = 1 << $self->{offsetbits};
     $self->{windowinit} = $args{windowinit} || ' ' x $self->{windowsize};
-    $self->{verbose} = $args{verbose};
+    $self->{maxuncoded} = $args{maxuncoded} || 2;
+    $self->{verbose} = $args{verbose} || 0;
 
     if($self->{windowinit}
        and length($self->{windowinit}) != $self->{windowsize})
@@ -190,7 +200,7 @@ sub uncompress :method
     my $offsetbits = $self->{offsetbits} || 12;
     my $windowsize = $self->{windowsize};
     my $window = $self->{windowinit};
-    my $max_uncoded = 2;
+    my $max_uncoded = $self->{maxuncoded} || 2;
     my $max_encoded = (1 << $lengthbits) + $max_uncoded;
 
     if(length($window) != $windowsize)
@@ -199,6 +209,12 @@ sub uncompress :method
               length($window),
               " does not match specified number of offset bits (",
               $windowsize,")\n")
+    }
+
+    if($self->{verbose} > 1)
+    {
+        print {*STDERR} ("Uncompressing with ",$lengthbits," length bits, ",
+                         $offsetbits," offset bits\n");
     }
 
     my $bitsize = length($$dataref) * 8;
@@ -278,7 +294,7 @@ sub uncompress :method
             if($lzss_length == 0
                and $lzss_offset == 0)
             {
-                if($bitoffset >= 8)
+                if($bitoffset >= 16)
                 {
                     carp($subname,"(): invalid LZSS code at bit position ",
                          $bitpos," [",$bitoffset," bits remaining]!\n");
@@ -286,13 +302,21 @@ sub uncompress :method
                 last;
             }
             $bitpos += ($offsetbits + $lengthbits);
-            $lzss_length += 3;
+            $lzss_length += $max_uncoded + 1;
 
-            $lzss_text = substr($window,$lzss_offset,$lzss_length);
-            substr($window,$windowpos,$lzss_length,$lzss_text);
-            $windowpos += $lzss_length;
-            $windowpos %= $windowsize;
-            $uncompressed .= $lzss_text;
+            if($lzss_offset + $lzss_length > $windowsize)
+            {
+                carp($subname,"(): LZSS reference exceeds window length!\n");
+            }
+
+            foreach my $lzss_pos (0 .. ($lzss_length - 1) )
+            {
+                my $char = substr($window,$lzss_offset + $lzss_pos, 1);
+                substr($window,$windowpos,1,$char);
+                $windowpos++;
+                $windowpos %= $windowsize;
+                $uncompressed .= $char;
+            }
         }
     }
 
