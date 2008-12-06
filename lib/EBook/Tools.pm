@@ -5856,7 +5856,7 @@ sub excerpt_line
     my $text = join('',@parts);
     if(length($text) > 70)
     {
-        $text =~ /^ (.{30}) .*? (.{30}) $/x;
+        $text =~ /^ (.{30}) .*? (.{30}) $/sx;
         return ($1 . ' [...] ' . $2);
     }
     else { return $text; }
