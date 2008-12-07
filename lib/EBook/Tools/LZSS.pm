@@ -335,7 +335,6 @@ sub uncompress :method
             }
             $bitoffset -= $lengthbits;
             $lzss_length = $bitvector->Chunk_Read($lengthbits,$bitoffset);
-            $lzss_length += $max_uncoded + 1;
 
             if($lzss_offset > $windowsize)
             {
@@ -354,6 +353,7 @@ sub uncompress :method
                 last;
             }
             $bitpos += ($offsetbits + $lengthbits);
+            $lzss_length += $max_uncoded + 1;
 
             foreach my $lzss_pos (0 .. ($lzss_length - 1) )
             {
