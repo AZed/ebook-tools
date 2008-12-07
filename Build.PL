@@ -23,6 +23,7 @@ my $build = Module::Build->new
          'String::CRC32'     => 1,
          'Tie::IxHash'       => 1.21,
          'Time::Local'       => 1.18,
+         'version'           => 0.74,
          'XML::Twig'         => 3.32,
      },
      PL_files => { 'Bin.PL' => 'bin/ebook' },
