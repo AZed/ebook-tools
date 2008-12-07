@@ -2191,7 +2191,8 @@ sub parse_text :method
     my $lengthbits = $self->{lzsslengthbits} || 3;
     my $offsetbits = $self->{lzssoffsetbits} || 14;
     my $lzss = EBook::Tools::LZSS->new(lengthbits => $lengthbits,
-                                       offsetbits => $offsetbits);
+                                       offsetbits => $offsetbits,
+                                       windowstart => 1);
     my $textref;
     my $textlength;
 

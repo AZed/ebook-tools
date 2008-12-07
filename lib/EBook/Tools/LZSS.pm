@@ -119,7 +119,7 @@ spaces.
 =item * C<windowstart>
 
 The first byte position in the window that will be overwritten by
-decoded text.  If not specified, defaults to 1.
+decoded text.  If not specified, defaults to 0.
 
 =item * C<maxuncoded>
 
@@ -177,7 +177,7 @@ sub new   ## no critic (Always unpack @_ first)
     {
         $self->{windowstart} = $args{windowstart};
     }
-    else { $self->{windowstart} = 1; }
+    else { $self->{windowstart} = 0; }
     $self->{maxuncoded} = $args{maxuncoded} || 2;
     $self->{screwybits} = $args{screwybits};
     $self->{verbose} = $args{verbose} || 0;
@@ -226,7 +226,7 @@ sub uncompress :method
     my $window = $self->{windowinit};
     my $max_uncoded = $self->{maxuncoded} || 2;
     my $max_encoded = (1 << $lengthbits) + $max_uncoded;
-    my $windowpos = $self->{windowstart};
+    my $windowpos = $self->{windowstart} || 0;
 
     if(length($window) != $windowsize)
     {
