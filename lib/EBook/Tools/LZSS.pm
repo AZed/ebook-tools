@@ -263,10 +263,10 @@ sub uncompress :method
     while($bitpos < $bitsize)
     {
         $bitoffset = $bitsize-$bitpos;
-        $bits = unpack('n',substr($$dataref,$dataoffset,2));
-        $bitvector->Chunk_Store(16,$bitoffset-16,$bits);
-        $dataoffset += 2;
-        $bitpos += 16;
+        $bits = unpack('C',substr($$dataref,$dataoffset,1));
+        $bitvector->Chunk_Store(8,$bitoffset-8,$bits);
+        $dataoffset++;
+        $bitpos += 8;
     }
 
     $bitpos = 0;
