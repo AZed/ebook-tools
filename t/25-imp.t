@@ -131,3 +131,4 @@ while(<imp/REBtestdoc-ETI.RES/*>)
 ########## CLEANUP ##########
 
 rmtree('REBtestdoc.RES');
+unlink('repack.imp');
