@@ -2235,6 +2235,7 @@ END
         0x0A => "\n" . '<br style="page-break-after: always" />' . "\n",
         0x0B => "\n<p>",
         0x0D => "<br />\n",
+        0x14 => "\n<hr />\n",
         0xC7 => "&laquo;",
         0xC8 => "&raquo;",
         0xD0 => "&ndash;",
