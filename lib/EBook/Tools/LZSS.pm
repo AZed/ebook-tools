@@ -54,12 +54,14 @@ use constant UNCODED => 1;
 ####################################################
 
 my %rwfields = (
-    'lengthbits' => 'integer',
-    'offsetbits' => 'integer',
-    'windowinit' => 'string',
-    'windowsize' => 'integer',
-    'maxuncoded' => 'integer',
-    'verbose'    => 'boolean',
+    'lengthbits'  => 'integer',
+    'offsetbits'  => 'integer',
+    'windowinit'  => 'string',
+    'windowsize'  => 'integer',
+    'windowstart' => 'integer',
+    'maxuncoded'  => 'integer',
+    'screwybits'  => 'boolean',
+    'verbose'     => 'integer',
     );
 my %rofields = (
     );
@@ -114,10 +116,24 @@ string MUST be the same length as the window size, or the subroutine
 will croak.  If not specified, the window will be initialized with
 spaces.
 
+=item * C<windowstart>
+
+The first byte position in the window that will be overwritten by
+decoded text.  If not specified, defaults to 1.
+
 =item * C<maxuncoded>
 
 The maximum number of uncoded bytes (?).  This currently isn't used
 for that purpose, but determines the actual length of a LZSS reference.
+
+=item * C<screwybits>
+
+If set to true and the number of offset bits is greater than 8, then
+the offset bits will be read first in a chunk of 8 for the least
+significant bits, and then the remaining bits will be read and use as
+the most significant bits.  This seems to be necessary for
+compatibility with Michael Dipperstein's LZSS C compression library
+but does not hold true for IMP e-book LZSS decompression.
 
 =item * C<verbose>
 
@@ -137,11 +153,13 @@ sub new   ## no critic (Always unpack @_ first)
     debug(2,"DEBUG[",$subname,"]");
 
     my %valid_args = (
-        'lengthbits' => 1,
-        'offsetbits' => 1,
-        'windowinit' => 1,
-        'maxuncoded' => 1,
-        'verbose' => 1,
+        'lengthbits'  => 1,
+        'offsetbits'  => 1,
+        'windowinit'  => 1,
+        'windowstart' => 1,
+        'maxuncoded'  => 1,
+        'screwybits'  => 1,
+        'verbose'     => 1,
         );
 
     foreach my $arg (keys %args)
@@ -155,7 +173,13 @@ sub new   ## no critic (Always unpack @_ first)
     $self->{offsetbits} = $args{offsetbits} || 12;
     $self->{windowsize} = 1 << $self->{offsetbits};
     $self->{windowinit} = $args{windowinit} || ' ' x $self->{windowsize};
+    if(defined $args{windowstart})
+    {
+        $self->{windowstart} = $args{windowstart};
+    }
+    else { $self->{windowstart} = 1; }
     $self->{maxuncoded} = $args{maxuncoded} || 2;
+    $self->{screwybits} = $args{screwybits};
     $self->{verbose} = $args{verbose} || 0;
 
     if($self->{windowinit}
@@ -202,6 +226,7 @@ sub uncompress :method
     my $window = $self->{windowinit};
     my $max_uncoded = $self->{maxuncoded} || 2;
     my $max_encoded = (1 << $lengthbits) + $max_uncoded;
+    my $windowpos = $self->{windowstart};
 
     if(length($window) != $windowsize)
     {
@@ -214,16 +239,16 @@ sub uncompress :method
     if($self->{verbose} > 1)
     {
         print {*STDERR} ("Uncompressing with ",$lengthbits," length bits, ",
-                         $offsetbits," offset bits\n");
+                         $offsetbits," offset bits, windowpos = ",
+                         $windowpos,"\n");
     }
 
     my $bitsize = length($$dataref) * 8;
     my $bitvector = Bit::Vector->new($bitsize);
     my $bitoffset;
     my $bitpos = 0;
-    my $byte;
+    my $bits;
 
-    my $windowpos = 1;
     my $encflag;
     my $dataoffset = 0;
     my $lzss_offset;
@@ -238,10 +263,10 @@ sub uncompress :method
     while($bitpos < $bitsize)
     {
         $bitoffset = $bitsize-$bitpos;
-        $byte = unpack('C',substr($$dataref,$dataoffset,1));
-        $bitvector->Chunk_Store(8,$bitoffset-8,$byte);
-        $dataoffset++;
-        $bitpos += 8;
+        $bits = unpack('n',substr($$dataref,$dataoffset,2));
+        $bitvector->Chunk_Store(16,$bitoffset-16,$bits);
+        $dataoffset += 2;
+        $bitpos += 16;
     }
 
     $bitpos = 0;
@@ -253,7 +278,7 @@ sub uncompress :method
         if($self->{verbose} or $EBook::Tools::debug > 0)
         {
             my $percent = int( ($bitpos / $bitsize) * 100);
-            
+
             print("Uncompressing text... [",$percent,"%]\r")
                 if($percent % 5 == 0);
         }
@@ -261,7 +286,7 @@ sub uncompress :method
         $encflag = $bitvector->Chunk_Read(1,$bitoffset-1);
         $bitpos++;
         $bitoffset--;
-        
+
         if($encflag == UNCODED)
         {
             if($bitoffset - 8 < 0)
@@ -273,9 +298,9 @@ sub uncompress :method
 
             $bitoffset -= 8;
             $bitpos += 8;
-            $byte = $bitvector->Chunk_Read(8,$bitoffset);
-            $uncompressed .= chr($byte);
-            substr($window,$windowpos,1,chr($byte));
+            $bits = $bitvector->Chunk_Read(8,$bitoffset);
+            $uncompressed .= chr($bits);
+            substr($window,$windowpos,1,chr($bits));
             $windowpos++;
             $windowpos %= $windowsize;
         }
@@ -283,14 +308,41 @@ sub uncompress :method
         {
             if($bitoffset - ($offsetbits + $lengthbits) < 0)
             {
-                debug(1,"DEBUG: ran out of bits at bit position ",
-                      $bitpos," [",$bitoffset," bits remaining]!");
+                if($bitoffset >= 16)
+                {
+                    carp($subname,,"(): ran out of bits at bit position ",
+                          $bitpos," [",$bitoffset," bits remaining]!");
+                }
                 last;
             }
-            $bitoffset -= $offsetbits;
-            $lzss_offset = $bitvector->Chunk_Read($offsetbits,$bitoffset);
+            if($self->{screwybits} and $offsetbits > 8)
+            {
+                my $lowoffset;
+                my $highoffset;
+                my $extrabits = $offsetbits - 8;
+
+                $bitoffset -= 8;
+                $lowoffset = $bitvector->Chunk_Read(8,$bitoffset);
+                $bitoffset -= $extrabits;
+                $highoffset = $bitvector->Chunk_Read($extrabits,$bitoffset);
+
+                $lzss_offset = (256 * $highoffset) + $lowoffset;
+            }
+            else
+            {
+                $bitoffset -= $offsetbits;
+                $lzss_offset = $bitvector->Chunk_Read($offsetbits,$bitoffset);
+            }
             $bitoffset -= $lengthbits;
             $lzss_length = $bitvector->Chunk_Read($lengthbits,$bitoffset);
+            $lzss_length += $max_uncoded + 1;
+
+            if($lzss_offset > $windowsize)
+            {
+                carp($subname,"(): LZSS offset points outside window!\n");
+                last;
+            }
+
             if($lzss_length == 0
                and $lzss_offset == 0)
             {
@@ -302,16 +354,13 @@ sub uncompress :method
                 last;
             }
             $bitpos += ($offsetbits + $lengthbits);
-            $lzss_length += $max_uncoded + 1;
-
-            if($lzss_offset + $lzss_length > $windowsize)
-            {
-                carp($subname,"(): LZSS reference exceeds window length!\n");
-            }
 
             foreach my $lzss_pos (0 .. ($lzss_length - 1) )
             {
-                my $char = substr($window,$lzss_offset + $lzss_pos, 1);
+                my $windowoffset;
+                my $char = substr($window,
+                                  ($lzss_offset + $lzss_pos) % $windowsize,
+                                  1);
                 substr($window,$windowpos,1,$char);
                 $windowpos++;
                 $windowpos %= $windowsize;
