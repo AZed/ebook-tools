@@ -208,6 +208,7 @@ t/mobi/mobitest.opf
 t/mobi/mobitest.prc
 t/mobi/outer.jpg
 t/mobi/test.html
+t/us-constitution.lzss
 ebook.pl
 Makefile.PL
 META.yml
