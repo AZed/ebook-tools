@@ -2521,8 +2521,8 @@ sub pukall_cipher_1
 
 =head2 C<system_mobidedrm(%args)>
 
-Runs python on a copy of MobiDeDrm.py if it is available (not included
-with this distribution) to downconvert a Mobipocket file.
+Runs python on a copy of C<MobiDeDrm.py> if it is available (not
+included with this distribution) to downconvert a Mobipocket file.
 
 Returns the output filename on success, or undef otherwise.
 
@@ -3056,6 +3056,11 @@ sub unpack_mobi_language
 infrastructure may be added later to make use of external helpers and
 plugins, direct DRM support will never be added to the main code for
 legal reasons.
+
+=item * Repacking a .prc without fully extracting to OPF and
+completely converting back isn't supported.  This will have to be
+implemented before an interface to perform minor metadata alterations
+can be implemented.
 
 =item * Mobipocket HUFF/CDIC decoding (used mostly on dictionaries)
 isn't well documented.
