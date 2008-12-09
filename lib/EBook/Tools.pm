@@ -954,8 +954,9 @@ specified criteria.
 
 The L<XML::Twig> search condition used to find the elements.
 Typically this is just the GI (tag) of the element you wish to find,
-but it can also be a qr// expression, coderef, or anything else that
-XML::Twig can work with.  See the XML::Twig documentation for details.
+but it can also be a C<qr//> expression, coderef, or anything else
+that XML::Twig can work with.  See the XML::Twig documentation for
+details.
 
 If this is not specified, an error is added and the method returns
 undef.
