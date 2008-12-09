@@ -392,6 +392,11 @@ sub uncompress :method
 
 =item * The LZSS algorithm isn't documented in the POD.
 
+=item * Once compression is implemented and the algorithm is
+documented, this module is a good candidate for being forked off into
+its own project.  Relying on it to keep its current name may be
+unwise.
+
 =back
 
 
