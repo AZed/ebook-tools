@@ -1,4 +1,4 @@
-package EBook::Tools::IMP;
+﻿package EBook::Tools::IMP;
 use warnings; use strict; use utf8;
 use English qw( -no_match_vars );
 use version 0.74; our $VERSION = qv("0.4.0");
@@ -43,7 +43,7 @@ use Encode;
 use File::Basename qw(basename dirname fileparse);
 use File::Path;     # Exports 'mkpath' and 'rmtree'
 use Image::Size;
-use List::MoreUtils qw(none);
+use List::MoreUtils qw(any none);
 binmode(STDERR,":utf8");
 
 my $drmsupport = 0;
@@ -60,7 +60,16 @@ use constant DEVICE_SB200 => 0;         # SoftBook 200/250
 use constant DEVICE_REB1200 => 1;       # REB 1200/GEB 2150
 use constant DEVICE_EBW1150 => 2;       # EBW 1150/GEB 1150
 
-use constant IMAGETYPES => ('gif','jpg','pic','png');
+use constant IMAGETYPES => ('png','jpg','gif','pic');
+use constant IMAGERESOURCES => ('GIF ','JPEG','PICT','PIC2','PNG ');
+my %IMAGE_RESOURCE_MAP = (
+    'GIF ' => 'gif',
+    'JPEG' => 'jpg',
+    'PICT' => 'pic',
+    'PIC2' => 'png',
+    'PNG ' => 'png',
+    );
+
 
 ####################################################
 ########## CONSTRUCTOR AND INITIALIZATION ##########
@@ -92,10 +101,12 @@ my %rwfields = (
     'lzsslengthbits' => 'integer',
     'lzssoffsetbits' => 'integer',      
     'text'           => 'string',       # Uncompressed text
+    'imrn'           => 'hash',         # Hash of hashes of ImRn resource data
     'gif'            => 'hash',         # Hash of hashes of GIF image data
     'jpg'            => 'hash',         # Hash of hashes of JPEG image data
     'pic'            => 'hash',         # Hash of hashes of PICT image data
     'png'            => 'hash',         # Hash of hashes of PNG image data
+    'offsetelements' => 'hash',         # Hash of text offsets to HTML elements
     );
 
 my %rofields = (
@@ -258,6 +269,7 @@ sub load :method
     }
 
     $self->parse_resource_images();
+    $self->parse_resource_imrn();
     $self->parse_text();
 
     close($fh_imp)
@@ -448,10 +460,12 @@ sub load_resdir
     chdir($cwd);
     
     $self->parse_resource_images();
+    $self->parse_resource_imrn();
     $self->parse_text();
     
     return 1;
 }
+
 
 ######################################
 ########## ACCESSOR METHODS ##########
@@ -543,6 +557,41 @@ sub filecount :method
     croak($subname . "() called as a procedure!\n") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
     return $self->{filecount};
+}
+
+
+=head2 C<find_image_type($id,@excluded)>
+
+Goes through all stored images searching for one with the specified id
+value, returning the first image type found or undef if there were no
+matches or if no image id was specified.  If the optional argument
+C<@excluded> is specified, any types in the list will be skipped
+during the search.
+
+Expected types are 'png', 'jpg', 'gif', and 'pic', searched for in
+that order.
+
+This can be used to attempt to locate an alternate image for an
+undisplayable PICT image.
+
+=cut
+
+sub find_image_type :method
+{
+    my $self = shift;
+    my ($id,@excluded) = @_;
+    my $subname = (caller(0))[3];
+    croak($subname . "() called as a procedure!\n") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+
+    return unless($id);
+
+    foreach my $type (IMAGETYPES)
+    {
+        next if(any {$type eq $_} @excluded);
+        return $type if($self->{$type}->{$id});
+    }
+    return;
 }
 
 
@@ -739,6 +788,28 @@ sub is_1150
     return if(!defined $self->{device});
     return 1 if($self->{device} == 2);
     return 0;
+}
+
+
+=head2 C<offsetelement($offset)>
+
+Returns the text of the element corresponding to the given text offset
+as stored in C<< $self->{offsetelements} >>, or undef if no such
+element exists.
+
+=cut
+
+sub offsetelement :method
+{
+    my $self = shift;
+    my ($offset) = @_;
+    my $subname = (caller(0))[3];
+    croak($subname . "() called as a procedure!\n") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+
+    return unless($offset);
+    return unless($self->{offsetelements});
+    return $self->{offsetelements}->{$offset};
 }
 
 
@@ -2032,18 +2103,6 @@ sub parse_resource_images :method
     croak($subname . "() called as a procedure!\n") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
 
-    return unless($self->{resources}->{'GIF '} || $self->{resources}->{'JPEG'}
-               || $self->{resources}->{'PNG '} || $self->{resources}->{'PICT'}
-               || $self->{resources}->{'PIC2'});
-
-    my %image_resources = (
-        'GIF ' => 'gif',
-        'JPEG' => 'jpg',
-        'PNG ' => 'png',
-        'PICT' => 'pic',
-        'PIC2' => 'png',
-        );
-        
     my $headersize;
     my $imgdata;
     my $imgcount;
@@ -2053,11 +2112,11 @@ sub parse_resource_images :method
     if($self->{device} == DEVICE_EBW1150) { $headersize = 14; }
     else { $headersize = 12; }
 
-    foreach my $resource (keys %image_resources)
+    foreach my $resource (keys %IMAGE_RESOURCE_MAP)
     {
         next unless($self->{resources}->{$resource});
         my $rsize = $self->{resources}->{$resource}->{size};
-        my $itype = $image_resources{$resource};
+        my $itype = $IMAGE_RESOURCE_MAP{$resource};
         next if ($rsize <= 32);
     
         @list = unpack('na[4]NNnNNNN',$self->{resources}->{$resource}->{data});
@@ -2154,8 +2213,267 @@ sub parse_resource_images :method
                  $found,"!\n");
         }
         $total += $found;
-    } # foreach my $resource (keys %image_resources)
+    } # foreach my $resource (keys %IMAGE_RESOURCE_MAP)
 
+    return $total;
+}
+
+
+=head2 C<parse_resource_imrn()>
+
+Parses the index of text offsets to all images as stored in
+C<< $self->{resources}->{'ImRn'} >>, if present, storing them in
+C<< $self->{imrn} >> as a hash of hashrefs indexed by its
+32-bit integer offset to the 0x0F control code in the uncompressed
+text stored in the DATA.FRK resource.
+
+Returns the total number of offsets found and parsed.
+
+The hash keys of each offset hash are:
+
+=over
+
+=item * C<width>
+
+Image display width in pixels.
+
+=item * C<height>
+
+Image display height in pixels.
+
+=item * C<id>
+
+A 16-bit integer value used to uniquely identify the image inside a
+particular resource type.
+
+=item * C<restype>
+
+The four-letter resource type string.
+
+=item * C<constF1>
+
+A 32-bit value of unknown purpose which should always be 0xFFFFFFFF.
+
+=item * C<constF2>
+
+A second 32-bit value of unknown purpose which should always be 0xFFFFFFFF.
+
+=item * C<const0>
+
+A 32-bit integer value of unknown purpose which should always be 0x00000000.
+
+=item * C<constB>
+
+A 16-bit integer value of unknown purpose which should always be 0xFFFB.
+
+=item * C<unknown16>
+
+A 16-bit integer value of unknown purpose found only in 1150 resources.
+
+=item * C<unknown32>
+
+A 32-bit integer value of unknown purpose.
+
+=back
+
+This method is called automatically by L</load()> and L</load_resdir()>.
+
+=cut
+
+sub parse_resource_imrn :method
+{
+    my $self = shift;
+    my $subname = (caller(0))[3];
+    croak($subname . "() called as a procedure!\n") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+
+    return unless($self->{resources}->{'ImRn'});
+
+    my $headersize;
+    my $imrndata;
+    my $imrncount;
+    my $total = 0;
+    my @list;
+    my $idx1id;
+    my $idx1size;
+    my $idx1offset;
+    my $idx1const0;
+
+    if($self->{device} == DEVICE_EBW1150) { $headersize = 36; }
+    else { $headersize = 32; }
+
+    my $rsize = $self->{resources}->{'ImRn'}->{size};
+    next if ($rsize <= $headersize + 2);
+    
+    @list = unpack('na[4]NNnNNNN',$self->{resources}->{'ImRn'}->{data});
+    my $version     = $list[0];
+    my $ident       = $list[1];
+    my $unknown1    = $list[2];
+    my $tocoffset   = $list[3];
+    my $unknown2    = $list[4];
+    my $unknown3    = $list[5];
+    my $unknown4    = $list[6];
+    my $unknown5    = $list[7];
+    my $unknown6    = $list[8];
+    
+    if($ident ne 'ImRn')
+    {
+        carp($subname,"():\n",
+             " Invalid 'ImRn' record!\n");
+        next;
+    }
+
+    debug(2,"DEBUG: parsing 'ImRn' resource v",$version,
+          ", index offset ",$tocoffset);
+            
+    if($self->{device} == DEVICE_EBW1150)
+    {
+        $imrncount = ($rsize - 32 - 12) / ($headersize);
+    }
+    else
+    {
+        $imrncount = ($rsize - 32 - 12) / $headersize;
+    }
+
+    debug(2,"DEBUG: ",$imrncount," images listed in header");
+
+    $self->{imrn} = {};
+    foreach my $pos (0 .. ($imrncount - 1))
+    {
+        my $data;
+        my $offset;     # offset within DATA.FRK text (0x0F) of image insertion
+
+        $data = substr($self->{resources}->{'ImRn'}->{data},
+                       32 + ($headersize * $pos),$headersize);
+        if($self->{device} == DEVICE_EBW1150)
+        {
+            #Standard 1150 Header
+            @list = unpack("VVvvVvvVVa[4]v",$data);
+            $offset                               = $list[7];
+            
+            $self->{imrn}->{$offset}->{constF1}   = $list[0];
+            $self->{imrn}->{$offset}->{constF2}   = $list[1];
+            $self->{imrn}->{$offset}->{width}     = $list[2];
+            $self->{imrn}->{$offset}->{height}    = $list[3];
+            $self->{imrn}->{$offset}->{const0}    = $list[4];
+            $self->{imrn}->{$offset}->{unknown16} = $list[5];
+            $self->{imrn}->{$offset}->{constB}    = $list[6];
+            $self->{imrn}->{$offset}->{unknown32} = $list[8];
+            $self->{imrn}->{$offset}->{restype}   = $list[9];
+            $self->{imrn}->{$offset}->{id}        = $list[10];
+            
+            # Are restypes always reversed, or only in some books?
+            # Handling both ways for now.
+            my %restypefix = (
+                ' FIG' => 'GIF ',
+                'GEPJ' => 'JPEG',
+                ' GNP' => 'PNG ',
+                '2CIP' => 'PIC2',
+                'TCIP' => 'PICT',
+                );
+            my $type = $self->{imrn}->{$offset}->{restype};
+            $self->{imrn}->{$offset}->{restype} = $restypefix{$type}
+                if($restypefix{$type});
+        }
+        else
+        {
+            #Standard 1200 Header
+            @list = unpack("NNnnNnNNa[4]n",$data);
+            $offset                              = $list[6];
+            
+            $self->{imrn}->{$offset}->{constF1}  = $list[0];
+            $self->{imrn}->{$offset}->{constF2}  = $list[1];
+            $self->{imrn}->{$offset}->{width}    = $list[2];
+            $self->{imrn}->{$offset}->{height}   = $list[3];
+            $self->{imrn}->{$offset}->{const0}   = $list[4];
+            $self->{imrn}->{$offset}->{constB}   = $list[5];
+            $self->{imrn}->{$offset}->{unknown1} = $list[7];
+            $self->{imrn}->{$offset}->{restype}  = $list[8];
+            $self->{imrn}->{$offset}->{id}       = $list[9];
+        }
+        
+        my $restype = $self->{imrn}->{$offset}->{restype};
+        my $imgtype = $IMAGE_RESOURCE_MAP{$restype};
+        my $hexid = sprintf('%04X',$self->{imrn}->{$offset}->{id});
+        my $width = $self->{imrn}->{$offset}->{width};
+        my $height = $self->{imrn}->{$offset}->{height};
+
+        if(none { $restype eq $_ } (IMAGERESOURCES) )
+        {
+            carp($subname,"():\n",
+                 " invalid image type '",$restype,"' at offset ",$offset,"!\n");
+            next;
+        }
+        debug(2,"DEBUG: ImRn offset ",$offset,": '",$restype,"' 0x",$hexid,
+              " (",$width," x ",$height,")");
+
+        # PICT images are unviewable, so see if there is an alternate to use instead
+        if($imgtype and $imgtype eq 'pic')
+        {
+            my $id = $self->{imrn}->{$offset}->{id};
+            my $alttype = $self->find_image_type($id,'pic');
+            $imgtype = $alttype if($alttype);
+        }
+
+        #TODO: use height/width from Pcz0/PcZ0 records
+        my $filename = uc($imgtype) . "_${hexid}.${imgtype}";
+        $self->{offsetelements}->{$offset} = 
+            '<img src="' . $filename . '" width="' . $width . '" height="' . $height 
+            . '" alt="' . $filename . '" />';
+
+        debug(2,"DEBUG: tag = '",$self->{offsetelements}->{$offset},"'");
+        if($EBook::Tools::debug > 2)
+        {
+            printf("  offset=%d restype=%s imgid=%04X constF1=0x%04X  width=%d  height=%d  const0=0x%04X, constB=0x%04X",
+                   $offset, $self->{imrn}->{$offset}->{restype},
+                   $self->{imrn}->{$offset}->{id},
+                   $self->{imrn}->{$offset}->{constF1},
+                   $self->{imrn}->{$offset}->{width},
+                   $self->{imrn}->{$offset}->{height},
+                   $self->{imrn}->{$offset}->{const0},
+                   $self->{imrn}->{$offset}->{constB},
+                   $self->{imrn}->{$offset}->{unknown16},
+                   $self->{imrn}->{$offset}->{unknown32});
+
+            if($self->{imrn}->{$offset}->{const2})
+            {
+                printf(" const2=0x%04X",
+                       $self->{imrn}->{$offset}->{const2});
+            }
+            printf("\n");
+        }
+        
+    }
+
+    my $tocdata = substr($self->{resources}->{'ImRn'}->{data},
+                         $tocoffset,12);
+    if($self->{device} == DEVICE_EBW1150)
+    {
+        #Standard 1150 Index Header
+        @list = unpack("vVVV",$tocdata);
+        $idx1id     = $list[0];
+        $idx1size   = $list[1];
+        $idx1offset = $list[2];
+        $idx1const0 = $list[3];
+    }
+    else
+    {
+        #Standard 1200 Index Header
+        @list = unpack("nNNn[4]n",$tocdata);
+        $idx1id     = $list[0];
+        $idx1size   = $list[1];
+        $idx1offset = $list[2];
+        $idx1const0 = $list[3];
+    }
+    
+    $total = scalar keys %{$self->{imrn}};
+    if($total != $imrncount)
+    {
+        carp($subname,"()\n",
+             " resource specified ",$imrncount," ImRn entries, but found ",
+             $total,"!\n");
+    }
+    
     return $total;
 }
 
@@ -2234,12 +2552,21 @@ END
     my %ccharmap = (
         0x0A => "\n" . '<br style="page-break-after: always" />' . "\n",
         0x0B => "\n<p>",
-        0x0D => "<br />\n",
+        0x0D => "\n<br />",
+        0x0E => '',             # Start of <table>, not yet supported
+        0x13 => '',             # End of table cell </td>, not yet supported
         0x14 => "\n<hr />\n",
+        0x95 => "&bull;",
+        0xA0 => "&nbsp;",
+        0xA9 => "&copy;",
+        0xAE => "&reg;",
         0xC7 => "&laquo;",
         0xC8 => "&raquo;",
+        0xC9 => "&hellip;",
         0xD0 => "&ndash;",
         0xD1 => "&mdash;",
+        0xD5 => "&lsquo;",
+        0xD6 => "&rsquo;",
         );
 
     while($pos < $textlength)
@@ -2247,7 +2574,11 @@ END
         my $char = substr($$textref,$pos,1);
         my $ord = ord($char);
         
-        if(defined $ccharmap{$ord})
+        if($ord == 0x0F)        # Image
+        {
+            $self->{text} .= $self->{offsetelements}->{$pos};
+        }
+        elsif(defined $ccharmap{$ord})
         {
             $self->{text} .= $ccharmap{$ord};
         }
@@ -2258,6 +2589,8 @@ END
         $pos++;
     }
     $self->{text} .= "</body>\n</html>\n";
+    $self->{text} =~ s/\x15 .*? \x15//gx;        # Kill header
+    $self->{text} =~ s/\x16 .*? \x16//gx;        # Kill footer
     return $textlength;
 }
 
