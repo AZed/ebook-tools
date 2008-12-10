@@ -2550,12 +2550,13 @@ END
     my %ccharmap = (
         0x0A => "\n" . '<br style="page-break-before: always" />', # supported!
         0x0B => "\n<p>",
-        0x0D => "\n<br />",
+        0x0D => "<br />\n",
         0x0E => '',             # Start of <table>, not yet supported
         0x13 => '',             # End of table cell </td>, not yet supported
         0x14 => "\n<hr />\n",
         0x95 => "&bull;",
         0xA0 => "&nbsp;",
+        0xA5 => "&nbsp;", 
         0xA9 => "&copy;",
         0xAE => "&reg;",
         0xC7 => "&laquo;",
@@ -2565,6 +2566,7 @@ END
         0xD1 => "&mdash;",
         0xD5 => "&lsquo;",
         0xD6 => "&rsquo;",
+        0xE1 => "&middot;",
         );
 
     while($pos < $textlength)
