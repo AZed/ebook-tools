@@ -1,4 +1,4 @@
-﻿package EBook::Tools::IMP;
+package EBook::Tools::IMP;
 use warnings; use strict; use utf8;
 use English qw( -no_match_vars );
 use version 0.74; our $VERSION = qv("0.4.0");
@@ -2264,7 +2264,8 @@ A 32-bit integer value of unknown purpose which should always be 0x00000000.
 
 =item * C<constB>
 
-A 16-bit integer value of unknown purpose which should always be 0xFFFB.
+A 16-bit integer value of unknown purpose which could be 0xFFFA, 0xFFFB,
+0xFFFC, or 0xFFFE.
 
 =item * C<unknown16>
 
@@ -2326,14 +2327,7 @@ sub parse_resource_imrn :method
     debug(2,"DEBUG: parsing 'ImRn' resource v",$version,
           ", index offset ",$tocoffset);
             
-    if($self->{device} == DEVICE_EBW1150)
-    {
-        $imrncount = ($rsize - 32 - 12) / ($headersize);
-    }
-    else
-    {
-        $imrncount = ($rsize - 32 - 12) / $headersize;
-    }
+    $imrncount = ($rsize - 32 - 12) / ($headersize);
 
     debug(2,"DEBUG: ",$imrncount," images listed in header");
 
@@ -2343,6 +2337,9 @@ sub parse_resource_imrn :method
         my $data;
         my $offset;     # offset within DATA.FRK text (0x0F) of image insertion
 
+        # FIX: The last (number $imrncount) image record is 2 bytes shorter and
+        # will not be of size 36, but 34.  Currently this code will read into
+        # the index record!
         $data = substr($self->{resources}->{'ImRn'}->{data},
                        32 + ($headersize * $pos),$headersize);
         if($self->{device} == DEVICE_EBW1150)
@@ -2362,8 +2359,8 @@ sub parse_resource_imrn :method
             $self->{imrn}->{$offset}->{restype}   = $list[9];
             $self->{imrn}->{$offset}->{id}        = $list[10];
             
-            # Are restypes always reversed, or only in some books?
-            # Handling both ways for now.
+            # restypes only reversed in 1150 ebooks
+            # (restypes in 1200 ebooks are not reversed)
             my %restypefix = (
                 ' FIG' => 'GIF ',
                 'GEPJ' => 'JPEG',
@@ -2379,17 +2376,17 @@ sub parse_resource_imrn :method
         {
             #Standard 1200 Header
             @list = unpack("NNnnNnNNa[4]n",$data);
-            $offset                              = $list[6];
+            $offset                               = $list[6];
             
-            $self->{imrn}->{$offset}->{constF1}  = $list[0];
-            $self->{imrn}->{$offset}->{constF2}  = $list[1];
-            $self->{imrn}->{$offset}->{width}    = $list[2];
-            $self->{imrn}->{$offset}->{height}   = $list[3];
-            $self->{imrn}->{$offset}->{const0}   = $list[4];
-            $self->{imrn}->{$offset}->{constB}   = $list[5];
-            $self->{imrn}->{$offset}->{unknown1} = $list[7];
-            $self->{imrn}->{$offset}->{restype}  = $list[8];
-            $self->{imrn}->{$offset}->{id}       = $list[9];
+            $self->{imrn}->{$offset}->{constF1}   = $list[0];
+            $self->{imrn}->{$offset}->{constF2}   = $list[1];
+            $self->{imrn}->{$offset}->{width}     = $list[2];
+            $self->{imrn}->{$offset}->{height}    = $list[3];
+            $self->{imrn}->{$offset}->{const0}    = $list[4];
+            $self->{imrn}->{$offset}->{constB}    = $list[5];
+            $self->{imrn}->{$offset}->{unknown32} = $list[7];
+            $self->{imrn}->{$offset}->{restype}   = $list[8];
+            $self->{imrn}->{$offset}->{id}        = $list[9];
         }
         
         my $restype = $self->{imrn}->{$offset}->{restype};
@@ -2424,10 +2421,11 @@ sub parse_resource_imrn :method
         debug(2,"DEBUG: tag = '",$self->{offsetelements}->{$offset},"'");
         if($EBook::Tools::debug > 2)
         {
-            printf("  offset=%d restype=%s imgid=%04X constF1=0x%04X  width=%d  height=%d  const0=0x%04X, constB=0x%04X",
+            printf("  offset=%d restype=%s imgid=%04X constF1=0x%04X constF2=0x%04X width=%d  height=%d  const0=0x%04X, constB=0x%04X",
                    $offset, $self->{imrn}->{$offset}->{restype},
                    $self->{imrn}->{$offset}->{id},
                    $self->{imrn}->{$offset}->{constF1},
+                   $self->{imrn}->{$offset}->{constF2},
                    $self->{imrn}->{$offset}->{width},
                    $self->{imrn}->{$offset}->{height},
                    $self->{imrn}->{$offset}->{const0},
@@ -2449,7 +2447,7 @@ sub parse_resource_imrn :method
                          $tocoffset,12);
     if($self->{device} == DEVICE_EBW1150)
     {
-        #Standard 1150 Index Header
+        #Standard 1150 (14-byte) Index Header
         @list = unpack("vVVV",$tocdata);
         $idx1id     = $list[0];
         $idx1size   = $list[1];
@@ -2458,8 +2456,8 @@ sub parse_resource_imrn :method
     }
     else
     {
-        #Standard 1200 Index Header
-        @list = unpack("nNNn[4]n",$tocdata);
+        #Standard 1200 (12-byte) Index Header
+        @list = unpack("nNNn",$tocdata);
         $idx1id     = $list[0];
         $idx1size   = $list[1];
         $idx1offset = $list[2];
@@ -2550,7 +2548,7 @@ END
 
     my $pos = 0;
     my %ccharmap = (
-        0x0A => "\n" . '<br style="page-break-after: always" />' . "\n",
+        0x0A => "\n" . '<br style="page-break-before: always" />', # supported!
         0x0B => "\n<p>",
         0x0D => "\n<br />",
         0x0E => '',             # Start of <table>, not yet supported
@@ -2588,8 +2586,8 @@ END
         }
         $pos++;
     }
-    $self->{text} .= "</body>\n</html>\n";
-    $self->{text} =~ s/\x15 .*? \x15//gx;        # Kill header
+    $self->{text} .= "\n</body>\n</html>";
+    $self->{text} =~ s/\x15 .*? \x15//gx;        # Kill header - comment out?
     $self->{text} =~ s/\x16 .*? \x16//gx;        # Kill footer
     return $textlength;
 }
