@@ -2147,16 +2147,15 @@ sub parse_resource_images :method
         $self->{$itype} = {};
         foreach my $pos (0 .. ($imgcount - 1))
         {
-            my $tocdata;
-            my $id;         # Image ID -- this is only unique for JPEG images
+            my $id;         # Image ID -- this is only unique for each imagetype
             my $hexid;      # 4-digit hexadecimal string version of $id
     
-            $tocdata = substr($self->{resources}->{$resource}->{data},
+            $imgdata = substr($self->{resources}->{$resource}->{data},
                               $tocoffset + ($headersize * $pos),$headersize);
             if($self->{device} == DEVICE_EBW1150)
             {
                 #Standard 1150 Header (14 bytes)
-                @list = unpack("vvVVv",$tocdata);
+                @list = unpack("vvVVv",$imgdata);
                 $id                               = $list[0];
                 $self->{$itype}->{$id}->{unknown} = $list[1];
                 $self->{$itype}->{$id}->{length}  = $list[2];
@@ -2166,7 +2165,7 @@ sub parse_resource_images :method
             else
             {
                 #Standard 1200 Header (12 bytes)
-                @list = unpack("nNNn",$tocdata);
+                @list = unpack("nNNn",$imgdata);
                 $id                               = $list[0];
                 $self->{$itype}->{$id}->{length}  = $list[1];
                 $self->{$itype}->{$id}->{offset}  = $list[2];
@@ -2295,16 +2294,26 @@ sub parse_resource_imrn :method
     my $imrncount;
     my $total = 0;
     my @list;
+    my $idxdata;
+    my $idxsize;
     my $idx1id;
     my $idx1size;
     my $idx1offset;
     my $idx1const0;
 
-    if($self->{device} == DEVICE_EBW1150) { $headersize = 36; }
-    else { $headersize = 32; }
+    if($self->{device} == DEVICE_EBW1150) 
+    {
+         $headersize = 36;
+         $idxsize = 14;
+    }
+    else 
+    { 
+         $headersize = 32; 
+         $idxsize = 12;
+    }
 
     my $rsize = $self->{resources}->{'ImRn'}->{size};
-    next if ($rsize <= $headersize + 2);
+    next if ($rsize <= 32);
     
     @list = unpack('na[4]NNnNNNN',$self->{resources}->{'ImRn'}->{data});
     my $version     = $list[0];
@@ -2327,25 +2336,24 @@ sub parse_resource_imrn :method
     debug(2,"DEBUG: parsing 'ImRn' resource v",$version,
           ", index offset ",$tocoffset);
             
-    $imrncount = ($rsize - 32 - 12) / ($headersize);
+    $imrncount = ($rsize - 32 - 12) / $headersize;
 
     debug(2,"DEBUG: ",$imrncount," images listed in header");
 
     $self->{imrn} = {};
     foreach my $pos (0 .. ($imrncount - 1))
     {
-        my $data;
         my $offset;     # offset within DATA.FRK text (0x0F) of image insertion
 
         # FIX: The last (number $imrncount) image record is 2 bytes shorter and
         # will not be of size 36, but 34.  Currently this code will read into
         # the index record!
-        $data = substr($self->{resources}->{'ImRn'}->{data},
-                       32 + ($headersize * $pos),$headersize);
+        $imrndata = substr($self->{resources}->{'ImRn'}->{data},
+                           32 + ($headersize * $pos),$headersize);
         if($self->{device} == DEVICE_EBW1150)
         {
-            #Standard 1150 Header
-            @list = unpack("VVvvVvvVVa[4]v",$data);
+            #imrn 1150 record
+            @list = unpack("VVvvVvvVVa[4]v",$imrndata);
             $offset                               = $list[7];
             
             $self->{imrn}->{$offset}->{constF1}   = $list[0];
@@ -2358,7 +2366,7 @@ sub parse_resource_imrn :method
             $self->{imrn}->{$offset}->{unknown32} = $list[8];
             $self->{imrn}->{$offset}->{restype}   = $list[9];
             $self->{imrn}->{$offset}->{id}        = $list[10];
-            
+
             # restypes only reversed in 1150 ebooks
             # (restypes in 1200 ebooks are not reversed)
             my %restypefix = (
@@ -2374,8 +2382,8 @@ sub parse_resource_imrn :method
         }
         else
         {
-            #Standard 1200 Header
-            @list = unpack("NNnnNnNNa[4]n",$data);
+            #imrn 1200 record
+            @list = unpack("NNnnNnNNa[4]n",$imrndata);
             $offset                               = $list[6];
             
             $self->{imrn}->{$offset}->{constF1}   = $list[0];
@@ -2440,29 +2448,23 @@ sub parse_resource_imrn :method
             }
             printf("\n");
         }
-        
     }
 
-    my $tocdata = substr($self->{resources}->{'ImRn'}->{data},
-                         $tocoffset,12);
+    $idxdata = substr($self->{resources}->{'ImRn'}->{data},$tocoffset,$idxsize);
     if($self->{device} == DEVICE_EBW1150)
     {
         #Standard 1150 (14-byte) Index Header
-        @list = unpack("vVVV",$tocdata);
-        $idx1id     = $list[0];
-        $idx1size   = $list[1];
-        $idx1offset = $list[2];
-        $idx1const0 = $list[3];
+        @list = unpack("vVVV",$idxdata);
     }
     else
     {
         #Standard 1200 (12-byte) Index Header
-        @list = unpack("nNNn",$tocdata);
-        $idx1id     = $list[0];
-        $idx1size   = $list[1];
-        $idx1offset = $list[2];
-        $idx1const0 = $list[3];
+        @list = unpack("nNNn",$idxdata);
     }
+    $idx1id     = $list[0];
+    $idx1size   = $list[1];
+    $idx1offset = $list[2];
+    $idx1const0 = $list[3];
     
     $total = scalar keys %{$self->{imrn}};
     if($total != $imrncount)
@@ -2558,12 +2560,14 @@ END
         0xA0 => "&nbsp;",
         0xA5 => "&nbsp;", 
         0xA9 => "&copy;",
-        0xAE => "&reg;",
+        0xAE => "&AElig;",
         0xC7 => "&laquo;",
         0xC8 => "&raquo;",
         0xC9 => "&hellip;",
         0xD0 => "&ndash;",
         0xD1 => "&mdash;",
+        0xD2 => "&ldquo;",
+        0xD3 => "&rdquo;",
         0xD5 => "&lsquo;",
         0xD6 => "&rsquo;",
         0xE1 => "&middot;",
