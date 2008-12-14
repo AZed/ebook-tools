@@ -2556,10 +2556,12 @@ END
         0x0E => '',             # Start of <table>, not yet supported
         0x13 => '',             # End of table cell </td>, not yet supported
         0x14 => "\n<hr />\n",
-        0x95 => "&bull;",
+        0x8E => "&eacute;",
         0xA0 => "&nbsp;",
-        0xA5 => "&nbsp;", 
+        0xA5 => "&bull;", 
+        0xA8 => "&reg;",
         0xA9 => "&copy;",
+        0xAA => "&trade;",
         0xAE => "&AElig;",
         0xC7 => "&laquo;",
         0xC8 => "&raquo;",
@@ -2568,8 +2570,8 @@ END
         0xD1 => "&mdash;",
         0xD2 => "&ldquo;",
         0xD3 => "&rdquo;",
-        0xD5 => "&lsquo;",
-        0xD6 => "&rsquo;",
+        0xD4 => "&lsquo;",
+        0xD5 => "&rsquo;",
         0xE1 => "&middot;",
         );
 
