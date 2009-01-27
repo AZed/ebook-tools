@@ -522,7 +522,11 @@ sub detect_from_mobi_exth :method
     my $subname = ( caller(0) )[3];
     debug(2,"DEBUG[",$subname,"]");
 
-    my @mobiexth = @{$$self{datahashes}{mobiexth}};
+    my @mobiexth;
+    if(defined $self->{datahashes}{mobiexth})
+    {
+        @mobiexth = @{$self->{datahashes}{mobiexth}};
+    }
     my $data;
     my %exthtypes = %EBook::Tools::Mobipocket::exthtypes;
     my %exth_is_int = %EBook::Tools::Mobipocket::exth_is_int;
