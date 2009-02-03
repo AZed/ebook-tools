@@ -1,6 +1,47 @@
 Release Notes
 =============
 
+0.4.0
+
+New Features:
+ * IMP support!
+   * It is now possible to unpack unencrypted IMP files both into .RES
+     directories and into HTML files.  Encrypted IMP files can still
+     be unpacked into .RES directories.
+   * .RES directories can be repacked into IMP files.
+   * IMP metadata can be edited in-place
+   * LZSS compression and decompression is now available as a general
+     library component, though this may be split out into a separate
+     module in the future.
+   * Thanks go to Nick Rapallo for assistance with this feature set,
+     and Jeffrey Kraus-yao for most of the original
+     reverse-engineering work.
+
+Bug Fixes:
+ * Mobipocket files with EXTH headers but no EXTH records now unpack
+   correctly.
+
+Library and Syntax Changes:
+ * Some of the input and output options in the 'ebook' command-line
+   tool have been standardized to '--input' or '-i' and '--output' or
+   '-o'.  Check the documentation for exact syntax.
+ * EBook::Tools::Unpack::usedir() has been moved into EBook::Tools as
+   a procedure, not a method.
+ * The known uid check in EBook::Tools::search_knownuids() has been
+   factored out into the twigelt_is_knownuid() twig search procedure.
+   This causes a lot of 'undefined value' warning spew from XML::Twig
+   to be bypassed and has the added advantage of removing a loop
+
+   It does, however, slightly change the search behaviour --
+   previously, the highest priority known UID in the array was
+   selected if multiple known UID identifiers were found.  Now, the
+   first dc:identifier matching any known good UID is used instead.
+   It's possible to reclaim the old behaviour by sorting the returned
+   array, but on afterthought, it is probably better to let the user
+   file order determine the package id by default.
+
+----------
+
 0.3.3
  * Fixed bugs relating to find_in_path() on MSWin32 systems and Data::UUID
 
