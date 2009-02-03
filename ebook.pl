@@ -66,14 +66,18 @@ undef($tidysafety) if(defined($tidysafety) and $tidysafety eq '');
 
 my %opt = (
     'author'      => '',
+    'category'    => undef,
     'compression' => undef,
     'dir'         => '',
     'fileas'      => '',
+    'firstname'   => undef,
     'help'        => 0,
     'htmlconvert' => 0,
-    'id'          => '',
+    'identifier'  => undef,
     'input'       => '',
     'key'         => '',
+    'lastname'    => undef,
+    'middlename'  => undef,
     'mimetype'    => '',
     'mobi'        => 0,
     'mobigencmd'  => $config->val('helpers','mobigen'),
@@ -83,24 +87,29 @@ my %opt = (
     'opf20'       => 0,
     'opffile'     => '',
     'raw'         => 0,
+    'subcategory' => undef,
     'tidy'        => 0,
     'tidycmd'     => $config->val('helpers','tidy'),
     'tidysafety'  => $tidysafety,
-    'title'       => '',
+    'title'       => undef,
     'verbose'     => $config->val('config','debug') || 0,
     );
 
 GetOptions(
     \%opt,
     'author=s',
+    'category|cat=s',
     'compression|c=i',
     'dir|d=s',
     'fileas=s',
+    'firstname=s',
     'help|h|?',
     'htmlconvert',
+    'identifier|id=s',
     'input|i=s',
-    'id=s',
     'key|pid=s',
+    'lastname=s',
+    'middlename=s',
     'mimetype|mtype=s',
     'mobi|m',
     'mobigencmd|mobigen=s',
@@ -111,6 +120,7 @@ GetOptions(
     'opf20',
     'opffile|opf=s',
     'output|o=s',
+    'subcategory|subcat=s',
     'tidy',
     'tidycmd',
     'tidysafety|ts=i',
@@ -147,6 +157,7 @@ my %dispatch = (
     'genepub'     => \&genepub,
     'genimp'      => \&genimp,
     'genmobi'     => \&genmobi,
+    'impmeta'     => \&impmeta,
     'setmeta'     => \&setmeta,
     'splitmeta'   => \&splitmeta,
     'splitpre'    => \&splitpre,
@@ -195,6 +206,8 @@ Adds a documents to both the book manifest and spine.
 The OPF file to modify.  If not specified one will be searched for in
 the current directory.
 
+=item C<--identifier>
+
 =item C<--id>
 
 The ID attribute to use for the added manifest item.  This is
@@ -220,7 +233,7 @@ sub adddoc
 {
     my ($newdoc) = @_;
     my $opffile = $opt{opffile};
-    my $id = $opt{id};
+    my $id = $opt{identifier};
     my $mtype = $opt{mimetype};
 
     my $ebook = EBook::Tools->new();
@@ -255,6 +268,8 @@ for any local files referenced by existing manifest items.
 The OPF file to modify.  If not specified one will be searched for in
 the current directory.
 
+=item C<--identifier>
+
 =item C<--id>
 
 The ID attribute to use for the added manifest item.  This is
@@ -280,7 +295,7 @@ sub additem
 {
     my ($newitem) = @_;
     my $opffile = $opt{opffile};
-    my $id = $opt{id};
+    my $id = $opt{identifier};
     my $mtype = $opt{mimetype};
 
     if(!$id)
@@ -1013,6 +1028,110 @@ sub genmobi
 }
 
 
+=head2 C<impmeta>
+
+Set specific metadata values in an ETI .imp file.  
+
+=head3 Options
+
+=over
+
+=item * C<--input filename.imp>
+
+=item * C<-i filename.imp>
+
+Specify the input filename.  This can also be specified as the first
+argument, in which case the -i option will be ignored.
+
+=item * C<--output modified.imp>
+
+=item * C<-o modified.imp>
+
+Specify the output filename.  If not specified, the input file will be
+overwritten.
+
+=item * C<--identifier>
+
+Specify the identifier metadata.
+
+=item * C<--category>
+
+=item * C<--cat>
+
+Specify the category metadata.
+
+=item * C<--subcategory>
+
+=item * C<--subcat>
+
+Specify the subcategory metadata.
+
+=item * C<--title>
+
+Specify the title metadata.
+
+=item * C<--lastname>
+
+Specify the author last name metadata.
+
+=item * C<--middlename>
+
+Specify the author middle name metadata.
+
+=item * C<--firstname>
+
+Specify the author first name metadata.  Note that IMP files commonly
+place the full name in this component, and leave the middlename and
+lastname entries blank.
+
+=back
+
+=head3 Examples
+
+ ebook impmeta mybook.imp --title 'Fixed Title' --lastname 'John Q. Brandy'
+ ebook impmeta -i mybook.imp -o fixed.imp --title 'Fixed Title'
+
+=cut
+
+sub impmeta
+{
+    my ($input) = @_;
+    $input ||= $opt{input} if($opt{input});
+    my $output = $opt{output};
+    
+    unless($input)
+    {
+        print "You must specify an input file.\n";
+        exit(EXIT_BADOPTION);
+    }
+    $output ||= $input;
+
+    my $imp = EBook::Tools::IMP->new();
+    if(! $imp->load($input))
+    {
+        print "Failed to load '",$input,"' -- aborting!\n";
+        exit(EXIT_BADINPUT);
+    }
+
+    $imp->set_book_properties(
+        'identifier'  => $opt{identifier},
+        'category'    => $opt{category},
+        'subcategory' => $opt{subcategory},
+        'title'       => $opt{title},
+        'lastname'    => $opt{lastname},
+        'middlename'  => $opt{middlename},
+        'firstname'   => $opt{firstname}
+        );
+
+    if(! $imp->write_imp($output) )
+    {
+        print "Failed to write '",$output,"' -- aborting!\n";
+        exit(EXIT_BADOUTPUT);
+    }
+    exit(EXIT_SUCCESS);
+}
+
+
 =head2 C<setmeta>
 
 Set specific metadata values on an OPF file, creating a new entry only
@@ -1039,11 +1158,11 @@ attempt to find one in the current directory.
 Specifies the 'file-as' attribute when setting an author.  Has no
 effect on other elements.
 
+=item * C<--identifier>
+
 =item * C<--id>
 
-Specifies the ID to assign to the element
-
-
+Specifies the ID to assign to the element.
 
 =back
 
@@ -1079,7 +1198,7 @@ sub setmeta
 
     my $opffile = $opt{opffile};
     my $fileas = $opt{fileas};
-    my $id = $opt{id};
+    my $id = $opt{identifier};
 
     my $ebook = EBook::Tools->new();
     $ebook->init($opffile);
