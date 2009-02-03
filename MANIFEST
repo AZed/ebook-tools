@@ -6,6 +6,8 @@ README.Helpers.txt
 Changes
 lib/EBook/Tools.pm
 lib/EBook/Tools/EReader.pm
+lib/EBook/Tools/IMP.pm
+lib/EBook/Tools/LZSS.pm
 lib/EBook/Tools/Mobipocket.pm
 lib/EBook/Tools/MSReader.pm
 lib/EBook/Tools/PalmDoc.pm
@@ -16,8 +18,11 @@ t/02-fix_methods.t
 t/10-fix_datestring.t
 t/15-misc_procedures.t
 t/20-unpack.t
+t/21-mobi_languages.t
 t/25-imp.t
+t/40-lzss.t
 t/50-user_scripts.t
+t/98-pod.t
 t/99-pod_coverage.t
 t/parts.css
 t/test-part1.html
