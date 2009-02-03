@@ -69,11 +69,10 @@ my %opt = (
     'compression' => undef,
     'dir'         => '',
     'fileas'      => '',
-    'filename'    => '',
     'help'        => 0,
     'htmlconvert' => 0,
     'id'          => '',
-    'inputfile'   => '',
+    'input'       => '',
     'key'         => '',
     'mimetype'    => '',
     'mobi'        => 0,
@@ -84,7 +83,6 @@ my %opt = (
     'opf20'       => 0,
     'opffile'     => '',
     'raw'         => 0,
-    'resdir'      => '',
     'tidy'        => 0,
     'tidycmd'     => $config->val('helpers','tidy'),
     'tidysafety'  => $tidysafety,
@@ -98,11 +96,10 @@ GetOptions(
     'compression|c=i',
     'dir|d=s',
     'fileas=s',
-    'filename|file|f=s',
     'help|h|?',
     'htmlconvert',
+    'input|i=s',
     'id=s',
-    'inputfile|infile=s',
     'key|pid=s',
     'mimetype|mtype=s',
     'mobi|m',
@@ -110,10 +107,10 @@ GetOptions(
     'nosave',
     'noscript',
     'raw',
-    'resdir=s',
     'oeb12',
     'opf20',
     'opffile|opf=s',
+    'output|o=s',
     'tidy',
     'tidycmd',
     'tidysafety|ts=i',
@@ -775,9 +772,9 @@ Generate a .epub book from existing OPF data.
 
 =over
 
-=item C<--inputfile filename.opf>
+=item C<--input filename.opf>
 
-=item C<--infile filename.opf>
+=item C<--i filename.opf>
 
 =item C<--opffile filename.opf>
 
@@ -787,11 +784,9 @@ Use the specified OPF file.  This can also be specified as the first
 non-option argument, which will override this option if it exists.  If
 no file is specified, one will be searched for.
 
-=item C<--filename bookname.epub>
+=item C<--output bookname.epub>
 
-=item C<--file bookname.epub>
-
-=item C<-f bookname.epub>
+=item C<-o bookname.epub>
 
 Use the specified name for the final output file.  If not specified,
 the bok will have the same filename as the OPF file, with the
@@ -848,7 +843,9 @@ Generate a eBookwise .imp book from a .RES directory
 
 =over
 
-=item C<--resdir>
+=item C<--input DIRNAME.RES>
+
+=item C<-i DIRNAME.RES>
 
 Specifies the resource directory to use for input.  A valid resource
 directory will contain at least a C<RSRC.INF> file, a C<DATA.FRK>
@@ -858,11 +855,9 @@ This can also be specified as the first non-option argument, which
 will override this option if it exists.  If not specified, the current
 directory will be used.
 
-=item C<--filename bookname.epub>
+=item C<--output bookname.epub>
 
-=item C<--file bookname.epub>
-
-=item C<-f bookname.epub>
+=item C<-o bookname.epub>
 
 Use the specified name for the final output file.  If not specified,
 the book will have the same filename as the input, with the extension
@@ -883,9 +878,9 @@ sub genimp
     my $ebook;
     my $retval;
 
-    $input ||= $opt{resdir};
+    $input ||= $opt{input};
     $input ||= '.';
-    $output ||= $opt{filename};
+    $output ||= $opt{output};
 
     if(! $input)
     {
@@ -929,24 +924,18 @@ Generate a Mobipocket .mobi/.prc book from OPF, HTML, or ePub input.
 
 =over
 
-=item C<--inputfile filename>
+=item C<--input filename>
 
-=item C<--infile filename>
-
-=item C<--opffile filename.opf>
-
-=item C<--opf filename.opf>
+=item C<--i filename>
 
 Use the specified file for input.  Valid formats are OPF, HTML, and
 ePub.  This can also be specified as the first non-option argument,
 which will override this option if it exists.  If no file is
 specified, an OPF file in the current directory will be searched for.
 
-=item C<--filename bookname.epub>
+=item C<--output bookname.epub>
 
-=item C<--file bookname.epub>
-
-=item C<-f bookname.epub>
+=item C<-o bookname.epub>
 
 Use the specified name for the final output file.  If not specified,
 the book will have the same filename as the input file, with the
@@ -993,8 +982,7 @@ sub genmobi
     my $ebook;
     my $retval;
 
-    $infile = $opt{inputfile} if(!$infile);
-    $infile = $opt{opffile} if(!$infile);
+    $infile = $opt{input} if(!$infile);
     $infile = find_opffile() if(!$infile);
 
     if(!$infile)
@@ -1003,7 +991,7 @@ sub genmobi
         exit(EXIT_BADOPTION);
     }
 
-    $outfile = $opt{filename} if(!$outfile);
+    $outfile = $opt{output} if(!$outfile);
 
     if(!find_mobigen())
     {
@@ -1027,8 +1015,8 @@ sub genmobi
 
 =head2 C<setmeta>
 
-Set specific metadata values on existing OPF data, creating a new
-element only if none exists.
+Set specific metadata values on an OPF file, creating a new entry only
+if none exists.
 
 Both the element to set and the value are specified as additional
 arguments, not as options.
@@ -1287,9 +1275,8 @@ necessary.
 
 =over
 
-=item C<--filename>
-=item C<--file>
-=item C<-f>
+=item C<--input>
+=item C<-i>
 
 The filename of the ebook to unpack.  This can also be specified as
 the first non-option argument, in which case it will override the
@@ -1388,7 +1375,7 @@ warnings.
 =head3 Examples
 
  ebook unpack mybook.pdb My_Book --author "By Me"
- ebook unpack -f mybook.pdb -d My_Book --author "By Me"
+ ebook unpack -i mybook.pdb -d My_Book --author "By Me"
 
 Both of the above commands do the same thing
 
@@ -1397,7 +1384,7 @@ Both of the above commands do the same thing
 sub unpack
 {
     my ($filename,$dir) = @_;
-    $filename = $filename || $opt{filename};
+    $filename = $filename || $opt{input};
     $dir = $dir || $opt{dir};
     
     unless($filename)
