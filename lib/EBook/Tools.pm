@@ -3,7 +3,7 @@ use warnings; use strict; use utf8;
 #use 5.010; # Needed for smart-match operator
 #v5.10 feature use removed until 5.10 is standard on MacOSX and Debian
 use English qw( -no_match_vars );
-use version 0.74; our $VERSION = qv("0.4.0");
+use version 0.74; our $VERSION = qv("0.4.1");
 # $Revision$ $Date$
 # $Id$
 
@@ -152,7 +152,6 @@ use HTML::Entities qw(decode_entities _decode_entities %entity2char);
 use Tie::IxHash;
 use Time::Local;
 use XML::Twig;
-use Palm::Doc();
 
 =head1 CONFIGURABLE PACKAGE VARIABLES
 
