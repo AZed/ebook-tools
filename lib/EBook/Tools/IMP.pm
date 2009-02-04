@@ -1,7 +1,7 @@
 package EBook::Tools::IMP;
 use warnings; use strict; use utf8;
 use English qw( -no_match_vars );
-use version 0.74; our $VERSION = qv("0.4.0");
+use version 0.74; our $VERSION = qv("0.4.1");
 # $Revision$ $Date$
 # $Id$
 
