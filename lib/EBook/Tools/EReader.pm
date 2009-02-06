@@ -1,6 +1,6 @@
 package EBook::Tools::EReader;
 use warnings; use strict; use utf8;
-use version 0.74; our $VERSION = qv("0.4.1");
+use version 0.74; our $VERSION = qv("0.4.2");
 # $Revision$ $Date$
 # $Id$
 
