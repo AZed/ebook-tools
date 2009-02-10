@@ -1016,7 +1016,7 @@ sub unpack_palmdoc :method
 
     unless($$self{nosave})
     {
-        $self->usedir;
+        usedir($self->{dir});
         if($$self{htmlconvert})
         {
             $outfile = $self->filebase . ".html";
