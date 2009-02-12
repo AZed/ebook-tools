@@ -1,6 +1,5 @@
 #!/usr/bin/perl
 use warnings; use strict;
-use version; our $VERSION = qv("0.4.2");
 # $Revision$ $Date$
 # $Id$
 
