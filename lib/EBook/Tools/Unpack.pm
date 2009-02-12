@@ -1,7 +1,7 @@
 package EBook::Tools::Unpack;
 use warnings; use strict; use utf8;
 use English qw( -no_match_vars );
-use version 0.74; our $VERSION = qv("0.4.2");
+use version 0.74; our $VERSION = qv("0.4.3");
 # $Revision$ $Date$
 # $Id$
 
@@ -140,6 +140,11 @@ normally detected from the file and does not need to be specified.
 
 Valid values are '1252' (specifying Windows-1252) and '65001'
 (specifying UTF-8).
+
+=item * C<htmlconvert>
+
+If set to true, an attempt will be made to convert non-HTML output
+text to HTML where possible.
 
 =item * C<key>
 
@@ -592,7 +597,7 @@ If specified, this overrides the object attribute C<opffile>, and
 determines the filename to use for the generated OPF file.  If not
 specified, and the object attribute C<opffile> has somehow been
 cleared (the attribute is set during L</new()>), it will be generated
-by looking at the C<htmlfile> argument.  If no value can be found, the
+by looking at the C<textfile> argument.  If no value can be found, the
 method croaks.  If a value was found somewhere other than the object
 attribute C<opffile>, then the object attribute is updated to match.
 
@@ -601,6 +606,11 @@ attribute C<opffile>, then the object attribute is updated to match.
 The file containing the main text of the document.  If specified, the
 method will attempt to split metadata out of the file and add whatever
 remains to the manifest of the OPF.
+
+=item * C<mediatype> (optional)
+
+The media type (mime type) of the document specified via C<textfile>.
+If C<textfile> is not specified, this argument is ignored.  If C<textfile> is specified, but 
 
 =back
 
@@ -615,6 +625,7 @@ sub gen_opf :method   ## no critic (Always unpack @_ first)
     my %valid_args = (
         'opffile' => 1,
         'textfile' => 1,
+        'mediatype' => 1,
         );
     foreach my $arg (keys %args)
     {
@@ -623,7 +634,8 @@ sub gen_opf :method   ## no critic (Always unpack @_ first)
     }
     my $ebook = EBook::Tools->new();
     my $textfile = $args{textfile};
-    my $opffile = $args{htmlfile} || $$self{opffile};
+    my $opffile = $args{opffile} || $$self{opffile};
+    my $mediatype = $args{mediatype};
     unless($self->{raw})
     {
         $opffile = split_metadata($textfile,$opffile) if($textfile);
@@ -647,7 +659,7 @@ sub gen_opf :method   ## no critic (Always unpack @_ first)
                            author => $$self{author});
     }
     $ebook->fix_metastructure_oeb12();
-    $ebook->add_document($textfile,'text-main') if($textfile);
+    $ebook->add_document($textfile,'text-main',$mediatype) if($textfile);
     
     # Set author, title, and opffile from manual overrides
     $ebook->set_primary_author(text => $$self{author}) if($$self{author});
@@ -839,17 +851,20 @@ sub unpack_ereader :method
     unless($$self{nosave})
     {
         my $cwd = usedir($self->{dir});
+        $pdb->write_images;
+        $pdb->write_unknown_records if($$self{raw});
         if($$self{htmlconvert})
         {
             $textname = $pdb->write_html();
+            $self->gen_opf(textfile => $textname,
+                           mediatype => 'text/html');
         }
         else
         {
             $textname = $pdb->write_pml();
+            $self->gen_opf(textfile => $textname,
+                           mediatype => 'text/plain');
         }
-        $pdb->write_images;
-        $pdb->write_unknown_records if($$self{raw});
-        $self->gen_opf(textfile => $textname);
         chdir($cwd);
     }
     return 1;
