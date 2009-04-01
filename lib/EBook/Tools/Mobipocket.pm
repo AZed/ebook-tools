@@ -4,7 +4,7 @@ use warnings; use strict; use utf8;
 #use 5.010; # Needed for smart-match operator
 #v5.10 feature use removed until 5.10 is standard on MacOSX and Debian
 use English qw( -no_match_vars );
-use version 0.74; our $VERSION = qv("0.4.3");
+use version 0.74; our $VERSION = qv("0.4.4");
 # $Revision$ $Date$
 # $Id$
 
