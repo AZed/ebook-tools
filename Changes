@@ -1,6 +1,29 @@
 Release Notes
 =============
 
+0.4.4
+
+ Bug Fixes:
+  * split_metadata now writes split components into the directory where
+    the source file is located instead of the current working
+    directory.  The old behaviour could cause failure when running as
+    CGI.
+
+
+0.4.3
+ 
+ New Features:
+  * gen_opf() now accepts a 'mediatype' argument to override
+    autodetection of the mime type of the 'textfile' argument.
+
+ Bug Fixes:
+  * The opffile argument in gen_opf() was not being set correctly
+  * unpack_ereader now forces the appropriate mime type instead of
+    letting it be autodetected.  Fixes incorrect setting of text/plain
+    on HTML output on Windows systems.
+
+0.4.1 - 0.4.2: minor bugfixes only
+
 0.4.0
 
 New Features:
