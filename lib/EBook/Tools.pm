@@ -4,8 +4,6 @@ use warnings; use strict; use utf8;
 #v5.10 feature use removed until 5.10 is standard on MacOSX and Debian
 use English qw( -no_match_vars );
 use version 0.74; our $VERSION = qv("0.4.5");
-# $Revision$ $Date$
-# $Id$
 
 #use warnings::unused;
 
