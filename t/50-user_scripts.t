@@ -1,11 +1,17 @@
-# Before `make install' is performed this script should be runnable with
-# `make test'. After `make install' it should work as `perl EBook-Tools.t'
-
 ########## SETUP ##########
 
-# change 'tests => 1' to 'tests => last_test_to_print';
-
-use Test::More tests => 18;
+use Test::More;
+BEGIN
+{
+    if($ENV{'AUTOMATED_TESTING'})
+    {
+        plan skip_all => "Automated testing often breaks on actual scripts.";
+    }
+    else
+    {
+        plan tests => 18;
+    }
+};
 use Cwd qw(chdir getcwd);
 use File::Basename qw(basename);
 use File::Copy;
@@ -41,7 +47,7 @@ my @rights;
 
 # ebook blank
 unlink('blank.opf');
-$exitval = system('perl','-I../lib','../ebook.pl',
+$exitval = system('perl','-I../lib','../scripts/ebook.pl',
                   'blank','blank.opf',
                   '-d','testdir',
                   '--title','Testing Title',
@@ -56,13 +62,13 @@ is($ebook->twigroot->first_descendant('dc:creator')->text,'Testing Author',
    'ebook blank created correct author');
 
 # ebook fix
-$exitval = system('perl','-I../lib','../ebook.pl','fix','emptyuid.opf');
+$exitval = system('perl','-I../lib','../scripts/ebook.pl','fix','emptyuid.opf');
 $exitval >>= 8;
 is($exitval,0,'ebook fix exits successfully');
 ok(-f 'emptyuid.opf.backup','ebook fix created backup file');
 
 # ebook genepub
-$exitval = system('perl','-I../lib','../ebook.pl',
+$exitval = system('perl','-I../lib','../scripts/ebook.pl',
                   'genepub','emptyuid.opf',
                   '--dir','epubdir');
 $exitval >>= 8;
@@ -70,7 +76,7 @@ is($exitval,0,'ebook genepub exits successfully');
 ok(-f 'epubdir/emptyuid.epub','ebook genepub created the epub book');
 
 # ebook fix -d testdir
-$exitval = system('perl','-I../lib','../ebook.pl',
+$exitval = system('perl','-I../lib','../scripts/ebook.pl',
                   'fix','emptyuid.opf',
                   '-d','testdir');
 $exitval >>= 8;
@@ -81,7 +87,7 @@ ok(-f 'testdir/emptyuid.opf',
 # ebook splitmeta
 unlink('containsmetadata.opf');
 $exitval = system('perl','-I../lib',
-                  '../ebook.pl','splitmeta','containsmetadata.html');
+                  '../scripts/ebook.pl','splitmeta','containsmetadata.html');
 $exitval >>= 8;
 is($exitval,0,'ebook splitmeta generates right return value');
 ok(-f 'containsmetadata.opf','ebook splitmeta created containsmetadata.opf');
