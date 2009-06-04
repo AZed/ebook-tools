@@ -1,0 +1,6 @@
+lzss/
+lzss_test*
+rebpub/
+t/books
+t/imp/REBTestDocument
+t/imp/sbp48.tmp
