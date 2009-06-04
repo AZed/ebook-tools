@@ -27,6 +27,6 @@ my $build = Module::Build->new
          'XML::Twig'         => 3.32,
      },
      PL_files => { 'Bin.PL' => 'bin/ebook' },
-     create_makefile_pl => 'traditional',
+     create_makefile_pl => 'small',
     );
 $build->create_build_script;

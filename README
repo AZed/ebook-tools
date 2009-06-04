@@ -30,6 +30,7 @@ This module requires these other modules and libraries:
  File::MimeInfo
  HTML::Parser
  List::MoreUtils
+ Module::Build
  P5-Palm
  Palm::Doc
  Tie::IxHash
