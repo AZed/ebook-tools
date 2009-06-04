@@ -3,5 +3,5 @@ use File::Copy;
 use File::Path;
 
 mkpath 'bin';
-copy('ebook.pl','bin/ebook') or die("Could not create bin/ebook");
+copy('scripts/ebook.pl','bin/ebook') or die("Could not create bin/ebook");
 chmod(0755,'bin/ebook');
