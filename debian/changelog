@@ -1,3 +1,10 @@
+libebook-tools-perl (0.4.5-2) unstable; urgency=low
+
+  * Remove leftover obsolete dependency on libpalm-doc-perl
+  * Fix typo in license link (GPL2 -> GPL-2)
+
+ -- Zed Pobre <zed@debian.org>  Mon, 22 Jun 2009 08:49:34 -0400
+
 libebook-tools-perl (0.4.5-1) unstable; urgency=low
 
   * Initial release (Closes: #524537)
