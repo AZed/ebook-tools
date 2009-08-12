@@ -1,0 +1,60 @@
+---
+name: EBook-Tools
+version: 0.4.5
+author:
+  - 'Zed Pobre <zed@debian.org>'
+abstract: Object class for manipulating and generating E-books
+license: gpl2
+resources:
+  license: http://opensource.org/licenses/gpl-2.0.php
+requires:
+  Archive::Zip: 1.16
+  Bit::Vector: 6.4
+  Compress::Zlib: 1
+  Config::IniFiles: 2
+  Data::UUID: 1
+  Date::Manip: 5.44
+  File::MimeInfo: 0.13
+  File::Slurp: 9999
+  HTML::Entities: 1
+  HTML::TextToHTML: 2.44
+  HTML::TreeBuilder: 3.19
+  Image::Size: 3.1
+  List::MoreUtils: 0.21
+  Palm::PDB: 1
+  Palm::Raw: 1
+  String::CRC32: 1
+  Tie::IxHash: 1.21
+  Time::Local: 1.18
+  XML::Twig: 3.32
+  perl: 5.8.8
+  version: 0.74
+provides:
+  EBook::Tools:
+    file: lib/EBook/Tools.pm
+    version: 0.4.5
+  EBook::Tools::EReader:
+    file: lib/EBook/Tools/EReader.pm
+    version: 0.4.5
+  EBook::Tools::IMP:
+    file: lib/EBook/Tools/IMP.pm
+    version: 0.4.5
+  EBook::Tools::LZSS:
+    file: lib/EBook/Tools/LZSS.pm
+    version: 0.4.5
+  EBook::Tools::MSReader:
+    file: lib/EBook/Tools/MSReader.pm
+    version: 0.4.5
+  EBook::Tools::Mobipocket:
+    file: lib/EBook/Tools/Mobipocket.pm
+    version: 0.4.5
+  EBook::Tools::PalmDoc:
+    file: lib/EBook/Tools/PalmDoc.pm
+    version: 0.4.5
+  EBook::Tools::Unpack:
+    file: lib/EBook/Tools/Unpack.pm
+    version: 0.4.5
+generated_by: Module::Build version 0.3
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.2.html
+  version: 1.2
