@@ -1,0 +1,10 @@
+Build
+_build/*
+lzss/
+lzss_test*
+Makefile.PL
+META.yml
+rebpub/
+t/books
+t/imp/REBTestDocument
+t/imp/sbp48.tmp
