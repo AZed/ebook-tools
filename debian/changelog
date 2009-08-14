@@ -1,3 +1,11 @@
+libebook-tools-perl (0.4.5-3) unstable; urgency=low
+
+  * A number of perl modules required for both build and use were
+    present in the manifest but missing in debian/control (Closes:
+    #536442)
+
+ -- Zed Pobre <zed@debian.org>  Thu, 13 Aug 2009 20:18:05 -0400
+
 libebook-tools-perl (0.4.5-2) unstable; urgency=low
 
   * Remove leftover obsolete dependency on libpalm-doc-perl
