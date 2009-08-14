@@ -1,3 +1,11 @@
+libebook-tools-perl (0.4.5-4) unstable; urgency=low
+
+  * Set the AUTOMATED_TESTING environment variable during build.  This
+    disables some tests known to fail on autobuilders or smoketesters.
+    (Closes: #541442)
+
+ -- Zed Pobre <zed@debian.org>  Fri, 14 Aug 2009 11:14:27 -0400
+
 libebook-tools-perl (0.4.5-3) unstable; urgency=low
 
   * A number of perl modules required for both build and use were
