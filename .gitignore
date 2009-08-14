@@ -1,3 +1,9 @@
+# Backup files
+*.backup
+*.orig
+*~
+
+# Build/test files
 Build
 _build/*
 lzss/
