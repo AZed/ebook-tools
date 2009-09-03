@@ -218,7 +218,7 @@ my @fields = (
     'tidy',
     'nosave',
     );
-    
+
 require fields;
 fields->import(@fields);
 
@@ -471,7 +471,7 @@ sub detect_format :method
         debug(1,"DEBUG: Autodetected book format '",$$self{format},
               "', version ",$$self{formatinfo});
     }
-    
+
     # Check for ePub
     $ident = substr($headerdata,30,28);
     $info = substr($headerdata,0,2);
@@ -552,7 +552,7 @@ sub detect_from_mobi_exth :method
         {
             $data = $$exth{data};
         }
-        
+
         if($exth_repeats{$$exth{type}})
         {
             debug(2,"DEBUG: Repeating EXTH ",$type," = '",$data,"'");
@@ -658,19 +658,19 @@ sub gen_opf :method   ## no critic (Always unpack @_ first)
     }
     $ebook->fix_metastructure_oeb12();
     $ebook->add_document($textfile,'text-main',$mediatype) if($textfile);
-    
+
     # Set author, title, and opffile from manual overrides
     $ebook->set_primary_author(text => $$self{author}) if($$self{author});
     $ebook->set_title(text => $$self{title}) if($$self{title});
     $ebook->set_opffile($$self{opffile}) if($$self{opffile});
-    
+
     # If we still don't have author or title, set it from the best
     # extraction we have
     $ebook->set_primary_author(text => $$self{detected}{author})
         if(!$$self{author} && $$self{detected}{author});
     $ebook->set_title(text => $$self{detected}{title})
         if(!$$self{title} && $$self{detected}{title});
-    
+
     # Set the language codes
     $ebook->set_language(text => $$self{detected}{language})
         if($$self{detected}{language});
@@ -769,14 +769,14 @@ sub gen_opf :method   ## no critic (Always unpack @_ first)
     $ebook->set_retailprice(text => $$self{detected}{retailprice},
                             currency => $$self{detected}{currency})
         if($$self{detected}{retailprice});
-    
+
     # Automatically clean up any mess
     $ebook->fix_misc;
     $ebook->fix_oeb12;
     $ebook->fix_mobi;
     unlink($opffile);
     $ebook->save;
-    return 1;    
+    return 1;
 }
 
 
@@ -883,7 +883,7 @@ sub unpack_imp
 
     my $imp = EBook::Tools::IMP->new();
     $imp->load($self->{file});
-    
+
     $self->{detected}->{author} = $imp->author;
     $self->{detected}->{title} = $imp->title;
 
@@ -891,7 +891,7 @@ sub unpack_imp
     {
         $imp->write_resdir();
     }
-    
+
     $imp->write_text(dir => $self->{dir});
     $imp->write_images(dir => $self->{dir});
 
@@ -946,7 +946,7 @@ sub unpack_mobi :method
     = $mobi->{header}{mobi}{dolanguage};
 
     $self->detect_from_mobi_exth();
-    
+
     if($$self{raw} && !$$self{nosave})
     {
         $mobi->write_unknown_records();
@@ -1048,7 +1048,7 @@ sub unpack_palmdoc :method
             print {*$fh} $pdb->text;
             close($fh)
                 or croak("Failed to close '",$outfile,"'!");
-        }   
+        }
 
         open($fh,">:raw",$bookmarkfile)
             or croak("Failed to open '",$bookmarkfile,"' for writing!");
