@@ -947,9 +947,9 @@ ePub.  This can also be specified as the first non-option argument,
 which will override this option if it exists.  If no file is
 specified, an OPF file in the current directory will be searched for.
 
-=item C<--output bookname.epub>
+=item C<--output bookname.prc>
 
-=item C<-o bookname.epub>
+=item C<-o bookname.prc>
 
 Use the specified name for the final output file.  If not specified,
 the book will have the same filename as the input file, with the
@@ -981,7 +981,7 @@ specified, defaults to 1 (PalmDoc compression).
 
 =head3 Example
 
- ebook genmobi mybook.opf -f my_special_book.prc -d ../mobibooks
+ ebook genmobi mybook.opf -o my_special_book.prc -d ../mobibooks
  ebook genmobi mybook.html mybook.prc -c2
 
 or in the simplest case:
