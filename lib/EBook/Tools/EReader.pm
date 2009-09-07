@@ -1085,8 +1085,9 @@ sub pml_to_html
 
 =item * HTML conversion may be suboptimal in many ways.
 
-Most notably, all linebreaks are handled as <br />, and without any
+Most notably, most linebreaks are handled as <br />, and without any
 heed to whether those linebreaks occur inside of some other element.
+Validation is extremely unlikely.
 
 =back
 
