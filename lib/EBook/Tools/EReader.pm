@@ -69,7 +69,6 @@ use List::Util qw(min);
 use List::MoreUtils qw(uniq);
 use Palm::PDB;
 use Palm::Raw();
-use Tie::IxHash;
 
 
 #################################
@@ -953,6 +952,15 @@ sub pml_to_html
     return unless(defined $text);
     $text = decode('Windows-1252',$text);
 
+    # Font markers can be terminated by a \n as well as their own
+    # code.
+    $text =~ s#\\l (.*?) (?:\\l|\\n)
+              #<div style="font-size: 120%">$1</div>#gsx;
+    $text =~ s#\\n (.*?) \\n
+              #<div style="font-size: 100%">$1</div>#gsx;
+    $text =~ s#\\s (.*?) (?:\\s|\\n)
+              #<div style="font-size: 80%">$1</div>#gsx;
+
     my %pmlcodes = (
         '\p' => '<br style="page-break-after: always" />\n',
         '\x' => [ '<h1 style="page-break-before: always">','</h1>\n' ],
@@ -997,7 +1005,8 @@ sub pml_to_html
               #\n<br />$1<br />\n#gsx;
 
     # Reinsert newlines on <p> and <br> tags
-    $text =~ s#(<p>|<br />)#\n$1#g;
+    $text =~ s#(<p>)#\n$1#g;
+    $text =~ s#(<br />)#$1\n#g;
 
 
     # Handle simple tag replacements
@@ -1035,19 +1044,6 @@ sub pml_to_html
         }
     } # while(my ($pmlcode,$replacement) = each(%pmlcodes) )
 
-    tie my %pmlfonts, 'Tie::IxHash', (
-        '\s' => '<div style="font-size: 80%">',
-        '\l' => '<div style="font-size: 120%">',
-        '\n' => '<div style="font-size: 100%">',
-    );
-
-    # Font markers can be terminated by a \n as well as their own
-    # code.
-    foreach my $pmlfont (keys %pmlfonts)
-    {
-        $text =~ s#\Q$pmlfont\E (.*?) (?:\Q$pmlfont\E|\Q\n\E)
-                  #$pmlfonts{$pmlfont}$1</div>#gsx;
-    }
     # Strip leftover \n codes
     $text =~ s#\\n
               ##gsx;
@@ -1058,7 +1054,7 @@ sub pml_to_html
 
     # Images
     $text =~ s!\\m="(.*?)"
-              !<img src="${filebase}_img/$1">!gsx;
+              !<img src="${filebase}_img/$1" />!gsx;
 
     # Anchors and references
     $text =~ s!\\q="(.*?)"(.*?)\\q
@@ -1071,6 +1067,9 @@ sub pml_to_html
               !<a id="$1-ref" href="#$1">$2</a>!gsx;
     $text =~ s!\\Sd="(.*?)"(.*?)\\Sd
               !<a id="$1-ref" href="#$1">$2</a>!gsx;
+
+    # Double-newlines after page breaks
+    $text =~ s#("page-break-after: always" />)#$1\n\n#g;
 
     return $text;
 }
