@@ -88,12 +88,12 @@ sub new   ## no critic (Always unpack @_ first)
 {
     my $class = shift;
     my $self = $class->SUPER::new(@_);
-    
+
     $self->{'creator'} = 'PNRd';
     $self->{'type'} = 'PPrs';
-    
+
     $self->{attributes}{resource} = 0;
-    
+
     $self->{appinfo} = undef;
     $self->{sort} = undef;
     $self->{records} = [];
@@ -160,7 +160,7 @@ sub footnotes
     {
         @footnotes = @{$self->{footnotes}};
     }
-    
+
     if($#footnotes != $#footnoteids)
     {
         carp($subname,"(): found ",scalar(@footnotes)," footnotes but ",
@@ -221,7 +221,7 @@ sub footnotes_html
     my %footnotehash = $self->footnotes;
     my $text = '<h2 id="footnotes">Footnotes</h2>';
     $text .= "\n<dl>\n";
-    
+
     foreach my $footnoteid (sort keys %footnotehash)
     {
         $text .= '<dt>[<a id="' . $footnoteid . '" href="#';
@@ -275,7 +275,7 @@ sub html
     $header   .= "</head>\n<body>\n";
     my $footer = "</body>\n</html>\n";
 
-    return 
+    return
         $header . pml_to_html($self->{text},$self->filebase)
         . $self->sidebars_html . $self->footnotes_html . $footer;
 }
@@ -308,7 +308,7 @@ sub sidebars
     {
         @sidebars = @{$self->{sidebars}};
     }
-    
+
     if($#sidebars != $#sidebarids)
     {
         carp($subname,"(): found ",scalar(@sidebars)," sidebars but ",
@@ -369,7 +369,7 @@ sub sidebars_html
     my %sidebarhash = $self->sidebars;
     my $text = '<h2 id="sidebars">Sidebars</h2>';
     $text .= "\n<dl>\n";
-    
+
     foreach my $sidebarid (sort keys %sidebarhash)
     {
         $text .= '<dt>[<a id="' . $sidebarid . '" href="#';
@@ -414,10 +414,10 @@ sub write_html :method
     print {*$fh} $self->html;
     close($fh)
         or croak($subname,"(): unable to close '",$filename,"'!\n");
-    
+
     croak($subname,"(): failed to generate any text")
         if(-z $filename);
-    
+
     return $filename;
 }
 
@@ -487,10 +487,10 @@ sub write_pml :method
     print {*$fh} $self->pml;
     close($fh)
         or croak($subname,"(): unable to close '",$filename,"'!\n");
-    
+
     croak($subname,"(): failed to generate any text")
         if(-z $filename);
-    
+
     return $filename;
 }
 
@@ -545,7 +545,7 @@ sub Load :method
 {
     my $self = shift;
     my $filename = shift;
-    
+
     $self->{filename} = $filename;
     return $self->SUPER::Load($filename);
 }
@@ -581,12 +581,12 @@ sub ParseRecord :method   ## no critic (Always unpack @_ first)
 
     # Determine how to handle the remaining records
     if($version == 2)
-    { 
-        $uncompress = \&uncompress_palmdoc; 
+    {
+        $uncompress = \&uncompress_palmdoc;
     }
     elsif($version == 10)
-    { 
-        $uncompress = \&uncompress; 
+    {
+        $uncompress = \&uncompress;
     }
     elsif($version > 255)
     {
@@ -885,7 +885,7 @@ sub ParseRecord0 :method
 
     $$self{header} = \%header;
     return %header;
-}    
+}
 
 
 ################################
@@ -908,7 +908,7 @@ sub cp1252_to_pml
     my $text = shift;
     my $subname = ( caller(0) )[3];
     debug(2,"DEBUG[",$subname,"]");
-    
+
     return unless(defined $text);
 
     my %cppml = (
@@ -941,7 +941,7 @@ sub pml_to_html
     my $filebase = shift;
     my $subname = ( caller(0) )[3];
     debug(2,"DEBUG[",$subname,"]");
-    
+
     return unless(defined $text);
     $text = decode('Windows-1252',$text);
 
@@ -1015,7 +1015,7 @@ sub pml_to_html
                 $text =~ s#\Q$pmlcode\E
                           #$replacement#gsx;
             }
-            
+
         }
     } # while(my ($pmlcode,$replacement) = each(%pmlcodes) )
 

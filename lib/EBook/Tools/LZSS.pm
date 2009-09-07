@@ -96,7 +96,7 @@ The eBookwise .IMP format typically compresses with 3 length bits.
 
 Note that the actual length of the LZSS reference in bytes is greater
 than the value stored in the length bits.  The actual number of bytes
-returned is the decoded length bits value plus C<maxuncoded> plus 1, 
+returned is the decoded length bits value plus C<maxuncoded> plus 1,
 
 =item * C<offsetbits>
 

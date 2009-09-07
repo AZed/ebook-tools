@@ -412,7 +412,7 @@ Croaks if detection fails.
 
 In scalar context, returns C<< $self->{format} >>.  In list context,
 returns the two element list C<< ($self->{format},$self->{formatinfo}) >>
- 
+
 This is automatically called by L</new()> if the C<format> argument is
 not specified.
 
@@ -608,7 +608,7 @@ remains to the manifest of the OPF.
 =item * C<mediatype> (optional)
 
 The media type (mime type) of the document specified via C<textfile>.
-If C<textfile> is not specified, this argument is ignored.  If C<textfile> is specified, but 
+If C<textfile> is not specified, this argument is ignored.  If C<textfile> is specified, but
 
 =back
 
@@ -924,7 +924,7 @@ sub unpack_mobi :method
     # Used for file output
     my $htmlname = $self->filebase . ".html";
 
-    my $reccount = 0; # The Record ID cannot be reliably used to identify 
+    my $reccount = 0; # The Record ID cannot be reliably used to identify
                       # the first record.  This increments as each
                       # record is examined
 
@@ -1053,7 +1053,7 @@ sub unpack_palmdoc :method
         open($fh,">:raw",$bookmarkfile)
             or croak("Failed to open '",$bookmarkfile,"' for writing!");
         %bookmarks = $pdb->bookmarks;
-        if(%bookmarks) 
+        if(%bookmarks)
         {
             foreach my $offset (sort {$a <=> $b} keys %bookmarks)
             {

@@ -63,7 +63,7 @@ both OEBPS v1.2 and OPS/OPF v2.0.
 =item Date::Manip
 
 Note that Date::Manip will die on MS Windows system unless the
-TZ environment variable is set in a specific manner. See: 
+TZ environment variable is set in a specific manner. See:
 
 http://search.cpan.org/perldoc?Date::Manip#TIME_ZONES
 
@@ -272,7 +272,7 @@ our $tidysafety = 1;
 
 
 our $utf8xmldec = '<?xml version="1.0" encoding="UTF-8" ?>' . "\n";
-our $oeb12doctype = 
+our $oeb12doctype =
     '<!DOCTYPE package' . "\n" .
     '  PUBLIC "+//ISBN 0-9673008-1-9//DTD OEB 1.2 Package//EN"' . "\n" .
     '  "http://openebook.org/dtds/oeb-1.2/oebpkg12.dtd">' . "\n";
@@ -622,7 +622,7 @@ sub init :method    ## no critic (Always unpack @_ first)
     {
 	croak($subname,"(): Unable to find an OPF file to work with!\n");
     }
-    
+
     if(! -f $self->{opffile})
     {
 	croak($subname,"(): '",$self->{opffile},
@@ -662,7 +662,7 @@ sub init :method    ## no critic (Always unpack @_ first)
     # _decode_entities on a small file, but having the hash map as a
     # package variable has additional utility, so that technique gets
     # used instead.
-#    $opfstring =~ 
+#    $opfstring =~
 #        s/(&
 #            (?! (?:lt|gt|quot|apos|amp);
 #            )\w+;
@@ -793,7 +793,7 @@ sub adult :method
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
     $self->twigcheck;
-    
+
     my $twigroot = $self->{twigroot};
 
     my $element = $twigroot->first_descendant(qr/^adult$/ix);
@@ -927,7 +927,7 @@ sub description :method
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
     $self->twigcheck;
-    
+
     my $twigroot = $self->{twigroot};
 
     my $element = $twigroot->first_descendant(qr/^dc:description$/ix);
@@ -1087,7 +1087,7 @@ sub identifier :method
 
     my $idtext = $identifier->text;
     return unless($idtext);
-    
+
     return($idtext);
 }
 
@@ -1323,8 +1323,8 @@ L</manifest_hrefs()>, L</spine()>
 
 =head3 Example
 
- @manifest = $ebook->manifest(id => 'ncx', 
-                              mtype => 'text/xml', 
+ @manifest = $ebook->manifest(id => 'ncx',
+                              mtype => 'text/xml',
                               logic => 'or');
 
 =cut
@@ -1362,7 +1362,7 @@ sub manifest :method    ## no critic (Always unpack @_ first)
     else { $args{logic} = 'and'; }
 
     debug(1,"DEBUG: manifest() called with '",join(" ",keys(%args)),"'");
-    
+
     my @elements;
     my @retarray;
     my $cond;
@@ -1396,7 +1396,7 @@ sub manifest :method    ## no critic (Always unpack @_ first)
 
     foreach my $el (@elements)
     {
-        push(@retarray, 
+        push(@retarray,
              {
                  'id' => $el->id,
                  'href' => $el->att('href'),
@@ -1536,8 +1536,8 @@ sub print_errors :method
 	debug(1,"DEBUG: no errors found!");
 	return 1;
     }
-    
-    
+
+
     foreach my $error (@$errorref)
     {
 	print "ERROR: ",$error,"\n";
@@ -1566,8 +1566,8 @@ sub print_warnings :method
 	debug(2,"DEBUG: no warnings found!");
 	return 1;
     }
-    
-    
+
+
     foreach my $warning (@$warningref)
     {
 	print "WARNING: ",$warning,"\n";
@@ -1644,7 +1644,7 @@ sub retailprice :method
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
     $self->twigcheck;
-    
+
     my $twigroot = $self->{twigroot};
 
     my $element = $twigroot->first_descendant(qr/^ SRP $/ix);
@@ -1668,7 +1668,7 @@ sub review :method
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
     $self->twigcheck;
-    
+
     my $twigroot = $self->{twigroot};
 
     my $element = $twigroot->first_descendant(qr/^review$/ix);
@@ -1703,7 +1703,7 @@ sub rights :method    ## no critic (Always unpack @_ first)
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
     $self->twigcheck;
-    
+
     my %valid_args = (
         'id' => 1,
         );
@@ -1727,11 +1727,11 @@ sub rights :method    ## no critic (Always unpack @_ first)
         }
         else { push @rights,$element->text if($element->text); }
     }
-    
+
     if($id)
     {
-        add_warning($subname 
-                     . "(): More than one rights entry found with id '" 
+        add_warning($subname
+                     . "(): More than one rights entry found with id '"
                      . $id ."'" )
             if(scalar(@rights) > 1);
     }
@@ -1935,7 +1935,7 @@ sub spine :method
             debug(1,"DEBUG: id '",$idref," not found in manifest!");
             return;
         }
-        push(@retarray, 
+        push(@retarray,
              {
                  'id' => $element->id,
                  'href' => $element->att('href'),
@@ -2032,7 +2032,7 @@ sub title :method
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
     $self->twigcheck;
-    
+
     my $twigroot = $self->{twigroot};
 
     my $element = $twigroot->first_descendant(qr/^dc:title$/ix);
@@ -2089,7 +2089,7 @@ sub twigcheck :method
         if(!$self->{twigroot});
     croak($calledfrom[3],"(): twig root isn't a XML::Twig::Elt")
         if( (ref $self->{twigroot}) ne 'XML::Twig::Elt' );
-    croak($calledfrom[3],"(): twig root is '" . $self->{twigroot}->gi 
+    croak($calledfrom[3],"(): twig root is '" . $self->{twigroot}->gi
           . "' (needs to be 'package')")
         if($self->{twigroot}->gi ne 'package');
     debug(3,"DEBUG[/",$subname,"]");
@@ -2155,7 +2155,7 @@ add_item().
 
 =head3 Arguments
 
-=over 
+=over
 
 =item C<$href>
 
@@ -2229,7 +2229,7 @@ sub add_document :method   ## no critic (Always unpack @_ first)
     my $spine = $topelement->first_child('spine');
     $spine = $topelement->insert_new_elt('last_child','spine')
         if(!$spine);
-    
+
     my $item = $manifest->insert_new_elt('last_child','item');
     $item->set_id($id);
     $item->set_att(
@@ -2372,7 +2372,7 @@ and spine, see add_document().
 
 =head3 Arguments
 
-=over 
+=over
 
 =item C<$href>
 
@@ -2570,7 +2570,7 @@ sub add_metadata :method    ## no critic (Always unpack @_ first)
     my $dcmeta;
     my $parent;
     my %dcatts;
-    
+
     $self->fix_metastructure_basic();
     $parent =  $self->{twigroot}->first_descendant(qr/^ $args{parent} $/ix)
         if($args{parent});
@@ -2734,10 +2734,10 @@ sub add_warning :method   ## no critic (Always unpack @_ first)
     my $subname = (caller(0))[3];
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(3,"DEBUG[",$subname,"]");
-            
+
     my @currentwarnings;
     @currentwarnings = @{$self->{warnings}} if($self->{warnings});
-    
+
     if(@newwarning)
     {
         my $warning = join('',@newwarning);
@@ -2855,7 +2855,7 @@ sub fix_dates :method
 
     @dates = $self->{twigroot}->descendants('dc:date');
     push(@dates,$self->{twigroot}->descendants('dc:Date'));
-    
+
     foreach my $dcdate (@dates)
     {
 	if(!$dcdate->text)
@@ -3091,7 +3091,7 @@ sub fix_links :method
         'application/xml' => 1
         );
 
-    if(!$manifest) 
+    if(!$manifest)
     {
         $self->add_warning(
             "fix_links(): no manifest found!"
@@ -3122,7 +3122,7 @@ sub fix_links :method
         $href = trim($href);
         debug(3,"DEBUG: checking '",$href,"'");
         next if(defined $links{$href});
-        
+
         # Skip URIs for now
         if($href =~ m#^ \w+://#ix)
         {
@@ -3138,7 +3138,7 @@ sub fix_links :method
             $links{$href} = 0;
             next;
         }
-        
+
         $mimetype = mimetype($href);
 
         if(!$linking_mimetypes{$mimetype})
@@ -3170,7 +3170,7 @@ sub fix_links :method
         }
         debug(2,"DEBUG: ",scalar(@unchecked),
             " items left to check at end of loop");
-    } # while(@unchecked)    
+    } # while(@unchecked)
     debug(2,"DEBUG[/",$subname,"]");
     return 1;
 }
@@ -3415,7 +3415,7 @@ sub fix_misc :method
 
 Manipulates the twig to fix Mobipocket-specific issues
 
-=over 
+=over
 
 =item * Force the OEB 1.2 structure (although not the namespace, DTD,
 or capitalization), so that <dc-metadata> and <x-metadata> are
@@ -3444,9 +3444,9 @@ sub fix_mobi :method
 
     my %mobicontenttypes = (
 	'text/x-oeb1-document' => 'text/x-oeb1-document',
-	'application/x-mobipocket-subscription' 
+	'application/x-mobipocket-subscription'
 	=> 'application/x-mobipocket-subscription',
-	'application/x-mobipocket-subscription-feed' 
+	'application/x-mobipocket-subscription-feed'
 	=> 'application/x-mobipocket-subscription-feed',
 	'application/x-mobipocket-subscription-magazine'
 	=> 'application/x-mobipocket-subscription-magazine',
@@ -3460,7 +3460,7 @@ sub fix_mobi :method
 	'application/vnd.mobipocket-franklin-ua-game'
 	=> 'application/vnd.mobipocket-franklin-ua-game'
 	);
-    
+
     my %mobiencodings = (
 	'Windows-1252' => 'Windows-1252',
 	'utf-8' => 'utf-8'
@@ -3509,14 +3509,14 @@ sub fix_mobi :method
     {
         @elements = $twigroot->descendants($tag);
         next unless (@elements);
-        
+
         # In theory, only one Mobipocket-specific element should ever
         # be present in a document.  We'll deal with multiples anyway,
         # but send a warning.
         if(scalar(@elements) > 1)
         {
             $self->add_warning(
-                'fix_mobi(): Found ' . scalar(@elements) . " '" . $tag . 
+                'fix_mobi(): Found ' . scalar(@elements) . " '" . $tag .
                 "' elements, but only one should exist."
                 );
         }
@@ -3532,7 +3532,7 @@ sub fix_mobi :method
     {
 	my $encoding = $mobiencodings{$output->att('encoding')};
 	my $contenttype = $mobicontenttypes{$output->att('content-type')};
-        
+
 	if($contenttype)
 	{
 	    $output->set_att('encoding','utf-8') if(!$encoding);
@@ -3590,7 +3590,7 @@ sub fix_oeb12 :method
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
     $self->twigcheck();
-    
+
     my $twigroot = $self->{twigroot};
     my $metadata;
     my $dcmeta;
@@ -3626,7 +3626,7 @@ sub fix_oeb12 :method
             $el->move('last_child',$dcmeta);
         }
     }
-    
+
     # Handle non-DC metadata, deleting <x-metadata> if it isn't
     # needed.
     @elements = $metadata->children(qr/^(?!(?s:.*)-metadata)/x);
@@ -3660,7 +3660,7 @@ sub fix_oeb12 :method
     $self->{twig}->set_doctype('package',
                               "http://openebook.org/dtds/oeb-1.2/oebpkg12.dtd",
                               "+//ISBN 0-9673008-1-9//DTD OEB 1.2 Package//EN");
-    
+
     # Clean up <package>
     $twigroot->del_att('version');
     $twigroot->set_att(
@@ -3892,7 +3892,7 @@ sub fix_packageid :method
     $self->fix_metastructure_basic();
     my $twigroot = $self->{twigroot};
     my $packageid = $twigroot->att('unique-identifier');
-    
+
     my $meta = $twigroot->first_child('metadata')
         or croak($subname,"(): metadata not found");
     my $element;
@@ -3913,7 +3913,7 @@ sub fix_packageid :method
         # found.
 	#$element = $self->{twig}->elt_id($packageid);
 	$element = $self->{twig}->first_elt("*[\@id='$packageid']");
-    
+
 	if($element)
 	{
 	    if(lc($element->tag) ne 'dc:identifier')
@@ -4266,7 +4266,7 @@ sub gen_ncx :method    ## no critic (Always unpack @_ first)
     my $identifier = $self->identifier;
     my $element;            # Generic element container
     my $parent;             # Generic parent element container
-    my $ncx;                # NCX twig   
+    my $ncx;                # NCX twig
     my $ncxroot;            # NCX twig root <ncx>
     my $ncxitem;            # manifest item pointing to the NCX document
     my $navmap;             # NCX element <navMap>
@@ -4377,7 +4377,7 @@ sub gen_ncx :method    ## no critic (Always unpack @_ first)
 
     # <navMap>
     $navmap = $parent->insert_new_elt('after','navMap');
-    
+
     foreach my $spineitem (@spinelist)
     {
         # <navPoint>
@@ -4390,7 +4390,7 @@ sub gen_ncx :method    ## no critic (Always unpack @_ first)
         $parent = $navpoint->insert_new_elt('last_child','navLabel');
         $element = $parent->insert_new_elt('last_child','text');
         $element->set_text($$spineitem{'id'});
-        
+
         # <content>
         $element = $navpoint->insert_new_elt('last_child','content');
         $element->set_att('src' => $$spineitem{'href'});
@@ -4913,7 +4913,7 @@ sub set_metadata :method    ## no critic (Always unpack @_ first)
     my $dcmeta;
     my $parent;
     my %dcatts;
-    
+
     $self->fix_metastructure_basic();
     $parent =  $self->{twigroot}->first_descendant(qr/^ $args{parent} $/ix)
         if($args{parent});
@@ -5009,7 +5009,7 @@ sub set_metadata :method    ## no critic (Always unpack @_ first)
 
 =head2 set_opffile($filename)
 
-Sets the filename used to store the OPF metadata. 
+Sets the filename used to store the OPF metadata.
 
 Returns 1 on success; sets an error message and returns undef if no
 filename was specified.
@@ -5155,7 +5155,7 @@ author element exists, any existing attribute will be left untouched;
 if omitted and a primary author element cannot be found, the newly
 created element will not have this attribute.
 
-=item * C<id> 
+=item * C<id>
 
 Specifies the 'id' attribute to set.  If this is specified, and the id
 is already in use, a warning will be added but the method will
@@ -5211,7 +5211,7 @@ sub set_primary_author :method    ## no critic (Always unpack @_ first)
 
     $element = $twigroot->first_descendant(\&twigelt_is_author);
     $element = $twigroot->first_descendant(qr/dc:creator/ix) if(!$element);
-    
+
     unless($element)
     {
         unless($newauthor)
@@ -5501,7 +5501,7 @@ sub set_spec :method    ## no critic (Always unpack @_ first)
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
-    
+
     unless($validspecs{$spec})
     {
         $self->add_error($subname,"(): invalid specification '",$spec,"'");
@@ -5804,7 +5804,7 @@ sub create_epub_mimetype
 
     my $mimetype = "application/epub+zip";
     my $fh_mimetype;
-    
+
     open($fh_mimetype,">",'mimetype') or return;
     print {*$fh_mimetype} $mimetype;
     close($fh_mimetype) or croak($subname,"(): failed to close filehandle [$!]");
@@ -5910,7 +5910,7 @@ sub find_in_path
                 @filelist = grep { /$regexp/ } readdir($fh_dir);
                 @filelist = grep { -f "$dir/$_" } @filelist;
                 closedir($fh_dir);
-            
+
                 if(@filelist) { return $dir . $filesep . $filelist[0]; }
             }
         }
@@ -5955,7 +5955,7 @@ sub find_links
 
     open($fh,'<:raw',$filename)
         or croak($subname,"(): unable to open '",$filename,"'\n");
-    
+
     while(<$fh>)
     {
         @links = /(?:href|src) \s* = \s* "
@@ -6124,7 +6124,7 @@ sub fix_datestring
     #
     # Note that Date::Manip will die on MS Windows system unless the
     # TZ environment variable is set in a specific manner.
-    # See: 
+    # See:
     # http://search.cpan.org/perldoc?Date::Manip#TIME_ZONES
 
     if(!$year)
@@ -6283,7 +6283,7 @@ sub print_memory
 
     my @mem;
     my $fh_procstatm;
-      
+
     if(!open($fh_procstatm,"<","/proc/$$/statm"))
     {
 	print "[",$label,"]: " if(defined $label);
@@ -6471,7 +6471,7 @@ written to its own file following the naming format
 C<$outfilebase-###.html>, where ### is a three-digit number beginning
 at 001 and incrementing for each block found.  If C<$outfilebase> is
 not specified, it defaults to the basename of C<$htmlfile> with
-"-pre-###.html" appended.  The 
+"-pre-###.html" appended.  The
 
 Returns a list containing all filenames created.
 
@@ -6518,7 +6518,7 @@ END
     {
 	(@preblocks) = /(<pre>.*?<\/pre>)/gisx;
 	last unless(@preblocks);
-        
+
         foreach my $pre (@preblocks)
         {
             $count++;
@@ -6611,7 +6611,7 @@ sub strip_script
     $html = <$fh_in>;
     close($fh_in)
 	or croak($subname,"(): Failed to close '",$infile,"'!\n");
-    
+
     $html =~ s#<script>.*?</script>\n?##gix;
     $html =~ s#<noscript>.*?</noscript>\n?##gix
         if($args{noscript});
@@ -6685,7 +6685,7 @@ Returns the return value from tidy
 
 =cut
 
-sub system_tidy_xhtml 
+sub system_tidy_xhtml
 {
     my ($infile,$outfile) = @_;
     my $retval;
@@ -6697,7 +6697,7 @@ sub system_tidy_xhtml
         $outfile = $filebase . "-tidy" . $fileext;
     }
     croak("system_tidy_xhtml called with no output file") if(!$outfile);
-    
+
     $retval = system($tidycmd,
 		     '-q','-utf8','--tidy-mark','no',
                      '--wrap','0',
@@ -6799,7 +6799,7 @@ sub system_tidy_xml
 {
     my ($infile,$outfile) = @_;
     my $retval;
-    
+
     croak("system_tidy_xml called with no input file") if(!$infile);
 
     if(!$outfile)
@@ -6904,7 +6904,7 @@ sub twigelt_create_uuid
     my $element;
 
     if(!$gi) { $gi = 'dc:identifier'; }
-    
+
     my $uuidgen = Data::UUID->new();
     $element = XML::Twig::Elt->new($gi);
     $element->set_id('UUID');
@@ -6949,13 +6949,13 @@ sub twigelt_detect_duplicate
         debug(3,"  elements have different GIs");
         return 0;
     }
-    
+
     unless($element1->text eq $element2->text)
     {
         debug(3,"  elements have different text");
         return 0;
     }
-    
+
     %atts1 = %{$element1->atts};
     %atts2 = %{$element2->atts};
 
@@ -7294,7 +7294,7 @@ sub userconfigdir
         }
     }
     if($dir)
-    { 
+    {
         if(! -d $dir)
         {
             mkpath($dir)
