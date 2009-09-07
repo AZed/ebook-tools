@@ -27,6 +27,10 @@ This module requires these other modules and libraries:
  Archive::Zip
  Compress::Zlib
  Date::Manip
+  * Under MS Windows, you will likely have to set the environment
+    variable TZ to the appropriate timezone for Date::Manip to work
+    properly
+ File::BaseDir
  File::MimeInfo
  HTML::Parser
  List::MoreUtils
