@@ -95,7 +95,7 @@ use List::Util qw(min);
 use List::MoreUtils qw(uniq);
 use Palm::PDB;
 use Palm::Raw();
-use String::CRC32;
+use String::CRC32();
 
 
 our %exthtypes = (
@@ -2370,7 +2370,7 @@ sub pid_append_checksum
 
     my $letters = "ABCDEFGHIJKLMNPQRSTUVWXYZ123456789";
     my $length = length($letters);
-    $crc = ~ crc32($pid,-1);
+    $crc = ~ String::CRC32::crc32($pid,-1);
     $crc = $crc & 0xffffffff;
     $crc = $crc ^ ($crc >> 16);
     for(0 .. 1)
