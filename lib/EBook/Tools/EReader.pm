@@ -988,9 +988,17 @@ sub pml_to_html
         '\I' => [ '<div class="refindex">','</div>' ],
         );
 
-    # Convert newlines to <br /> first
+    # Convert newlines followed by at least two spaces to <p>
+    $text =~ s#\n(\s{2,})(.*?)(?=\n)
+              #<p>$2</p>#gosx;
+
+    # Convert remaining newlines to <br />
     $text =~ s#\n(.*?)\n
               #\n<br />$1<br />\n#gsx;
+
+    # Reinsert newlines on <p> and <br> tags
+    $text =~ s#(<p>|<br />)#\n$1#g;
+
 
     # Handle simple tag replacements
     while(my ($pmlcode,$replacement) = each(%pmlcodes) )
