@@ -855,7 +855,7 @@ sub unpack_ereader :method
         {
             $textname = $pdb->write_html();
             $self->gen_opf(textfile => $textname,
-                           mediatype => 'text/html');
+                           mediatype => 'application/xhtml+xml');
         }
         else
         {

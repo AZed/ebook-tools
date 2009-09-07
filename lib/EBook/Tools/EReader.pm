@@ -271,12 +271,20 @@ sub html
     my $subname = ( caller(0) )[3];
     debug(2,"DEBUG[",$subname,"]");
 
-    my $header = "<html>\n<head>\n  <title>" . $self->{title} . "</title>\n";
-    $header   .= "</head>\n<body>\n";
+    my $header = <<"END";
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+ "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html>
+<head>
+  <title>$self->{title}</title>
+</head>
+<body>
+END
     my $footer = "</body>\n</html>\n";
 
     return
-        $header . pml_to_html($self->{text},$self->filebase)
+      $EBook::Tools::utf8xmldec . $header
+        . pml_to_html($self->{text},$self->filebase)
         . $self->sidebars_html . $self->footnotes_html . $footer;
 }
 
