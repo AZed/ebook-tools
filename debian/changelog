@@ -1,3 +1,14 @@
+libebook-tools-perl (0.4.6-1) unstable; urgency=low
+
+  * New Upstream Version
+    * EReader HTML conversions now attempt to produce XHTML
+    * EReader HTML conversions may produce slightly more readable output
+    * README now contains a more accurate list of module dependencies
+  * Standards-Version: 3.8.3 (no changes)
+  * Add ${misc:Depends} to dependencies
+
+ -- Zed Pobre <zed@debian.org>  Mon, 07 Sep 2009 23:34:49 -0400
+
 libebook-tools-perl (0.4.5-4) unstable; urgency=low
 
   * Set the AUTOMATED_TESTING environment variable during build.  This
