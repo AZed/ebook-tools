@@ -1,7 +1,5 @@
 #!/usr/bin/perl
 use warnings; use strict;
-# $Revision$ $Date$
-# $Id$
 
 
 =head1 NAME
