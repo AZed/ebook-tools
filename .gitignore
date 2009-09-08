@@ -3,6 +3,12 @@
 *.orig
 *~
 
+# Distribution files
+*.exe
+*.tar.gz
+*.tgz
+*.zip
+
 # Build/test files
 Build
 _build/*
