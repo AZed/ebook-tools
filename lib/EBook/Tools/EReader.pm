@@ -1,6 +1,6 @@
 package EBook::Tools::EReader;
 use warnings; use strict; use utf8;
-use version 0.74; our $VERSION = qv("0.4.5");
+use version 0.74; our $VERSION = qv("0.4.6");
 
 # Double-sigils are needed for lexical variables in clear print statements
 ## no critic (Double-sigil dereference)
