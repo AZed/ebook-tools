@@ -1,7 +1,5 @@
 #!/usr/bin/perl
 use warnings; use strict;
-# $Revision$ $Date$
-# $Id$
 
 
 =head1 NAME
@@ -48,7 +46,7 @@ my $configdir = userconfigdir();
 my $configfile = $configdir . '/config.ini';
 my $config;
 if(-f $configfile)
-{ 
+{
     $config = Config::IniFiles->new( -file => $configfile );
 }
 $config = Config::IniFiles->new() unless($config);
@@ -79,7 +77,7 @@ my %opt = (
     'middlename'  => undef,
     'mimetype'    => '',
     'mobi'        => 0,
-    'mobigencmd'  => $config->val('helpers','mobigen'),
+    'mobigencmd'  => $config->val('helpers','mobigen') || undef,
     'nosave'      => 0,
     'noscript'    => 0,
     'oeb12'       => 0,
@@ -88,7 +86,7 @@ my %opt = (
     'raw'         => 0,
     'subcategory' => undef,
     'tidy'        => 0,
-    'tidycmd'     => $config->val('helpers','tidy'),
+    'tidycmd'     => $config->val('helpers','tidy') || undef,
     'tidysafety'  => $tidysafety,
     'title'       => undef,
     'verbose'     => $config->val('config','debug') || 0,
@@ -173,7 +171,7 @@ if(!$cmd)
     print "No command specified.\n";
     print "Valid commands are: ",join(" ",sort keys %dispatch),"\n";
     exit(EXIT_BADCOMMAND);
-}    
+}
 if(!$dispatch{$cmd})
 {
     print "Invalid command '",$cmd,"'\n";
@@ -366,7 +364,7 @@ sub blank
     my $ebook;
 
     $opffile = $opt{opffile} if(!$opffile);
-    
+
     $args{opffile} = $opffile;
     $args{author} = $opt{author} if($opt{author});
     $args{title} = $opt{title} if($opt{title});
@@ -441,7 +439,7 @@ sub config
     my $subcommand = shift;
     my $value = shift;
     my $subname = ( caller(0) )[3];
-    
+
     my %valid_subcommands = (
         'default' => 1,
         'debug' => 1,
@@ -475,7 +473,7 @@ sub config
     {
         my $fh_config;
         local $/;
-        
+
         print "Creating new configuration file '",$configfile,"'\n";
         open($fh_config,'>',$configfile)
             or die("Unable to open config file '",$configfile,"' for writing!\n");
@@ -489,7 +487,7 @@ sub config
         {
             print {*STDERR} "You must specify a debugging level.\n";
             exit(EXIT_BADOPTION);
-        }            
+        }
         $config->setval('config','debug',$value);
         $config->RewriteConfig;
     }
@@ -499,7 +497,7 @@ sub config
         {
             print {*STDERR} "You must specify a tidy safety level.\n";
             exit(EXIT_BADOPTION);
-        }            
+        }
         $config->setval('config','tidysafety',$value);
         $config->RewriteConfig;
     }
@@ -772,7 +770,7 @@ sub fix
         print "Unrecoverable errors while fixing '",$opffile,"'!\n";
         exit(EXIT_TOOLSERROR);
     }
-    
+
     $ebook->print_warnings if($ebook->warnings);
     exit(EXIT_SUCCESS);
 }
@@ -829,10 +827,10 @@ sub genepub
 {
     my ($opffile) = @_;
     my $ebook;
-    
+
     $opffile = $opt{inputfile} if(!$opffile);
     $opffile = $opt{opffile} if(!$opffile);
-    
+
     if($opffile) { $ebook = EBook::Tools->new($opffile); }
     else {$ebook = EBook::Tools->new(); $ebook->init(); }
 
@@ -947,9 +945,9 @@ ePub.  This can also be specified as the first non-option argument,
 which will override this option if it exists.  If no file is
 specified, an OPF file in the current directory will be searched for.
 
-=item C<--output bookname.epub>
+=item C<--output bookname.prc>
 
-=item C<-o bookname.epub>
+=item C<-o bookname.prc>
 
 Use the specified name for the final output file.  If not specified,
 the book will have the same filename as the input file, with the
@@ -981,7 +979,7 @@ specified, defaults to 1 (PalmDoc compression).
 
 =head3 Example
 
- ebook genmobi mybook.opf -f my_special_book.prc -d ../mobibooks
+ ebook genmobi mybook.opf -o my_special_book.prc -d ../mobibooks
  ebook genmobi mybook.html mybook.prc -c2
 
 or in the simplest case:
@@ -1029,7 +1027,7 @@ sub genmobi
 
 =head2 C<impmeta>
 
-Set specific metadata values in an ETI .imp file.  
+Set specific metadata values in an ETI .imp file.
 
 =head3 Options
 
@@ -1097,7 +1095,7 @@ sub impmeta
     my ($input) = @_;
     $input ||= $opt{input} if($opt{input});
     my $output = $opt{output};
-    
+
     unless($input)
     {
         print "You must specify an input file.\n";
@@ -1168,7 +1166,7 @@ Specifies the ID to assign to the element.
 =head3 Examples
 
  ebook setmeta title 'My Great Title'
- ebook --opf newfile.opf setmeta author 'John Smith' --fileas 'Smith, John' --id mainauthor 
+ ebook --opf newfile.opf setmeta author 'John Smith' --fileas 'Smith, John' --id mainauthor
 
 =cut
 
@@ -1211,12 +1209,12 @@ sub setmeta
     elsif($element eq 'publisher')
     {
         $ebook->set_publisher('text' => $value,
-                              'id' => $id ); 
+                              'id' => $id );
     }
     elsif($element eq 'rights')
     {
         $ebook->set_rights('text' => $value,
-                           'id' => $id ); 
+                           'id' => $id );
     }
     elsif($element eq 'title')
     {
@@ -1257,7 +1255,7 @@ sub splitmeta
     $ebook->fix_oeb12 if($opt{oeb12});
     $ebook->fix_opf20 if($opt{opf20});
     $ebook->fix_mobi if($opt{mobi});
-    
+
     # The split metadata never includes manifest/spine info, so add in the
     # HTML file now
     $ebook->add_document($infile,'item-maintext');
@@ -1290,7 +1288,7 @@ sub splitpre
 {
     my ($infile,$outfilebase) = @_;
     if(!$infile)
-    { 
+    {
         print {*STDERR} "You must specify a file to parse.\n";
         exit(EXIT_BADOPTION);
     }
@@ -1504,7 +1502,7 @@ sub unpack
     my ($filename,$dir) = @_;
     $filename = $filename || $opt{input};
     $dir = $dir || $opt{dir};
-    
+
     unless($filename)
     {
         print {*STDERR} "You must specify a file to unpack!\n";
@@ -1548,13 +1546,13 @@ sub useoptdir
     if($opt{dir})
     {
         if(! -d $opt{dir})
-        { 
+        {
             mkpath($opt{dir})
                 or die("Unable to create working directory '",$opt{dir},"'!");
         }
         chdir($opt{dir})
             or die("Unable to chdir to working directory '",$opt{dir},"'!");
-    }        
+    }
     return 1;
 }
 
@@ -1566,7 +1564,7 @@ sub useoptdir
  ebook tidyxhtml book.html
  ebook tidyxml mybook.opf
  ebook fix mybook.opf --oeb12 --mobi
- ebook genepub 
+ ebook genepub
 
  ebook blank newbook.opf --title "My Title" --author "My Name"
  ebook adddoc myfile.html

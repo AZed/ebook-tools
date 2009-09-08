@@ -1,6 +1,6 @@
 package EBook::Tools::PalmDoc;
 use warnings; use strict; use utf8;
-use version 0.74; our $VERSION = qv("0.4.5");
+use version 0.74; our $VERSION = qv("0.4.6");
 
 # Mixed case subs and the variable %record are inherited from Palm::PDB
 ## no critic (ProhibitAmbiguousNames)
@@ -14,17 +14,17 @@ EBook::Tools::PalmDoc - Palm::PDB handler for manipulating the PalmDoc/PilotDoc/
 
  use EBook::Tools::PalmDoc qw(uncompress_palmdoc);
  use Palm::PDB;
- 
+
  my $pdb = Palm::PDB->new();
 
-or 
+or
 
  use EBook::Tools::PalmDoc qw(:all);
 
  my $pdb = EBook::Tools::PalmDoc->new();
  $pdb->set_text($text);
  $pdb->Write('textfile.pdb');
- 
+
  my $pdb2 = EBook::Tools::PalmDoc->new();
  $pdb2->{attributes}{resource} = 1;
  $pdb->import_textfile('textfile.txt');
@@ -221,7 +221,7 @@ sub ParseRecord :method   ## no critic (Always unpack @_ first)
     my %record = @_;
     my $subname = ( caller(0) )[3];
     debug(3,"DEBUG[",$subname,"]");
-    
+
     my $currentrecord = scalar @{$$self{records}};
 
     if($currentrecord == 0)
@@ -229,7 +229,7 @@ sub ParseRecord :method   ## no critic (Always unpack @_ first)
         $$self{header} = parse_palmdoc_header($record{data});
         return \%record;
     }
-    
+
     if($currentrecord <= $$self{header}{textrecords})
     {
         $self->ParseRecordText($record{data});
@@ -257,7 +257,7 @@ sub ParseResource :method    ## no critic (Always unpack @_ first)
     my %resource = @_;
     my $subname = ( caller(0) )[3];
     debug(3,"DEBUG[",$subname,"]");
-    
+
     my $currentresource = scalar @{$$self{resources}};
 
     if($currentresource == 0)
@@ -265,7 +265,7 @@ sub ParseResource :method    ## no critic (Always unpack @_ first)
         $self->{header} = parse_palmdoc_header($resource{data});
         return \%resource;
     }
-    
+
     if($currentresource <= $self->{header}{textrecords})
     {
         $self->ParseRecordText($resource{data});
@@ -311,7 +311,7 @@ sub ParseRecordBookmark :method   ## no critic (Always unpack @_ first)
         debug(1,"bookmark record ",$currentrecord," is ",
               length($data)," bytes (expected 20)");
     }
-    
+
     $bookmark = substr($data,0,18);
     $bookmark =~ s/\0+//gx;
     $offset = unpack('n',substr($data,18,2));
@@ -360,7 +360,7 @@ sub ParseRecordText :method
 
 =head2 C<set_text(@text)>
 
-Uses the contents of C<@text> (concatenated) as the text of the PDB.  
+Uses the contents of C<@text> (concatenated) as the text of the PDB.
 
 =cut
 
@@ -377,19 +377,19 @@ sub set_text   ## no critic (Always unpack @_ first)
     my $compression = 2;
     my $offset;
     my $textblock;
-    
+
     $self->{'records'} = [];
     $self->{'resources'} = [];
-    
+
     $record0 = ($isresource)?
-        $self->append_Resource() 
+        $self->append_Resource()
         : $self->append_Record();
     $record0->{'compression'} = $compression;
     $record0->{'length'} = 0;
     $record0->{'spare'} = 0;
     $record0->{'textrecords'} = 0;
     $record0->{'recsize'} = 4096;
-    
+
     for($offset = 0; $offset < length($text); $offset += 4096 )
     {
         $record = ($isresource) ?
@@ -397,7 +397,7 @@ sub set_text   ## no critic (Always unpack @_ first)
             : $self->append_Record;
         $textblock = substr($text,$offset,4096);
         $record->{'data'} = compress_palmdoc($textblock);
-        
+
         $record0->{'textrecords'} ++;
         $record0->{'length'} += length($text);
     }
@@ -405,13 +405,13 @@ sub set_text   ## no critic (Always unpack @_ first)
     {
         $record0->{'recsize'} = $record0->{'length'};
     }
-    
+
     $record0->{'data'} =
         pack('nnNnnN',
              $record0->{'compression'}, $record0->{'spare'},
              $record0->{'length'},
              $record0->{'textrecords'}, $record0->{'recsize'}, 0 );
-    
+
     return 1;
 }
 
@@ -436,7 +436,7 @@ sub import_textfile :method
     $self->set_text('',<$fh>);
     close($fh)
         or croak($subname,"(): unable to close '",$filename,"' [",@!,"]");
-    
+
     $self->{'name'} = fileparse($filename,'\.\w+$');
     return 1;
 }
@@ -515,7 +515,7 @@ sub compress_palmdoc
                 next;
             }
         }
-        
+
         my $ch = substr( $text, $offset ++, 1 );
         my $och = ord($ch);
 
@@ -533,14 +533,14 @@ sub compress_palmdoc
 
                 next;
             }
-        } 
+        }
 
-        if( $och == 0 or ($och >= 9 and $och < 0x80) ) 
+        if( $och == 0 or ($och >= 9 and $och < 0x80) )
         {
             # pass through
             $compressed .= $ch;
-        } 
-        else 
+        }
+        else
         {
             # Type A code. This is essentially an 'escape' like '\\'
             # in strings.  For efficiency, it's best to encode as long
@@ -752,7 +752,7 @@ sub uncompress_palmdoc
     {
         $char = substr($data,$offset++,1);
         $ord = ord($char);
-        
+
         # The long if-elsif chain is the best logic for $ord handling
         ## no critic (Cascading if-elsif chain)
         if($ord == 0)
@@ -796,7 +796,7 @@ sub uncompress_palmdoc
 
             # Length is rightmost 3 bits + 3
             $lz77length = ($lz77 & 0x0007) + 3;
-            
+
             # Remaining 11 bits are offset
             $lz77offset = $lz77 >> 3;
             if($lz77offset < 1)

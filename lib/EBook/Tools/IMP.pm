@@ -1,7 +1,7 @@
 package EBook::Tools::IMP;
 use warnings; use strict; use utf8;
 use English qw( -no_match_vars );
-use version 0.74; our $VERSION = qv("0.4.5");
+use version 0.74; our $VERSION = qv("0.4.6");
 
 # Perl Critic overrides:
 ## no critic (Package variable)
@@ -97,7 +97,7 @@ my %rwfields = (
     'toc'            => 'array',        # Table of Contents, array of hashes
     'resources'      => 'hash',         # Hash of hashrefs keyed on 'type'
     'lzsslengthbits' => 'integer',
-    'lzssoffsetbits' => 'integer',      
+    'lzssoffsetbits' => 'integer',
     'text'           => 'string',       # Uncompressed text
     'imrn'           => 'hash',         # Hash of hashes of ImRn resource data
     'gif'            => 'hash',         # Hash of hashes of GIF image data
@@ -223,7 +223,7 @@ sub load :method
     sysread($fh_imp,$self->{resdirname},$self->{resdirlength});
 
     debug(1,"DEBUG: resource directory = '",$self->{resdirname},"'");
-    
+
     if($self->{version} == 1)
     {
         $toc_size = 10 * $self->{filecount};
@@ -329,7 +329,7 @@ sub load_resdir
     close($fh_resource)
         or croak($subname,"():\n",
                  " unable to close '$dirname/RSRC.INF'!\n");
-    
+
     if(length($rsrcinf) < 48)
     {
         carp($subname,"():\n",
@@ -364,7 +364,7 @@ sub load_resdir
     $self->{device}       = $list[7] >> 4;
     $self->{zoomstates}   = $list[7] & 0x0f;
     $self->{unknown0x2c}  = $list[8];
-    
+
     debug(2,"DEBUG: IMP resdir offset = ",$self->{resdiroffset});
     debug(2,"DEBUG: Unknown 0x18 = ",$self->{unknown0x18});
     debug(2,"DEBUG: Unknown 0x1c = ",$self->{unknown0x1c});
@@ -399,7 +399,7 @@ sub load_resdir
         carp($subname,"(): unable to enter directory '",$dirname,"'!\n");
         return;
     }
-        
+
     my @filelist = <*>;
     $self->{resources} = {};
     $self->{toc} = ();
@@ -456,11 +456,11 @@ sub load_resdir
               "', type '",$resource{type},"' [",$resource{size}," bytes]");
     }
     chdir($cwd);
-    
+
     $self->parse_resource_images();
     $self->parse_resource_imrn();
     $self->parse_text();
-    
+
     return 1;
 }
 
@@ -505,7 +505,7 @@ sub author :method
         $author = $self->{firstname};
         $author .= " " . $self->{middlename} if($self->{middlename});
     }
-        
+
     return $author;
 }
 
@@ -1072,7 +1072,7 @@ sub pack_imp_rsrc_inf :method
                   $self->{category},$self->{subcategory},$self->{title});
     $rsrc .= pack('Z*Z*Z*',
                   $self->{lastname},$self->{middlename},$self->{firstname});
-    
+
     if($self->{etiserverdata})
     {
         my $length = length($rsrc);
@@ -1111,7 +1111,7 @@ sub pack_imp_rsrc_inf :method
 =head2 C<pack_imp_toc()>
 
 Packs the C<< $self->{toc} >> object attribute into a data string
-suitable for writing into a .imp file.  The format is determined by 
+suitable for writing into a .imp file.  The format is determined by
 C<< $self->{version} >>.
 
 Returns that string, or undef if valid version or TOC data is not
@@ -1125,7 +1125,7 @@ sub pack_imp_toc :method
     my $subname = (caller(0))[3];
     croak($subname . "() called as a procedure!\n") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
-    
+
     my $tocdata;
 
     if(!$self->{version})
@@ -1146,7 +1146,7 @@ sub pack_imp_toc :method
         carp($subname,"(): no TOC data found!\n");
         return;
     }
-    
+
     foreach my $entry (@{$self->{toc}})
     {
         if($self->{version} == 1)
@@ -1195,7 +1195,7 @@ sub resdirbase :method
 =head2 C<resdirlength()>
 
 Returns the length of the .RES directory name as stored in
-C<< $self->{resdirlength} >>.  Note that this does NOT recompute the 
+C<< $self->{resdirlength} >>.  Note that this does NOT recompute the
 length from the actual name stored in C<< $self->{resdirname} >> --
 for that, use L</set_resdirlength()>.
 
@@ -1269,7 +1269,7 @@ sub resources :method
 =head2 C<text()>
 
 Returns the uncompressed text originally stored in the DATA.FRK
-(C<'    '>) resource.  This will only work if the text was unencrypted.   
+(C<'    '>) resource.  This will only work if the text was unencrypted.
 
 =cut
 
@@ -1404,7 +1404,7 @@ sub write_images :method
                 carp($subname,"():\n",
                      " unable to close '",$filename,"'!\n");
                 return;
-            }        
+            }
         } # foreach my $id (keys %{$self->{$imagetype}})
     }
     chdir($cwd);
@@ -1429,7 +1429,7 @@ sub write_imp :method
     my $subname = (caller(0))[3];
     croak($subname . "() called as a procedure!\n") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
-    
+
     return unless($filename);
 
     my $fh_imp;
@@ -1515,7 +1515,7 @@ sub write_resdir :method
               "'!\n");
     }
     chdir($self->{resdirname});
-    
+
     $self->{'RSRC.INF'} = $self->pack_imp_rsrc_inf;
 
     if($self->{'RSRC.INF'})
@@ -1667,7 +1667,7 @@ sub create_toc_from_resources :method
         $tocentry{unknown2} = $self->{resources}->{$type}->{unknown2};
         push(@{$self->{toc}},\%tocentry);
     }
-   
+
     $self->{filecount} = scalar($self->{toc});
     debug(2,"DEBUG: created TOC data from ",$self->{filecount}," records");
     return $self->{filecount};
@@ -1749,7 +1749,7 @@ sub parse_eti_server_data :method
         $self->{etiserverdata}->{pad} = substr($data,0,$padlength);
         $proplength += $padlength;
     }
-    
+
     @list = unpack('NNZ*Z*N',substr($data,$padlength));
     $self->{etiserverdata}->{unknown1}    = $list[0];
     $self->{etiserverdata}->{issuenumber} = $list[1];
@@ -1888,12 +1888,12 @@ C<< $self->{resdirlength} >>.
 =item * Offset 0x16 [2 bytes, big-endian unsigned short int]
 
 Offset from the point after this value to the .RES directory name,
-which also marks the end of the book properties, stored in 
+which also marks the end of the book properties, stored in
 C<< $self->{resdiroffset} >>.  Note that this is NOT the length of the
 book properties.  To get the length of the book properties, subtract
 24 from this value (the number of bytes remaining in the header after
 this point).  It is also NOT the offset from the beginning of the file
-to the .RES directory name -- to find that, add 24 to this value (the 
+to the .RES directory name -- to find that, add 24 to this value (the
 number of bytes already parsed).
 
 =item * Offset 0x18 [4 bytes, big-endian unsigned long int?]
@@ -1975,7 +1975,7 @@ sub parse_imp_header :method
     }
 
     $self->{unknown0x0a} = substr($headerdata,10,8);
-    
+
     # Unsigned short int values
     my @list = unpack('nnn',substr($headerdata,0x12,6));
     $self->{filecount}     = $list[0];
@@ -2116,7 +2116,7 @@ sub parse_resource_images :method
         my $rsize = $self->{resources}->{$resource}->{size};
         my $itype = $IMAGE_RESOURCE_MAP{$resource};
         next if ($rsize <= 32);
-    
+
         @list = unpack('na[4]NNnNNNN',$self->{resources}->{$resource}->{data});
         my $version     = $list[0];
         my $ident       = $list[1];
@@ -2127,7 +2127,7 @@ sub parse_resource_images :method
         my $unknown4    = $list[6];
         my $unknown5    = $list[7];
         my $unknown6    = $list[8];
-    
+
         if($ident ne $resource)
         {
             carp($subname,"():\n",
@@ -2137,17 +2137,17 @@ sub parse_resource_images :method
 
         debug(2,"DEBUG: parsing ",$resource," resource v",$version,
               ", index offset ",$tocoffset);
-            
+
         $imgcount = ($rsize - $tocoffset) / $headersize;
 
         debug(2,"DEBUG: ",$imgcount," ",$itype," images listed in header");
-    
+
         $self->{$itype} = {};
         foreach my $pos (0 .. ($imgcount - 1))
         {
             my $id;         # Image ID -- this is only unique for each imagetype
             my $hexid;      # 4-digit hexadecimal string version of $id
-    
+
             $imgdata = substr($self->{resources}->{$resource}->{data},
                               $tocoffset + ($headersize * $pos),$headersize);
             if($self->{device} == DEVICE_EBW1150)
@@ -2169,7 +2169,7 @@ sub parse_resource_images :method
                 $self->{$itype}->{$id}->{offset}  = $list[2];
                 $self->{$itype}->{$id}->{const0}  = $list[3];
             }
-            
+
             if($EBook::Tools::debug > 2)
             {
                 printf("  id=%04X  unk1=0x%04X  length=%d  offset=%d, const0=0x%04X\n",
@@ -2178,15 +2178,15 @@ sub parse_resource_images :method
                        $self->{$itype}->{$id}->{offset},
                        $self->{$itype}->{$id}->{const0});
             }
-            
+
             $hexid = sprintf("%04X",$id);
-            
-            $self->{$itype}->{$id}->{data} = 
+
+            $self->{$itype}->{$id}->{data} =
                 substr($self->{resources}->{$resource}->{data},
                        $self->{$itype}->{$id}->{offset},
                        $self->{$itype}->{$id}->{length});
-            
-            my ($imagex,$imagey,$imagetype) = 
+
+            my ($imagex,$imagey,$imagetype) =
                 imgsize(\$self->{$itype}->{$id}->{data});
             if(defined($imagex) && $imagetype)
             {
@@ -2299,20 +2299,20 @@ sub parse_resource_imrn :method
     my $idx1offset;
     my $idx1const0;
 
-    if($self->{device} == DEVICE_EBW1150) 
+    if($self->{device} == DEVICE_EBW1150)
     {
          $headersize = 36;
          $idxsize = 14;
     }
-    else 
-    { 
-         $headersize = 32; 
+    else
+    {
+         $headersize = 32;
          $idxsize = 12;
     }
 
     my $rsize = $self->{resources}->{'ImRn'}->{size};
     next if ($rsize <= 32);
-    
+
     @list = unpack('na[4]NNnNNNN',$self->{resources}->{'ImRn'}->{data});
     my $version     = $list[0];
     my $ident       = $list[1];
@@ -2323,7 +2323,7 @@ sub parse_resource_imrn :method
     my $unknown4    = $list[6];
     my $unknown5    = $list[7];
     my $unknown6    = $list[8];
-    
+
     if($ident ne 'ImRn')
     {
         carp($subname,"():\n",
@@ -2333,7 +2333,7 @@ sub parse_resource_imrn :method
 
     debug(2,"DEBUG: parsing 'ImRn' resource v",$version,
           ", index offset ",$tocoffset);
-            
+
     $imrncount = ($rsize - 32 - 12) / $headersize;
 
     debug(2,"DEBUG: ",$imrncount," images listed in header");
@@ -2353,7 +2353,7 @@ sub parse_resource_imrn :method
             #imrn 1150 record
             @list = unpack("VVvvVvvVVa[4]v",$imrndata);
             $offset                               = $list[7];
-            
+
             $self->{imrn}->{$offset}->{constF1}   = $list[0];
             $self->{imrn}->{$offset}->{constF2}   = $list[1];
             $self->{imrn}->{$offset}->{width}     = $list[2];
@@ -2383,7 +2383,7 @@ sub parse_resource_imrn :method
             #imrn 1200 record
             @list = unpack("NNnnNnNNa[4]n",$imrndata);
             $offset                               = $list[6];
-            
+
             $self->{imrn}->{$offset}->{constF1}   = $list[0];
             $self->{imrn}->{$offset}->{constF2}   = $list[1];
             $self->{imrn}->{$offset}->{width}     = $list[2];
@@ -2394,7 +2394,7 @@ sub parse_resource_imrn :method
             $self->{imrn}->{$offset}->{restype}   = $list[8];
             $self->{imrn}->{$offset}->{id}        = $list[9];
         }
-        
+
         my $restype = $self->{imrn}->{$offset}->{restype};
         my $imgtype = $IMAGE_RESOURCE_MAP{$restype};
         my $hexid = sprintf('%04X',$self->{imrn}->{$offset}->{id});
@@ -2420,8 +2420,8 @@ sub parse_resource_imrn :method
 
         #TODO: use height/width from Pcz0/PcZ0 records
         my $filename = uc($imgtype) . "_${hexid}.${imgtype}";
-        $self->{offsetelements}->{$offset} = 
-            '<img src="' . $filename . '" width="' . $width . '" height="' . $height 
+        $self->{offsetelements}->{$offset} =
+            '<img src="' . $filename . '" width="' . $width . '" height="' . $height
             . '" alt="' . $filename . '" />';
 
         debug(2,"DEBUG: tag = '",$self->{offsetelements}->{$offset},"'");
@@ -2463,7 +2463,7 @@ sub parse_resource_imrn :method
     $idx1size   = $list[1];
     $idx1offset = $list[2];
     $idx1const0 = $list[3];
-    
+
     $total = scalar keys %{$self->{imrn}};
     if($total != $imrncount)
     {
@@ -2471,7 +2471,7 @@ sub parse_resource_imrn :method
              " resource specified ",$imrncount," ImRn entries, but found ",
              $total,"!\n");
     }
-    
+
     return $total;
 }
 
@@ -2479,7 +2479,7 @@ sub parse_resource_imrn :method
 =head2 C<parse_text()>
 
 Parses the C<'    '> (DATA.FRK) resource loaded into
-C<< $self->{resources} >>, if present, extracting the text into 
+C<< $self->{resources} >>, if present, extracting the text into
 C<< $self->{text} >>, uncompressing it if necessary.  LZSS uncompression
 will use the C<< $self->{lzsslengthbits} >> and
 C<< $self->{lzssoffsetbits} >> attributes if present, and default to 3
@@ -2556,7 +2556,7 @@ END
         0x14 => "\n<hr />\n",
         0x8E => "&eacute;",
         0xA0 => "&nbsp;",
-        0xA5 => "&bull;", 
+        0xA5 => "&bull;",
         0xA8 => "&reg;",
         0xA9 => "&copy;",
         0xAA => "&trade;",
@@ -2577,7 +2577,7 @@ END
     {
         my $char = substr($$textref,$pos,1);
         my $ord = ord($char);
-        
+
         if($ord == 0x0F)        # Image
         {
             $self->{text} .= $self->{offsetelements}->{$pos};
@@ -2651,7 +2651,7 @@ sub parse_imp_toc_v1 :method
              $length," -- aborting!\n");
         return;
     }
-    
+
     $self->{toc} = ();
     foreach my $index (0 .. $self->{filecount} - 1)
     {
@@ -2736,7 +2736,7 @@ sub parse_imp_toc_v2 :method
              $length," -- aborting!\n");
         return;
     }
-    
+
     $self->{toc} = ();
     foreach my $index (0 .. $self->{filecount} - 1)
     {
@@ -2778,7 +2778,7 @@ element.
 
 =item * C<category>
 
-The main book category, as might be provided as an OPF C<< <dc:subject> >> 
+The main book category, as might be provided as an OPF C<< <dc:subject> >>
 element.
 
 =item * C<subcategory>
@@ -2976,7 +2976,7 @@ sub parse_imp_resource_v1
         carp($subname,"(): resource '",$resource{name},"' has ",
              $size," bytes (expected ",$resource{size},")!\n");
     }
-    
+
     debug(2,"DEBUG: found resource '",$resource{name},
           "', type '",$resource{type},"' [",$resource{size}," bytes]");
 
@@ -3054,7 +3054,7 @@ sub parse_imp_resource_v2
         carp($subname,"(): resource '",$resource{name},"' has ",
              $size," bytes (expected ",$resource{size},")!\n");
     }
-    
+
     debug(2,"DEBUG: found resource '",$resource{name},
           "', type '",$resource{type},"' [",$resource{size}," bytes,",
           " unk1=",$resource{unknown1}," unk2=",$resource{unknown2},"]");

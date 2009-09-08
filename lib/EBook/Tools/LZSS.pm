@@ -1,7 +1,7 @@
 package EBook::Tools::LZSS;
 use warnings; use strict; use utf8;
 use English qw( -no_match_vars );
-use version 0.74; our $VERSION = qv("0.4.5");
+use version 0.74; our $VERSION = qv("0.4.6");
 
 # Perl Critic overrides:
 ## no critic (Package variable)
@@ -96,7 +96,7 @@ The eBookwise .IMP format typically compresses with 3 length bits.
 
 Note that the actual length of the LZSS reference in bytes is greater
 than the value stored in the length bits.  The actual number of bytes
-returned is the decoded length bits value plus C<maxuncoded> plus 1, 
+returned is the decoded length bits value plus C<maxuncoded> plus 1,
 
 =item * C<offsetbits>
 

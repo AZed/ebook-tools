@@ -4,7 +4,7 @@ use warnings; use strict; use utf8;
 #use 5.010; # Needed for smart-match operator
 #v5.10 feature use removed until 5.10 is standard on MacOSX and Debian
 use English qw( -no_match_vars );
-use version 0.74; our $VERSION = qv("0.4.5");
+use version 0.74; our $VERSION = qv("0.4.6");
 
 # Perl Critic overrides:
 ## no critic (Package variable)
@@ -53,9 +53,9 @@ EBook::Tools::Mobipocket - Palm::PDB handler for manipulating the Mobipocket for
  print "Title: ",$mobi->{title},"\n";
  print "Author: ",$mobi->{header}{exth}{author},"\n";
  print "Language: ",$mobi->{header}{mobi}{language},"\n";
- 
+
  my $mobigen = find_mobigen();
- system_mobigen('myfile.opf'); 
+ system_mobigen('myfile.opf');
 
 =head1 DEPENDENCIES
 
@@ -95,7 +95,7 @@ use List::Util qw(min);
 use List::MoreUtils qw(uniq);
 use Palm::PDB;
 use Palm::Raw();
-use String::CRC32;
+use String::CRC32();
 
 
 our %exthtypes = (
@@ -359,12 +359,12 @@ sub new   ## no critic (Always unpack @_ first)
 {
     my $class = shift;
     my $self = $class->SUPER::new(@_);
-    
+
     $self->{'creator'} = 'BOOK';
     $self->{'type'} = 'MOBI';
-    
+
     $self->{attributes}{resource} = 0;
-    
+
     $self->{appinfo} = undef;
     $self->{sort} = undef;
     $self->{records} = [];
@@ -500,10 +500,10 @@ sub write_text :method
     print {*$fh} $$self{text};
     close($fh)
         or croak($subname,"(): unable to close '",$filename,"'!\n");
-    
+
     croak($subname,"(): failed to generate any text")
         if(-z $filename);
-    
+
     return 1;
 }
 
@@ -672,8 +672,8 @@ sub ParseRecord :method   ## no critic (Always unpack @_ first)
         $$self{unknowndata}{$currentrecord} = $data;
     }
     elsif($currentrecord >= $$self{header}{mobi}{huffrecord}
-          && $currentrecord < 
-          ($$self{header}{mobi}{huffrecord} 
+          && $currentrecord <
+          ($$self{header}{mobi}{huffrecord}
            + $$self{header}{mobi}{huffreccnt}) )
     {
         my $recordtype = substr($data,0,4);
@@ -695,7 +695,7 @@ sub ParseRecord :method   ## no critic (Always unpack @_ first)
     }
     elsif($currentrecord >= $$self{header}{mobi}{firstimagerecord}
           && $currentrecord < min(@afterimage) )
-    { 
+    {
         my ($imagex,undef,$imagetype) = imgsize(\$data);
         if(defined($imagex) && $imagetype)
         {
@@ -710,7 +710,7 @@ sub ParseRecord :method   ## no critic (Always unpack @_ first)
         }
     }
     elsif($currentrecord >= $$self{header}{mobi}{datprecord}
-          && $currentrecord < 
+          && $currentrecord <
           $$self{header}{mobi}{datprecord} + $$self{header}{mobi}{datpreccnt})
     {
         # DATP records not understood
@@ -769,7 +769,7 @@ sub ParseRecord :method   ## no critic (Always unpack @_ first)
             $$self{unknowndata}{$currentrecord} = $data;
         }
     }
-        
+
     return \%record;
 }
 
@@ -793,14 +793,14 @@ sub ParseRecord0 :method
     my $headerdata;  # used for holding temporary data segments
     my $headersize;  # size of variable-length header data
     my %headermobi;
-    
+
     my @list;
-    
+
     # First 16 bytes are a slightly modified palmdoc header
     # See http://wiki.mobileread.com/wiki/MOBI
     $headerdata = substr($data,0,16);
     $$self{header}{palm} = parse_palmdoc_header($headerdata);
-    
+
     # Find out how long the Mobipocket header actually is
     $headerdata = substr($data,16,8);
     @list = unpack("a4N",$headerdata);
@@ -811,13 +811,13 @@ sub ParseRecord0 :method
     $headersize = $list[1];
     croak($subname,"(): unable to determine Mobipocket header size")
         unless($list[1]);
-    
+
     # Unpack the full Mobipocket header
     $headerdata = substr($data,16,$headersize);
     %headermobi = %{parse_mobi_header($headerdata)};
     $$self{header}{mobi} = \%headermobi;
     $$self{encoding} = $headermobi{encoding};
-    
+
     if($headermobi{exthflags} & 0x040) # If bit 6 is set, EXTH exists
     {
         debug(2,"DEBUG: Unpacking EXTH data at record 0 offset ",
@@ -825,18 +825,18 @@ sub ParseRecord0 :method
         $headerdata = substr($data,$headersize+16);
         $$self{header}{exth} = parse_mobi_exth($headerdata);
     }
-    
+
     if($headermobi{titleoffset} && $headermobi{titlelength})
     {
         # This is a better guess at the title than the one
         # derived from $pdb->name
-        $$self{title} = 
+        $$self{title} =
             substr($data,$headermobi{titleoffset},$headermobi{titlelength});
         debug(1,"DEBUG: Extracted title '",$$self{title},"'");
     }
 
     return 1;
-}    
+}
 
 
 =head2 C<ParseRecordCDIC(\$data)>
@@ -1058,7 +1058,7 @@ sub ParseRecordHUFF
     $huff{baseoffset}    = $list[3];
     $huff{lecacheoffset} = $list[4];
     $huff{lebaseoffset}  = $list[5];
-    
+
     $huff{data}  = $$dataref;
     $huff{bitpos} = 0;
 
@@ -1190,7 +1190,7 @@ sub ParseRecordImage :method
     debug(1,"DEBUG: record ",$currentrecord," is image '",$imagename,
           "' (",$imagex," x ",$imagey,")");
     $$self{imagedata}{$imagename} = $dataref;
-    $$self{recindexlinks}{$$self{recindex}} = $imagename; 
+    $$self{recindexlinks}{$$self{recindex}} = $imagename;
     $$self{recindex}++;
     return 1;
 }
@@ -1342,7 +1342,7 @@ sub fix_html :method   ## no critic (Always unpack @_ first)
     else { $tree->parse($$self{text}); }
     $tree->eof();
 
-    # Replace img recindex links with img src links 
+    # Replace img recindex links with img src links
     debug(2,"DEBUG: converting img recindex attributes");
     @elements = $tree->find('img');
     foreach my $el (@elements)
@@ -1763,7 +1763,7 @@ sub parse_mobi_exth
         }
         $exthrecord{data} = substr($headerdata,$offset,$exthrecord{length});
         debug(2,"DEBUG: EXTH record ",$recordpos," [",
-              $exthtypes{$exthrecord{type}},"] has ", 
+              $exthtypes{$exthrecord{type}},"] has ",
               $exthrecord{length}, " bytes");
         push(@exthrecords,\%exthrecord);
         $offset += $exthrecord{length};
@@ -1852,7 +1852,7 @@ book.
 
 =item C<titlelength>
 
-Length in bytes of the full title of the book 
+Length in bytes of the full title of the book
 
 =item C<languageunknown>
 
@@ -2195,7 +2195,7 @@ sub parse_mobi_header   ## no critic (ProhibitExcessComplexity)
         debug(2,"DEBUG: first image record: ",$header{firstimagerecord});
     }
 
-    # Sixth chunk is HUFF/CDIC and DATP record offsets 
+    # Sixth chunk is HUFF/CDIC and DATP record offsets
     $chunk = substr($headerdata,96,16);
     @list = unpack("NNNN",$chunk);
     $header{huffrecord} = $list[0];
@@ -2342,7 +2342,7 @@ sub parse_mobi_language
             debug(1,"DEBUG: found downgraded language '",$language,"'",
                   " (language code ",$languagecode,",",
                   " region code 0)");
-        }                        
+        }
     } # if($language) / else
     return $language;
 }
@@ -2370,7 +2370,7 @@ sub pid_append_checksum
 
     my $letters = "ABCDEFGHIJKLMNPQRSTUVWXYZ123456789";
     my $length = length($letters);
-    $crc = ~ crc32($pid,-1);
+    $crc = ~ String::CRC32::crc32($pid,-1);
     $crc = $crc & 0xffffffff;
     $crc = $crc ^ ($crc >> 16);
     for(0 .. 1)
@@ -2585,7 +2585,7 @@ sub system_mobidedrm
         debug(1,$subname,"(): pid '",$args{pid},"' is not valid!");
         return;
     }
-           
+
     if( !find_mobidedrm() )
     {
         debug(1,$subname,"(): MobiDeDRM is not available!");
@@ -2607,10 +2607,10 @@ sub system_mobidedrm
             $outfile .= '-nodrm' . $suffix;
         }
     }
-    
+
     my $retval = system('python',$mobidedrm_cmd,
                         $args{infile},$outfile,$args{pid});
-    
+
     if($retval == -1 or $retval == 256)
     {
         debug(1,$subname,"(): python not available!");
@@ -2809,7 +2809,7 @@ sub uncompress_dictionaryhuffman
             if(!$valid_args{$arg});
     }
 
-    croak($subname,"(): no data provided!\n") 
+    croak($subname,"(): no data provided!\n")
         unless($args{data});
 
     # Why does $data have to be zero-terminated this way?  Sometimes it
@@ -2831,7 +2831,7 @@ sub uncompress_dictionaryhuffman
     my $codelength;     # number of bits in the code
     my $index;          # CDIC index key
 
-    my $branch;         
+    my $branch;
     my $branchcode;
     my $branchsize;
     my $branchoffset;

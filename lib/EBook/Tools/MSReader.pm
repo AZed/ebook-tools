@@ -1,7 +1,7 @@
 package EBook::Tools::MSReader;
 use warnings; use strict; use utf8;
 use English qw( -no_match_vars );
-use version 0.74; our $VERSION = qv("0.4.5");
+use version 0.74; our $VERSION = qv("0.4.6");
 
 # Perl Critic overrides:
 ## no critic (Package variable)
@@ -16,7 +16,7 @@ EBook::Tools::MSReader - Helper code for working with Microsoft Reader (.lit) e-
 
 =head1 SYNOPSIS
 
- use EBook::Tools::MSReader qw(find_convertlit find_convertlit_keys 
+ use EBook::Tools::MSReader qw(find_convertlit find_convertlit_keys
                                system_convertlit);
  $EBook::Tools::MSReader::convertlit_cmd = '/opt/convertlit/clit';
  $EBook::Tools::MSReader::convertlit_keys = '/opt/convertlit/keys.txt';
@@ -283,7 +283,7 @@ sub system_convertlit
     my $keyfile = $args{keyfile} || $convertlit_keys;
     my $outfile = $args{outfile};
     my $dir = $args{dir};
-    
+
     if($keyfile)
     {
         push(@convertlit,"-k$keyfile");
@@ -313,7 +313,7 @@ sub system_convertlit
         debug(1,$subname,"(): neither output file nor directory specified!");
         return;
     }
-    
+
     debug(2,"DEBUG: converting lit with '",join(' ',@convertlit),"'");
     $retval = system(@convertlit);
     return $retval;

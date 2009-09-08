@@ -1,6 +1,6 @@
 package EBook::Tools::EReader;
 use warnings; use strict; use utf8;
-use version 0.74; our $VERSION = qv("0.4.5");
+use version 0.74; our $VERSION = qv("0.4.6");
 
 # Double-sigils are needed for lexical variables in clear print statements
 ## no critic (Double-sigil dereference)
@@ -69,7 +69,6 @@ use List::Util qw(min);
 use List::MoreUtils qw(uniq);
 use Palm::PDB;
 use Palm::Raw();
-use Tie::IxHash;
 
 
 #################################
@@ -88,12 +87,12 @@ sub new   ## no critic (Always unpack @_ first)
 {
     my $class = shift;
     my $self = $class->SUPER::new(@_);
-    
+
     $self->{'creator'} = 'PNRd';
     $self->{'type'} = 'PPrs';
-    
+
     $self->{attributes}{resource} = 0;
-    
+
     $self->{appinfo} = undef;
     $self->{sort} = undef;
     $self->{records} = [];
@@ -160,7 +159,7 @@ sub footnotes
     {
         @footnotes = @{$self->{footnotes}};
     }
-    
+
     if($#footnotes != $#footnoteids)
     {
         carp($subname,"(): found ",scalar(@footnotes)," footnotes but ",
@@ -221,7 +220,7 @@ sub footnotes_html
     my %footnotehash = $self->footnotes;
     my $text = '<h2 id="footnotes">Footnotes</h2>';
     $text .= "\n<dl>\n";
-    
+
     foreach my $footnoteid (sort keys %footnotehash)
     {
         $text .= '<dt>[<a id="' . $footnoteid . '" href="#';
@@ -271,12 +270,20 @@ sub html
     my $subname = ( caller(0) )[3];
     debug(2,"DEBUG[",$subname,"]");
 
-    my $header = "<html>\n<head>\n  <title>" . $self->{title} . "</title>\n";
-    $header   .= "</head>\n<body>\n";
+    my $header = <<"END";
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+ "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html>
+<head>
+  <title>$self->{title}</title>
+</head>
+<body>
+END
     my $footer = "</body>\n</html>\n";
 
-    return 
-        $header . pml_to_html($self->{text},$self->filebase)
+    return
+      $EBook::Tools::utf8xmldec . $header
+        . pml_to_html($self->{text},$self->filebase)
         . $self->sidebars_html . $self->footnotes_html . $footer;
 }
 
@@ -308,7 +315,7 @@ sub sidebars
     {
         @sidebars = @{$self->{sidebars}};
     }
-    
+
     if($#sidebars != $#sidebarids)
     {
         carp($subname,"(): found ",scalar(@sidebars)," sidebars but ",
@@ -369,7 +376,7 @@ sub sidebars_html
     my %sidebarhash = $self->sidebars;
     my $text = '<h2 id="sidebars">Sidebars</h2>';
     $text .= "\n<dl>\n";
-    
+
     foreach my $sidebarid (sort keys %sidebarhash)
     {
         $text .= '<dt>[<a id="' . $sidebarid . '" href="#';
@@ -414,10 +421,10 @@ sub write_html :method
     print {*$fh} $self->html;
     close($fh)
         or croak($subname,"(): unable to close '",$filename,"'!\n");
-    
+
     croak($subname,"(): failed to generate any text")
         if(-z $filename);
-    
+
     return $filename;
 }
 
@@ -487,10 +494,10 @@ sub write_pml :method
     print {*$fh} $self->pml;
     close($fh)
         or croak($subname,"(): unable to close '",$filename,"'!\n");
-    
+
     croak($subname,"(): failed to generate any text")
         if(-z $filename);
-    
+
     return $filename;
 }
 
@@ -545,7 +552,7 @@ sub Load :method
 {
     my $self = shift;
     my $filename = shift;
-    
+
     $self->{filename} = $filename;
     return $self->SUPER::Load($filename);
 }
@@ -581,12 +588,12 @@ sub ParseRecord :method   ## no critic (Always unpack @_ first)
 
     # Determine how to handle the remaining records
     if($version == 2)
-    { 
-        $uncompress = \&uncompress_palmdoc; 
+    {
+        $uncompress = \&uncompress_palmdoc;
     }
     elsif($version == 10)
-    { 
-        $uncompress = \&uncompress; 
+    {
+        $uncompress = \&uncompress;
     }
     elsif($version > 255)
     {
@@ -885,7 +892,7 @@ sub ParseRecord0 :method
 
     $$self{header} = \%header;
     return %header;
-}    
+}
 
 
 ################################
@@ -908,7 +915,7 @@ sub cp1252_to_pml
     my $text = shift;
     my $subname = ( caller(0) )[3];
     debug(2,"DEBUG[",$subname,"]");
-    
+
     return unless(defined $text);
 
     my %cppml = (
@@ -941,9 +948,18 @@ sub pml_to_html
     my $filebase = shift;
     my $subname = ( caller(0) )[3];
     debug(2,"DEBUG[",$subname,"]");
-    
+
     return unless(defined $text);
     $text = decode('Windows-1252',$text);
+
+    # Font markers can be terminated by a \n as well as their own
+    # code.
+    $text =~ s#\\l (.*?) (?:\\l|\\n)
+              #<div style="font-size: 120%">$1</div>#gsx;
+    $text =~ s#\\n (.*?) \\n
+              #<div style="font-size: 100%">$1</div>#gsx;
+    $text =~ s#\\s (.*?) (?:\\s|\\n)
+              #<div style="font-size: 80%">$1</div>#gsx;
 
     my %pmlcodes = (
         '\p' => '<br style="page-break-after: always" />\n',
@@ -980,9 +996,18 @@ sub pml_to_html
         '\I' => [ '<div class="refindex">','</div>' ],
         );
 
-    # Convert newlines to <br /> first
+    # Convert newlines followed by at least two spaces to <p>
+    $text =~ s#\n(\s{2,})(.*?)(?=\n)
+              #<p>$2</p>#gosx;
+
+    # Convert remaining newlines to <br />
     $text =~ s#\n(.*?)\n
               #\n<br />$1<br />\n#gsx;
+
+    # Reinsert newlines on <p> and <br> tags
+    $text =~ s#(<p>)#\n$1#g;
+    $text =~ s#(<br />)#$1\n#g;
+
 
     # Handle simple tag replacements
     while(my ($pmlcode,$replacement) = each(%pmlcodes) )
@@ -1015,23 +1040,10 @@ sub pml_to_html
                 $text =~ s#\Q$pmlcode\E
                           #$replacement#gsx;
             }
-            
+
         }
     } # while(my ($pmlcode,$replacement) = each(%pmlcodes) )
 
-    tie my %pmlfonts, 'Tie::IxHash', (
-        '\s' => '<div style="font-size: 80%">',
-        '\l' => '<div style="font-size: 120%">',
-        '\n' => '<div style="font-size: 100%">',
-    );
-
-    # Font markers can be terminated by a \n as well as their own
-    # code.
-    foreach my $pmlfont (keys %pmlfonts)
-    {
-        $text =~ s#\Q$pmlfont\E (.*?) (?:\Q$pmlfont\E|\Q\n\E)
-                  #$pmlfonts{$pmlfont}$1</div>#gsx;
-    }
     # Strip leftover \n codes
     $text =~ s#\\n
               ##gsx;
@@ -1042,7 +1054,7 @@ sub pml_to_html
 
     # Images
     $text =~ s!\\m="(.*?)"
-              !<img src="${filebase}_img/$1">!gsx;
+              !<img src="${filebase}_img/$1" />!gsx;
 
     # Anchors and references
     $text =~ s!\\q="(.*?)"(.*?)\\q
@@ -1055,6 +1067,9 @@ sub pml_to_html
               !<a id="$1-ref" href="#$1">$2</a>!gsx;
     $text =~ s!\\Sd="(.*?)"(.*?)\\Sd
               !<a id="$1-ref" href="#$1">$2</a>!gsx;
+
+    # Double-newlines after page breaks
+    $text =~ s#("page-break-after: always" />)#$1\n\n#g;
 
     return $text;
 }
@@ -1070,8 +1085,9 @@ sub pml_to_html
 
 =item * HTML conversion may be suboptimal in many ways.
 
-Most notably, all linebreaks are handled as <br />, and without any
+Most notably, most linebreaks are handled as <br />, and without any
 heed to whether those linebreaks occur inside of some other element.
+Validation is extremely unlikely.
 
 =back
 
