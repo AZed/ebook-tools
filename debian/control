@@ -3,12 +3,12 @@ Section: perl
 Priority: optional
 Maintainer: Zed Pobre <zed@debian.org>
 Build-Depends: cdbs, debhelper (>= 6), perl (>= 5.8.8), libmodule-build-perl (>= 0.3000), libarchive-zip-perl, libbit-vector-perl, libconfig-inifiles-perl, libdate-manip-perl, libfile-mimeinfo-perl, libfile-slurp-perl, libhtml-parser-perl, libimage-size-perl, liblist-moreutils-perl, libossp-uuid-perl, libpalm-perl, libstring-crc32-perl, libtie-ixhash-perl, libtime-local-perl, libxml-twig-perl, txt2html
-Standards-Version: 3.8.0
+Standards-Version: 3.8.3
 Homepage: http://search.cpan.org/dist/EBook-Tools/
 
 Package: libebook-tools-perl
 Architecture: any
-Depends: perl (>= 5.8.8), libarchive-zip-perl, libbit-vector-perl, libconfig-inifiles-perl, libdate-manip-perl, libfile-mimeinfo-perl, libfile-slurp-perl, libhtml-parser-perl, libimage-size-perl, liblist-moreutils-perl, libossp-uuid-perl, libpalm-perl, libpalm-doc-perl, libstring-crc32-perl, libtie-ixhash-perl, libtime-local-perl, libxml-twig-perl, txt2html
+Depends: perl (>= 5.8.8), libarchive-zip-perl, libbit-vector-perl, libconfig-inifiles-perl, libdate-manip-perl, libfile-mimeinfo-perl, libfile-slurp-perl, libhtml-parser-perl, libimage-size-perl, liblist-moreutils-perl, libossp-uuid-perl, libpalm-perl, libpalm-doc-perl, libstring-crc32-perl, libtie-ixhash-perl, libtime-local-perl, libxml-twig-perl, txt2html, ${misc:Depends}
 Description: E-Book manipulation tool and Perl libraries
  EBook-Tools contains a library and a command-line tool for unpacking,
  creating, correcting, and repacking electronic books.
