@@ -1,3 +1,10 @@
+libebook-tools-perl (0.4.6-2) UNRELEASED; urgency=low
+
+  * Add Vcs-Git entry to debian/control
+  * Remove palm-doc from Depends in debian/control (closes: #546722)
+
+ -- Zed Pobre <zed@debian.org>  Fri, 25 Sep 2009 15:48:36 -0400
+
 libebook-tools-perl (0.4.6-1) unstable; urgency=low
 
   * New Upstream Version
