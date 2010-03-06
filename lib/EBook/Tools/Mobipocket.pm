@@ -4,7 +4,7 @@ use warnings; use strict; use utf8;
 #use 5.010; # Needed for smart-match operator
 #v5.10 feature use removed until 5.10 is standard on MacOSX and Debian
 use English qw( -no_match_vars );
-use version 0.74; our $VERSION = qv("0.4.6");
+use version 0.74; our $VERSION = qv("0.4.7");
 
 # Perl Critic overrides:
 ## no critic (Package variable)
@@ -131,6 +131,9 @@ our %exthtypes = (
     205 => '205',
     206 => '206',
     207 => '207',
+    208 => '208',
+    209 => '209',
+    210 => '210',
     300 => '300',
     401 => 'clippinglimit',
     402 => 'publisherlimit',
@@ -1224,7 +1227,18 @@ sub ParseRecordText :method
     }
     elsif($compression == 2)     # PalmDoc compression
     {
-        $recordtext = uncompress_palmdoc($$dataref);
+        my %args;
+        my $extradatasize;
+
+        if( $$self{header}{mobi}{extradataflags} )
+        {
+            $extradatasize = record_extradata_size(
+                dataref => $dataref,
+                extradataflags => $$self{header}{mobi}{extradataflags}
+               );
+            $args{trailing} = $extradatasize;
+        }
+        $recordtext = uncompress_palmdoc($$dataref,%args);
     }
     elsif($compression == 17480) # 'Dictionary Huffman' compression
     {
@@ -2096,6 +2110,12 @@ contain it.
 Use with caution.  This key may be renamed in the future if more
 information is found.
 
+=item C<extradataflags>
+
+Two bytes sometimes found inside of C<unknown200>, used to determine
+if extra data has been appended to each text record that should not be
+used in decompression.
+
 =back
 
 =cut
@@ -2261,6 +2281,19 @@ sub parse_mobi_header   ## no critic (ProhibitExcessComplexity)
         debug(2,"DEBUG: Found ",$length-200,
               " bytes of unknown final data in Mobipocket header");
         debug(2,"       0x",hexstring($header{unknown200}));
+    }
+
+    # Part of that unknown data is the Extra Data Flags
+    #
+    # This is 16 bits used to determine if extra data has been stuffed
+    # at the end of each record that should not be used in
+    # decompression.
+    if($length >= 228)
+    {
+        $chunk = substr($headerdata,226,2);
+        $header{extradataflags} = unpack("n",$chunk);
+        debug(2,"DEBUG: Found Extra Data Flags in Mobipocket header");
+        debug(2,"       0x",hexstring($chunk));
     }
 
     foreach my $key (sort keys %header)
@@ -2514,6 +2547,97 @@ sub pukall_cipher_1
         $output .= chr($byte);
     }
     return $output;
+}
+
+
+=head2 C<record_extradata_size(%args)>
+
+This checks the end of a text record for extra data that should not be
+made part of decompression and returns the total size of all data
+fields.
+
+=head3 Arguments
+
+=over
+
+=item * C<dataref>
+
+A reference to the record data
+
+=item * C<extradataflags>
+
+16 bits worth of flags indicating which extra data fields are present.
+
+=back
+
+=cut
+
+sub record_extradata_size
+{
+    my %args = @_;
+    my $subname = ( caller(0) )[3];
+    debug(3,"DEBUG[",$subname,"]");
+
+    my %valid_args = (
+        'dataref' => 1,
+        'extradataflags' => 1,
+        );
+    foreach my $arg (keys %args)
+    {
+        croak($subname,"(): invalid argument '",$arg,"'")
+            if(!$valid_args{$arg});
+    }
+
+    my $dataref = $args{dataref};
+    croak($subname,"(): no record data provided!\n")
+        unless(defined $dataref);
+    croak($subname,"(): record data is not a reference\n") unless(ref $dataref);
+    croak($subname,"(): no extra data flags provided!\n")
+        unless(defined $args{extradataflags});
+
+    my $datalength = length($$dataref);
+
+    my $totalsize = 0;
+
+    foreach my $flagpos (0..15)
+    {
+        if($args{extradataflags} & (1 << $flagpos))
+        {
+            my $bitpos = 0;
+            my $traildata;
+            my $trailpos = 0;
+            my $trailsize = 0;
+            my $byte;
+
+            # Bit 0 is the multi-byte character overlap flag, and has
+            # a different format from all other flags, where the size
+            # is the first two bits of the last byte of record data.
+            if($flagpos == 0)
+            {
+                $trailsize = ord(substr($$dataref,$datalength-1,1)) & 0x03;
+                debug(3,"DEBUG: ",$trailsize," bytes of trailing data at flagpos ",
+                      $flagpos);
+                $totalsize += $trailsize;
+                next;
+            }
+
+            # For all other bits, the size is a backward-encoded
+            # variable-width integer at the end of the record data.
+            do
+            {
+                $trailpos += 1;
+                $byte = ord(substr($$dataref,$datalength-$trailpos,1));
+                $trailsize |= (($byte & 0x7f) << $bitpos);
+                $bitpos += 7;
+            }
+            while( !($byte & 0x80) && ($bitpos < 28) && ($trailpos < $datalength) );
+            $traildata = substr($$dataref,$datalength-$trailsize,$trailsize);
+            debug(3,"DEBUG: ",$trailsize," bytes of trailing data at flagpos ",
+                  $flagpos);
+            $totalsize += $trailsize;
+        }
+    }
+    return $totalsize;
 }
 
 

@@ -1,6 +1,28 @@
 Release Notes
 =============
 
+0.4.7
+
+ Bug fixes:
+  * Mobipocket unpacks now correctly account for the extra data that
+    can be appended to PalmDoc-compressed text records that should not
+    be made part of the decompression process.
+
+0.4.6
+
+ Bug fixes:
+  * EReader HTML conversion now creates (semi-valid) XHTML output and
+    better handles paragraphs
+  * EReader font marker handling improved
+  * Missing config file options are properly handled
+  * Documentation fixes
+
+0.4.5
+
+ Bug Fixes:
+  * user script tests avoid smoke tests that tend to break on
+    non-libraries
+
 0.4.4
 
  Bug Fixes:
@@ -9,9 +31,8 @@ Release Notes
     directory.  The old behaviour could cause failure when running as
     CGI.
 
-
 0.4.3
- 
+
  New Features:
   * gen_opf() now accepts a 'mediatype' argument to override
     autodetection of the mime type of the 'textfile' argument.
