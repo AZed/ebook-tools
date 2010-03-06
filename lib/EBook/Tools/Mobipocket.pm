@@ -2096,6 +2096,12 @@ contain it.
 Use with caution.  This key may be renamed in the future if more
 information is found.
 
+=item C<extradataflags>
+
+Two bytes sometimes found inside of C<unknown200>, used to determine
+if extra data has been appended to each text record that should not be
+used in decompression.
+
 =back
 
 =cut
@@ -2261,6 +2267,18 @@ sub parse_mobi_header   ## no critic (ProhibitExcessComplexity)
         debug(2,"DEBUG: Found ",$length-200,
               " bytes of unknown final data in Mobipocket header");
         debug(2,"       0x",hexstring($header{unknown200}));
+    }
+
+    # Part of that unknown data is the Extra Data Flags
+    #
+    # This is 2 bytes used to determine if extra data has been stuffed
+    # at the end of each record that should not be used in
+    # decompression.
+    if($length >= 228)
+    {
+        $header{extradataflags} = substr($headerdata,226,2);
+        debug(2,"DEBUG: Found Extra Data Flags in Mobipocket header");
+        debug(2,"       0x",hexstring($header{extradataflags}));
     }
 
     foreach my $key (sort keys %header)
