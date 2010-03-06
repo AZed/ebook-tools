@@ -1,7 +1,7 @@
 package EBook::Tools::MSReader;
 use warnings; use strict; use utf8;
 use English qw( -no_match_vars );
-use version 0.74; our $VERSION = qv("0.4.6");
+use version 0.74; our $VERSION = qv("0.4.7");
 
 # Perl Critic overrides:
 ## no critic (Package variable)
