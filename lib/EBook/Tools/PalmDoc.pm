@@ -60,7 +60,7 @@ sub import   ## no critic (Always unpack @_ first)
 }
 
 use Carp;
-use EBook::Tools qw(debug);
+use EBook::Tools qw(debug hexstring);
 use File::Basename qw(fileparse);
 use Palm::PDB;
 use Palm::Raw();
@@ -687,7 +687,7 @@ sub parse_palmdoc_header
 }
 
 
-=head2 C<uncompress_palmdoc($data)>
+=head2 C<uncompress_palmdoc($data,%args)>
 
 Uncompresses data compressed using the simplified Lempel-Ziv 77 scheme
 used by PalmDoc and some other formats, and returns the uncompressed
@@ -695,6 +695,20 @@ string.
 
 If an error is encountered during uncompression outputs a debug
 message and returns undef.
+
+=head3 Arguments
+
+C<uncompress_palmdoc> takes one optional named argument:
+
+=over
+
+=item C<trailing>
+
+This specifies the number of trailing bytes to ignore on each record
+during decompression.  Extra data such as this is sometimes found on
+version 6 Mobipocket records.
+
+=back
 
 =head3 Algorithm
 
@@ -733,10 +747,24 @@ character being XORed with 0x80.
 sub uncompress_palmdoc
 {
     my $data = shift;
+    my (%args) = @_;
     my $subname = ( caller(0) )[3];
     debug(3,"DEBUG[",$subname,"]");
 
-    my $length = length($data);
+    my %valid_args = (
+        'trailing' => 1,
+        );
+    foreach my $arg (keys %args)
+    {
+        croak($subname,"(): invalid argument '",$arg,"'")
+            if(!$valid_args{$arg});
+    }
+
+    my $trailing = $args{trailing} || 0;
+    my $reallength = length($data);
+    my $length = $reallength - $trailing;
+    my $traildata = substr($data,$length,$trailing);
+
     my $offset = 0;     # Current offset into data
     my $char;           # Character being examined
     my $ord;            # Ordinal of $char
@@ -763,6 +791,12 @@ sub uncompress_palmdoc
         elsif($ord <= 8)
         {
             # Next $ord bytes are literal
+            if($offset + $ord > $length)
+            {
+                debug(1,"WARNING: ",$ord," literal bytes starting at ",$offset,
+                      " exceeds data size (",$length,")");
+                return $text;
+            }
             $text .= substr($data,$offset,$ord);
             $offset += $ord;
         }
@@ -786,8 +820,9 @@ sub uncompress_palmdoc
             $offset++;
             if($offset > length($data))
             {
-                debug(1,"WARNING: offset to LZ77 bits is outside of the data");
-                return;
+                debug(1,"WARNING: offset to LZ77 bits (",$offset,
+                      ") is outside of the data (size ",length($data),")");
+                return $text;
             }
             $lz77 = unpack('n',substr($data,$offset-2,2));
 
@@ -801,7 +836,8 @@ sub uncompress_palmdoc
             $lz77offset = $lz77 >> 3;
             if($lz77offset < 1)
             {
-                debug(1,"WARNING: LZ77 decompression offset is invalid!");
+                debug(1,"WARNING: LZ77 decompression offset at ",$offset,
+                      " is invalid!");
                 return;
             }
 
@@ -829,6 +865,11 @@ sub uncompress_palmdoc
             # a space
             $text .= ' ' . chr($ord ^ 0x80);
         }
+    }
+    if($reallength > $length)
+    {
+        debug(3,"DEBUG: skipping ",$trailing," bytes at end of record: 0x",
+              hexstring($traildata));
     }
     return $text;
 }
