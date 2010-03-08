@@ -661,7 +661,7 @@ sub ParseRecord :method   ## no critic (Always unpack @_ first)
         else
         {
             debug(3,"DEBUG: record ",$currentrecord,
-                  " is PalmDoc-compressed text");
+                  " is uncompressed or PalmDoc-compressed text");
             $self->ParseRecordText(\$data);
         }
     }
@@ -1257,12 +1257,12 @@ sub ParseRecordText :method
     if($recordtext)
     {
         $self->{text} .= $recordtext;
-        debug(3,"DEBUG: uncompressed text record ",$currentrecord);
+        debug(3,"DEBUG: parsed text record ",$currentrecord);
     }
     else
     {
         debug(1,"DEBUG: record ",$currentrecord,
-              " could not be decompressed (",
+              " could not be parsed (",
               length($$dataref)," bytes starting with '",
               substr($$dataref,0,4),"')");
         $$self{unknowndata}{$currentrecord} = $$dataref;
