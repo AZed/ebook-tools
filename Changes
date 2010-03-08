@@ -1,6 +1,13 @@
 Release Notes
 =============
 
+0.4.8
+
+ Bug fixes:
+  * Fix extra data size calculation when multiple flag bits are
+    present
+  * Properly handle extra data in uncompressed text records
+
 0.4.7
 
  Bug fixes:

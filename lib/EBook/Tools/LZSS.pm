@@ -1,7 +1,7 @@
 package EBook::Tools::LZSS;
 use warnings; use strict; use utf8;
 use English qw( -no_match_vars );
-use version 0.74; our $VERSION = qv("0.4.7");
+use version 0.74; our $VERSION = qv("0.4.8");
 
 # Perl Critic overrides:
 ## no critic (Package variable)
