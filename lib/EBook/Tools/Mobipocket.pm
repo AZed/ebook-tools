@@ -1220,23 +1220,39 @@ sub ParseRecordText :method
     my $currentrecord = scalar @{$$self{records}};
     my $compression = $$self{header}{palm}{compression};
     my $recordtext;
+    my $extradatasize;
+
+    debug(1,"DEBUG: extradataflags = ",$$self{header}{mobi}{extradataflags});
+    if( $$self{header}{mobi}{extradataflags} )
+    {
+        $extradatasize = record_extradata_size(
+            dataref => $dataref,
+            extradataflags => $$self{header}{mobi}{extradataflags}
+           );
+    }
 
     if($compression == 1)        # No compression
     {
-        $recordtext = $$dataref;
+        debug(3,"DEBUG: No compression on record ",$currentrecord);
+        if($extradatasize)
+        {
+            $recordtext = substr($$dataref,0,length($$dataref)-$extradatasize);
+            debug(3,"DEBUG: skipping ",$extradatasize," bytes at end of record ",
+                  $currentrecord);
+        }
+        else
+        {
+            $recordtext = $$dataref;
+        }
     }
     elsif($compression == 2)     # PalmDoc compression
     {
         my %args;
-        my $extradatasize;
-
-        if( $$self{header}{mobi}{extradataflags} )
+        if($extradatasize)
         {
-            $extradatasize = record_extradata_size(
-                dataref => $dataref,
-                extradataflags => $$self{header}{mobi}{extradataflags}
-               );
             $args{trailing} = $extradatasize;
+            debug(3,"DEBUG: skipping ",$extradatasize," bytes at end of record ",
+                  $currentrecord);
         }
         $recordtext = uncompress_palmdoc($$dataref,%args);
     }
