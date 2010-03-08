@@ -2614,27 +2614,33 @@ sub record_extradata_size
     my $datalength = length($$dataref);
 
     my $totalsize = 0;
+    my $trailpos = 0;
 
-    foreach my $flagpos (0..15)
+    foreach my $flagbit (reverse 0..15)
     {
-        if($args{extradataflags} & (1 << $flagpos))
+        if($args{extradataflags} & (1 << $flagbit))
         {
             my $bitpos = 0;
+            my $startpos = $trailpos;
             my $traildata;
-            my $trailpos = 0;
             my $trailsize = 0;
             my $byte;
 
             # Bit 0 is the multi-byte character overlap flag, and has
             # a different format from all other flags, where the size
-            # is the first two bits of the last byte of record data.
-            if($flagpos == 0)
+            # is the first two bits of the last unparsed byte of
+            # record data (i.e. the extra data bytes closest to the
+            # actual record text), plus one for the byte containing
+            # the size itself.
+            if($flagbit == 0)
             {
-                $trailsize = ord(substr($$dataref,$datalength-1,1)) & 0x03;
-                debug(3,"DEBUG: ",$trailsize," bytes of trailing data at flagpos ",
-                      $flagpos);
+                $trailpos += 1;
+                $trailsize = ord(substr($$dataref,$datalength-$trailpos,1)) & 0x03;
+                $trailsize += 1; # The above line doesn't include the size byte itself
+                debug(3,"DEBUG: ",$trailsize," bytes of trailing data at flagbit ",
+                      $flagbit,", startpos ",$startpos);
                 $totalsize += $trailsize;
-                next;
+                last;
             }
 
             # For all other bits, the size is a backward-encoded
@@ -2648,8 +2654,8 @@ sub record_extradata_size
             }
             while( !($byte & 0x80) && ($bitpos < 28) && ($trailpos < $datalength) );
             $traildata = substr($$dataref,$datalength-$trailsize,$trailsize);
-            debug(3,"DEBUG: ",$trailsize," bytes of trailing data at flagpos ",
-                  $flagpos);
+            debug(3,"DEBUG: ",$trailsize," bytes of trailing data at flagbit ",
+                  $flagbit,", startpos ",$startpos);
             $totalsize += $trailsize;
         }
     }
