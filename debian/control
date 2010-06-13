@@ -2,7 +2,7 @@ Source: libebook-tools-perl
 Section: perl
 Priority: optional
 Maintainer: Zed Pobre <zed@debian.org>
-Build-Depends: cdbs, debhelper (>= 6), perl (>= 5.8.8), libmodule-build-perl (>= 0.3000), libarchive-zip-perl, libbit-vector-perl, libconfig-inifiles-perl, libdate-manip-perl, libfile-mimeinfo-perl, libfile-slurp-perl, libhtml-parser-perl, libimage-size-perl, liblist-moreutils-perl, libossp-uuid-perl, libpalm-perl, libstring-crc32-perl, libtie-ixhash-perl, libtime-local-perl, libxml-twig-perl, txt2html
+Build-Depends: cdbs, debhelper (>= 6), perl (>= 5.8.8), perl (>= 5.10.1) | libmodule-build-perl (>= 0.3000), libarchive-zip-perl, libbit-vector-perl, libconfig-inifiles-perl, libdate-manip-perl, libfile-mimeinfo-perl, libfile-slurp-perl, libhtml-parser-perl, libimage-size-perl, liblist-moreutils-perl, libossp-uuid-perl, libpalm-perl, libstring-crc32-perl, libtie-ixhash-perl, libtime-local-perl, libxml-twig-perl, txt2html
 Standards-Version: 3.8.4
 Homepage: http://search.cpan.org/dist/EBook-Tools/
 Vcs-Git: git://github.com/AZed/ebook-tools.git
