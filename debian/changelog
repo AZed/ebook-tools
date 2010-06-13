@@ -1,3 +1,16 @@
+libebook-tools-perl (0.4.8-1) unstable; urgency=low
+
+  * New upstream version:
+    * Mobipocket unpacks now correctly account for the extra data that
+      can be appended to PalmDoc-compressed text records that should not
+      be made part of the decompression process.
+    * YYYY-MMDD date test removed (closes: #560627)
+  * Standards-Version: 3.8.4 (no changes required)
+  * Specify perl (>= 5.10.1) as a preferred build-dependency alternative
+    to libmodule-build-perl (>= 0.3000)
+
+ -- Zed Pobre <zed@debian.org>  Sun, 13 Jun 2010 14:16:33 -0400
+
 libebook-tools-perl (0.4.6-2) unstable; urgency=low
 
   * Add Vcs-Git entry to debian/control
