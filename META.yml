@@ -1,6 +1,6 @@
 ---
 name: EBook-Tools
-version: 0.4.7
+version: 0.4.8
 author:
   - 'Zed Pobre <zed@debian.org>'
 abstract: Object class for manipulating and generating E-books
@@ -32,28 +32,28 @@ requires:
 provides:
   EBook::Tools:
     file: lib/EBook/Tools.pm
-    version: 0.4.7
+    version: 0.4.8
   EBook::Tools::EReader:
     file: lib/EBook/Tools/EReader.pm
-    version: 0.4.7
+    version: 0.4.8
   EBook::Tools::IMP:
     file: lib/EBook/Tools/IMP.pm
-    version: 0.4.7
+    version: 0.4.8
   EBook::Tools::LZSS:
     file: lib/EBook/Tools/LZSS.pm
-    version: 0.4.7
+    version: 0.4.8
   EBook::Tools::MSReader:
     file: lib/EBook/Tools/MSReader.pm
-    version: 0.4.7
+    version: 0.4.8
   EBook::Tools::Mobipocket:
     file: lib/EBook/Tools/Mobipocket.pm
-    version: 0.4.7
+    version: 0.4.8
   EBook::Tools::PalmDoc:
     file: lib/EBook/Tools/PalmDoc.pm
-    version: 0.4.7
+    version: 0.4.8
   EBook::Tools::Unpack:
     file: lib/EBook/Tools/Unpack.pm
-    version: 0.4.7
+    version: 0.4.8
 generated_by: Module::Build version 0.3
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.2.html
