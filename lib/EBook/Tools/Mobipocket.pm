@@ -4,7 +4,7 @@ use warnings; use strict; use utf8;
 #use 5.010; # Needed for smart-match operator
 #v5.10 feature use removed until 5.10 is standard on MacOSX and Debian
 use English qw( -no_match_vars );
-use version 0.74; our $VERSION = qv("0.4.7");
+use version 0.74; our $VERSION = qv("0.4.8");
 
 # Perl Critic overrides:
 ## no critic (Package variable)
@@ -661,7 +661,7 @@ sub ParseRecord :method   ## no critic (Always unpack @_ first)
         else
         {
             debug(3,"DEBUG: record ",$currentrecord,
-                  " is PalmDoc-compressed text");
+                  " is uncompressed or PalmDoc-compressed text");
             $self->ParseRecordText(\$data);
         }
     }
@@ -1220,23 +1220,39 @@ sub ParseRecordText :method
     my $currentrecord = scalar @{$$self{records}};
     my $compression = $$self{header}{palm}{compression};
     my $recordtext;
+    my $extradatasize;
+
+    debug(1,"DEBUG: extradataflags = ",$$self{header}{mobi}{extradataflags});
+    if( $$self{header}{mobi}{extradataflags} )
+    {
+        $extradatasize = record_extradata_size(
+            dataref => $dataref,
+            extradataflags => $$self{header}{mobi}{extradataflags}
+           );
+    }
 
     if($compression == 1)        # No compression
     {
-        $recordtext = $$dataref;
+        debug(3,"DEBUG: No compression on record ",$currentrecord);
+        if($extradatasize)
+        {
+            $recordtext = substr($$dataref,0,length($$dataref)-$extradatasize);
+            debug(3,"DEBUG: skipping ",$extradatasize," bytes at end of record ",
+                  $currentrecord);
+        }
+        else
+        {
+            $recordtext = $$dataref;
+        }
     }
     elsif($compression == 2)     # PalmDoc compression
     {
         my %args;
-        my $extradatasize;
-
-        if( $$self{header}{mobi}{extradataflags} )
+        if($extradatasize)
         {
-            $extradatasize = record_extradata_size(
-                dataref => $dataref,
-                extradataflags => $$self{header}{mobi}{extradataflags}
-               );
             $args{trailing} = $extradatasize;
+            debug(3,"DEBUG: skipping ",$extradatasize," bytes at end of record ",
+                  $currentrecord);
         }
         $recordtext = uncompress_palmdoc($$dataref,%args);
     }
@@ -1257,12 +1273,12 @@ sub ParseRecordText :method
     if($recordtext)
     {
         $self->{text} .= $recordtext;
-        debug(3,"DEBUG: uncompressed text record ",$currentrecord);
+        debug(3,"DEBUG: parsed text record ",$currentrecord);
     }
     else
     {
         debug(1,"DEBUG: record ",$currentrecord,
-              " could not be decompressed (",
+              " could not be parsed (",
               length($$dataref)," bytes starting with '",
               substr($$dataref,0,4),"')");
         $$self{unknowndata}{$currentrecord} = $$dataref;
@@ -2598,27 +2614,33 @@ sub record_extradata_size
     my $datalength = length($$dataref);
 
     my $totalsize = 0;
+    my $trailpos = 0;
 
-    foreach my $flagpos (0..15)
+    foreach my $flagbit (reverse 0..15)
     {
-        if($args{extradataflags} & (1 << $flagpos))
+        if($args{extradataflags} & (1 << $flagbit))
         {
             my $bitpos = 0;
+            my $startpos = $trailpos;
             my $traildata;
-            my $trailpos = 0;
             my $trailsize = 0;
             my $byte;
 
             # Bit 0 is the multi-byte character overlap flag, and has
             # a different format from all other flags, where the size
-            # is the first two bits of the last byte of record data.
-            if($flagpos == 0)
+            # is the first two bits of the last unparsed byte of
+            # record data (i.e. the extra data bytes closest to the
+            # actual record text), plus one for the byte containing
+            # the size itself.
+            if($flagbit == 0)
             {
-                $trailsize = ord(substr($$dataref,$datalength-1,1)) & 0x03;
-                debug(3,"DEBUG: ",$trailsize," bytes of trailing data at flagpos ",
-                      $flagpos);
+                $trailpos += 1;
+                $trailsize = ord(substr($$dataref,$datalength-$trailpos,1)) & 0x03;
+                $trailsize += 1; # The above line doesn't include the size byte itself
+                debug(3,"DEBUG: ",$trailsize," bytes of trailing data at flagbit ",
+                      $flagbit,", startpos ",$startpos);
                 $totalsize += $trailsize;
-                next;
+                last;
             }
 
             # For all other bits, the size is a backward-encoded
@@ -2632,8 +2654,8 @@ sub record_extradata_size
             }
             while( !($byte & 0x80) && ($bitpos < 28) && ($trailpos < $datalength) );
             $traildata = substr($$dataref,$datalength-$trailsize,$trailsize);
-            debug(3,"DEBUG: ",$trailsize," bytes of trailing data at flagpos ",
-                  $flagpos);
+            debug(3,"DEBUG: ",$trailsize," bytes of trailing data at flagbit ",
+                  $flagbit,", startpos ",$startpos);
             $totalsize += $trailsize;
         }
     }
