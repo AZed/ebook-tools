@@ -1,6 +1,11 @@
 Release Notes
 =============
 
+0.4.9
+ New Features:
+  * 'ebook unpack' now automatically handles ePub files (or to be more
+    specific, any zip file)
+
 0.4.8
 
  Bug fixes:

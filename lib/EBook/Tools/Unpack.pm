@@ -1,7 +1,7 @@
 package EBook::Tools::Unpack;
 use warnings; use strict; use utf8;
 use English qw( -no_match_vars );
-use version 0.74; our $VERSION = qv("0.4.8");
+use version 0.74; our $VERSION = qv("0.4.9");
 
 # Perl Critic overrides:
 ## no critic (Package variable)
@@ -48,6 +48,7 @@ our @EXPORT_OK;
 @EXPORT_OK = qw (
     );
 
+use Archive::Zip qw(:ERROR_CODES);
 use Carp;
 use EBook::Tools qw(:all);
 use EBook::Tools::EReader qw(:all);
@@ -807,6 +808,7 @@ sub unpack :method
         'msreader'   => \&unpack_msreader,
         'palmdoc'    => \&unpack_palmdoc,
         'aportisdoc' => \&unpack_palmdoc,
+        'ziparchive' => \&unpack_zip,
         );
 
     croak($subname,
@@ -1070,6 +1072,39 @@ sub unpack_palmdoc :method
         $ebook->save;
     }
     return $$self{opffile};
+}
+
+
+=head2 C<unpack_zip()>
+
+Unpacks Zip archives (including ePub files).
+
+=cut
+
+sub unpack_zip :method
+{
+    my $self = shift;
+    my $subname = ( caller(0) )[3];
+    debug(2,"DEBUG[",$subname,"]");
+
+    unless($self->{nosave})
+    {
+        my $cwd = usedir($self->{dir});
+        my $zip = Archive::Zip->new();
+        my $status = $zip->read($cwd.'/'.$self->{file});
+        if ($status != AZ_OK)
+        {
+            croak($subname,'(): error while parsing zip file "',$self->{file},'" (',$status,')!');
+        }
+
+        $status = $zip->extractTree(undef);
+        if ($status != AZ_OK)
+        {
+            croak($subname,'(): error while extracting zip file "',$self->{file},'" (',$status,')!');
+        }
+        chdir($cwd);
+    }
+    return 1;
 }
 
 
