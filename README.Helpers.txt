@@ -31,6 +31,21 @@ A MSWin32 GUI for ConvertLit can be found at:
 
 http://dukelupus.pri.ee/convertlit.php
 
+=========
+Kindlegen
+=========
+
+Kindlegen is the replacement for Mobigen, a command-line executable
+originally provided by Mobipocket and now by Amazon for creating
+Mobipocket .mobi/.prc files.
+
+It is made available from Amazon Kindle's Publishing Program page at:
+
+http://www.amazon.com/gp/feature.html?docId=1000234621
+
+The old mobigen executable (see below) will still be found, but using
+Kindlegen is recommended.
+
 
 =========
 MobiDeDRM
@@ -55,9 +70,11 @@ and you may have some luck searching for it on pastebin.com
 Mobigen
 =======
 
-Mobigen is a command-line executable provided by Mobipocket for
-creating Mobipocket .mobi/.prc files as an alternative to their GUI
-for doing the same.
+Mobigen is an obsolete command-line executable provided by Mobipocket
+for creating Mobipocket .mobi/.prc files as an alternative to their
+GUI for doing the same.  Use of Kindlegen (see above) in its place is
+strongly recommended, as Mobigen is known to produce incorrect results
+when given Unicode text.
 
 It is made available from the Mobipocket Developer Center at:
 
