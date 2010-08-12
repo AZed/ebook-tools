@@ -1636,24 +1636,29 @@ sub find_mobigen
     if($OSNAME eq 'MSWin32')
     {
         @mobigen_guesses = (
+            'kindlegen',
             'mobigen',
+            'C:\Program Files\Mobipocket.com\kindlegen',
             'C:\Program Files\Mobipocket.com\mobigen',
             );
         if($confdir)
         {
             push(@mobigen_guesses,
+                 $confdir . '\kindlegen',
                  $confdir . '\mobigen');
         }
     }
     else
     {
         @mobigen_guesses = (
+            'kindlegen',
             'mobigen',
             'mobigen_linux',
             );
         if($confdir)
         {
             push(@mobigen_guesses,
+                 $confdir . "/kindlegen",
                  $confdir . "/mobigen_linux",
                  $confdir . "/mobigen");
         }
