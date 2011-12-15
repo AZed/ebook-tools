@@ -1,3 +1,12 @@
+libebook-tools-perl (0.4.9-1) unstable; urgency=low
+
+  * New upstream version:
+    * ebook unpack now unpacks .epub (or .zip) files
+    * MMDDYYYY-unparseable test removed (closes: 642163)
+  * Standards-Version 3.9.2
+
+ -- Zed Pobre <zed@debian.org>  Thu, 15 Dec 2011 12:28:19 -0500
+
 libebook-tools-perl (0.4.8-1) unstable; urgency=low
 
   * New upstream version:
