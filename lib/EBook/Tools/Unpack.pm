@@ -60,6 +60,7 @@ use Encode;
 use Fcntl qw(SEEK_CUR SEEK_SET);
 use File::Basename qw(dirname fileparse);
 use File::Path;     # Exports 'mkpath' and 'rmtree'
+use File::Which;    # Exports 'which'
 binmode(STDERR,":utf8");
 
 my $drmsupport = 0;
@@ -1090,17 +1091,23 @@ sub unpack_zip :method
     unless($self->{nosave})
     {
         my $cwd = usedir($self->{dir});
-        my $zip = Archive::Zip->new();
-        my $status = $zip->read($cwd.'/'.$self->{file});
-        if ($status != AZ_OK)
-        {
-            croak($subname,'(): error while parsing zip file "',$self->{file},'" (',$status,')!');
-        }
 
-        $status = $zip->extractTree(undef);
-        if ($status != AZ_OK)
-        {
-            croak($subname,'(): error while extracting zip file "',$self->{file},'" (',$status,')!');
+        if (which('unzip')) {
+            my @syscmd = ( 'unzip', '-q', $cwd . '/' . $self->{file} );
+            system(@syscmd);
+            system_result($subname,$CHILD_ERROR,@syscmd);
+        }
+        else {
+            my $zip = Archive::Zip->new();
+            my $status = $zip->read($cwd.'/'.$self->{file});
+            if ($status != AZ_OK) {
+                croak($subname,'(): error while parsing zip file "',$self->{file},'" (',$status,')!');
+            }
+
+            $status = $zip->extractTree(undef);
+            if ($status != AZ_OK) {
+                croak($subname,'(): error while extracting zip file "',$self->{file},'" (',$status,')!');
+            }
         }
         chdir($cwd);
     }
