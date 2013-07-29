@@ -131,8 +131,8 @@ if($opt{oeb12} && $opt{opf20})
     exit(EXIT_BADOPTION);
 }
 
-# Default to OEB12 if neither format is specified
-if(!$opt{oeb12} && !$opt{opf20}) { $opt{oeb12} = 1; }
+# Default to OPF20 if neither format is specified
+if(!$opt{oeb12} && !$opt{opf20}) { $opt{opf20} = 1; }
 
 $EBook::Tools::debug = $opt{verbose};
 $EBook::Tools::tidycmd = $opt{tidycmd} if($opt{tidycmd});
