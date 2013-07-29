@@ -154,6 +154,7 @@ my %dispatch = (
     'genepub'     => \&genepub,
     'genimp'      => \&genimp,
     'genmobi'     => \&genmobi,
+    'genncx'	  => \&genncx,
     'impmeta'     => \&impmeta,
     'setmeta'     => \&setmeta,
     'splitmeta'   => \&splitmeta,
@@ -1021,6 +1022,57 @@ sub genmobi
         print {*STDERR} "Error during generation: ",$retval,"\n";
         exit(EXIT_HELPERERROR);
     }
+    exit(EXIT_SUCCESS);
+}
+
+
+=head2 C<genncx>
+
+Given an OPF file, creates a NCX-format table of contents from the
+package unique-identifier, the dc:title, dc:creator, and spine
+elements, and then add the NCX entry to the manifest if it is not
+already referenced.
+
+The OPF file will be cleaned to OPF20 format before this happens.
+
+=head3 Options
+
+=over
+
+=item C<--opffile filename.opf>
+
+=item C<--opf filename.opf>
+
+Use the specified OPF file.  This can also be specified as the first
+non-option argument, which will override this option if it exists.  If
+no file is specified, one will be searched for.
+
+=back
+
+=cut
+
+sub genncx {
+    my ($opffile) = @_;
+    my $ebook;
+
+    $opffile = $opt{opffile} if(!$opffile);
+    $ebook = EBook::Tools->new();
+    $ebook->init($opffile);
+    $ebook->fix_opf20;
+    $ebook->gen_ncx;
+    unless($opt{nosave})
+    {
+        useoptdir();
+        $ebook->save;
+    }
+    if($ebook->errors)
+    {
+        $ebook->print_errors;
+        print "Unrecoverable errors while fixing '",$opffile,"'!\n";
+        exit(EXIT_TOOLSERROR);
+    }
+
+    $ebook->print_warnings if($ebook->warnings);
     exit(EXIT_SUCCESS);
 }
 
