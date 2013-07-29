@@ -3812,7 +3812,8 @@ sub fix_opf20 :method
 
     # Fix the <metadata> attributes
     $metadata->set_att('xmlns:dc' => "http://purl.org/dc/elements/1.1/",
-                       'xmlns:opf' => "http://www.idpf.org/2007/opf");
+                       'xmlns:opf' => "http://www.idpf.org/2007/opf",
+                       'xmlns:xsi' => "http://www.w3.org/2001/XMLSchema-instance");
 
     # Fix <manifest> and <spine>
     $self->fix_manifest;
