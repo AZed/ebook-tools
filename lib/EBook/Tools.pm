@@ -4030,6 +4030,7 @@ sub fix_spine :method
     $self->twigcheck();
 
     my $twigroot = $self->{twigroot};
+    my $manifest = $twigroot->first_descendant('manifest');
     my $spine = $twigroot->first_descendant('spine');
     my @elements;
     my $parent;
@@ -4050,6 +4051,12 @@ sub fix_spine :method
         {
             debug(1,"DEBUG: moving <spine>");
             $spine->move('last_child',$twigroot);
+        }
+
+        # If an NCX item exists in the manifest, reference it as a
+        # spine attribute
+        if($manifest->has_child('@id="ncx"')) {
+            $spine->set_att('toc' => 'ncx');
         }
 
         foreach my $el (@elements)
@@ -4279,6 +4286,7 @@ sub gen_ncx :method    ## no critic (Always unpack @_ first)
     my $author;             # E-book primary author
     my @spinelist;          # List of hashrefs containing spine data
     my $manifest;           # OPF manifest element
+    my $spine;		    # OPF spine element
 
     if($self->{spec} ne 'OPF20')
     {
@@ -4431,6 +4439,10 @@ sub gen_ncx :method    ## no critic (Always unpack @_ first)
 
     # Move the NCX item to the top of the manifest
     $ncxitem->move('first_child',$manifest);
+
+    # Ensure that the spine references the NCX
+    $spine = $twigroot->first_descendant('spine');
+    $spine->set_att('toc' => 'ncx');
 
     return $ncx;
 }
