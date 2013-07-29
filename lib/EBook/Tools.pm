@@ -114,6 +114,7 @@ our @EXPORT_OK;
     &split_metadata
     &split_pre
     &strip_script
+    &system_result
     &system_tidy_xml
     &system_tidy_xhtml
     &trim
@@ -6624,6 +6625,60 @@ sub strip_script
 	or croak($subname,"(): Failed to close '",$outfile,"'!\n");
 
     return 1;
+}
+
+
+=head2 C<system_result($caller,$retval,@syscmd)
+
+Checks the result of a system call and croak on failure with an
+appropriate message.  For this to work, it MUST be used as the line
+immediately following the system command.
+
+=head3 Arguments
+
+=over
+
+=item $caller
+
+The calling function (used in output message)
+
+=item $retval
+
+The return value of the system command
+
+=item @syscmd
+
+The array passed to the system call
+
+=back
+
+=head3 Return Values
+
+Returns 0 on success
+
+Croaks on failure.
+
+=cut
+
+sub system_result {
+    my ($caller,$retval,@syscmd) = @_;
+
+    if ( ($CHILD_ERROR >> 8) == 0 ) {
+        return 0;
+    }
+    elsif ($CHILD_ERROR == -1) {
+        croak($caller," child failed to execute (ERRNO=",$ERRNO,"):\n ",
+              join(' ',@syscmd),"\n")
+    }
+    elsif ($CHILD_ERROR & 127) {
+        my $withcoredump = ($CHILD_ERROR & 128) ? 'with' : 'without';
+        croak($caller," child died with signal ",($CHILD_ERROR & 127)," ",
+              $withcoredump," coredump:\n ",join(' ',@syscmd),"\n");
+    }
+    else {
+        croak($caller," child exited with value ",$CHILD_ERROR >> 8,":\n ",
+              join(' ',@syscmd),"\n")
+    }
 }
 
 
