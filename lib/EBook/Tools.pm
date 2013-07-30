@@ -4100,6 +4100,8 @@ Creates a .epub format e-book.  This will create (or overwrite) the
 files 'mimetype' and 'META-INF/container.xml' in the current
 directory, creating the subdirectory META-INF as needed.
 
+A NCX file will also be created if missing.
+
 =head3 Arguments
 
 This method can take two optional named arguments.
@@ -4225,6 +4227,10 @@ Generates the C<mimetype> and C<META-INF/container.xml> files expected
 by a .epub container, but does not actually generate the .epub file
 itself.  This will be called automatically by C<gen_epub>.
 
+The OPF will be normalized to the OPF 2.0 format.
+
+If no NCX element exists, it will also be created.
+
 =cut
 
 sub gen_epub_files :method
@@ -4234,8 +4240,17 @@ sub gen_epub_files :method
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
 
+    my $manifest = $self->{twigroot}->first_descendant('manifest');
+
+    $self->fix_opf20();
     create_epub_mimetype();
     create_epub_container($self->{opffile});
+
+    if( ! $manifest->first_child('item[@id="ncx"]') ) {
+        $self->gen_ncx();
+        $self->save();
+    }
+
     return 1;
 }
 
