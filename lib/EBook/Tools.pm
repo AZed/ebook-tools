@@ -3124,6 +3124,13 @@ sub fix_links :method
         debug(3,"DEBUG: checking '",$href,"'");
         next if(defined $links{$href});
 
+        # Skip mailto: links
+        if($href =~ m#^mailto:#ix) {
+            debug(1,"DEBUG: mailto link '",$href,"' skipped");
+            $links{$href} = 0;
+            next;
+        }
+
         # Skip URIs for now
         if($href =~ m#^ \w+://#ix)
         {
@@ -3156,8 +3163,13 @@ sub fix_links :method
         $links{$href} = 1;
         foreach my $newlink (@newlinks)
         {
+            # Skip mailto: links
+            if($newlink =~ m#^mailto:#ix) {
+                debug(1,"DEBUG: mailto link '",$href,"' skipped");
+                next;
+            }
             # Skip URIs for now
-            if($newlink =~ m#^ \w+://#ix)
+            elsif($newlink =~ m#^ \w+://#ix)
             {
                 debug(1,"DEBUG: URI '",$newlink,"' skipped");
                 next;
