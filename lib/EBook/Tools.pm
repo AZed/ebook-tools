@@ -367,6 +367,7 @@ our %publishermap = (
     'harper-collins'        => 'HarperCollins',
     'manybooks'             => 'ManyBooks',
     'manybooks.net'         => 'ManyBooks',
+    'penguin group'         => 'Penguin Group',
     'project gutenberg'     => 'Project Gutenberg',
     'gutenberg'             => 'Project Gutenberg',
     'gutenberg.org'         => 'Project Gutenberg',
