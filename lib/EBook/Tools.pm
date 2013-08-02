@@ -538,10 +538,12 @@ our %validspecs = (
 #####################################################
 
 my %rwfields = (
-    'opffile'  => 'string',
-    'spec'     => 'string',
+    'opffile'   => 'string', # OPF filename (with no path)
+    'opfsubdir' => 'string', # Subdirectory name where opffile is found
+    'spec'      => 'string',
     );
 my %rofields = (
+    'topdir'   => 'string', # Top-level directory of the unpacked book
     'twig'     => 'scalar',
     'twigroot' => 'scalar',
     'errors'   => 'arrayref',
@@ -612,6 +614,8 @@ sub init :method    ## no critic (Always unpack @_ first)
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
 
+    $self->{topdir} = getcwd();
+
     if($filename) { $self->{opffile} = $filename; }
 
     if(!$self->{opffile})
@@ -636,7 +640,15 @@ sub init :method    ## no critic (Always unpack @_ first)
 	croak("OPF file '",$self->{opffile},"' has zero size!");
     }
 
-    debug(2,"DEBUG: init using '",$self->{opffile},"'");
+    # At this point, we have definitely found an OPF file to work
+    # with, but it might not be in the top level directory, and with
+    # the exception of final book construction and EPUB metadata, we
+    # want to be in the directory of the OPF.
+    $self->{opfsubdir} = dirname($self->{opffile});
+    $self->{opffile} = basename($self->{opffile});
+    usedir($self->opfdir);
+
+    debug(2,"DEBUG: init using '",$self->{opfsubdir},"/",$self->{opffile},"'");
 
     # Initialize the twig before use
     $self->{twig} = XML::Twig->new(
@@ -742,6 +754,8 @@ sub init_blank :method    ## no critic (Always unpack @_ first)
     my $metadata;
     my $element;
 
+    $self->{topdir} = getcwd();
+    $self->{opfsubdir} = '.';
     $self->{opffile} = $args{opffile};
     $self->{twig} = XML::Twig->new(
 	keep_atts_order => 1,
@@ -1466,9 +1480,53 @@ sub opffile :method
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
-    debug(2,"DEBUG[",$subname,"]");
+    debug(3,"DEBUG[",$subname,"]");
     return unless($self->{opffile});
     return $self->{opffile};
+}
+
+
+=head2 C<opfdir()>
+
+Returns the full filesystem path to the directory where the OPF
+metadata file will be stored, or undef if either the top-level
+directory or the OPF subdirectory is not found.
+
+=cut
+
+sub opfdir :method {
+    my $self = shift;
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(3,"DEBUG[",$subname,"]");
+    return unless($self->{topdir});
+    return unless($self->{opfsubdir});
+
+    if($self->{opfsubdir} eq '.') {
+        return $self->{topdir};
+    }
+    return $self->{topdir} . '/' . $self->{opfsubdir};
+}
+
+
+=head2 C<opfpath()>
+
+Returns the full filesystem path to the file where the OPF metadata
+will be stored or undef if either the top level directory or the OPF
+filename is not found.
+
+=cut
+
+sub opfpath :method {
+    my $self = shift;
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(3,"DEBUG[",$subname,"]");
+    return unless($self->{topdir});
+    return unless($self->{opfsubdir});
+    return unless($self->{opffile});
+
+    return $self->{topdir} . '/' . $self->{opfsubdir} . '/' . $self->{opffile};
 }
 
 
@@ -4154,6 +4212,7 @@ sub gen_epub :method    ## no critic (Always unpack @_ first)
     my $dir = $args{dir};
     my $zip = Archive::Zip->new();
     my $member;
+    my $cwd = usedir($self->{topdir});
 
     $self->gen_epub_files();
     if(! $self->{opffile} )
@@ -4163,25 +4222,27 @@ sub gen_epub :method    ## no critic (Always unpack @_ first)
         debug(1,"Cannot create epub without an OPF");
 	return;
     }
-    if(! -f $self->{opffile} )
+    if(! -f $self->opfpath)
     {
 	$self->add_error(
 	    sprintf("OPF '%s' does not exist (did you forget to save?)",
-		    $self->{opffile})
+		    $self->opfpath)
 	    );
-        debug(1,"OPF '",$self->{opffile},"' does not exist");
+        debug(1,"OPF '",$self->opfpath,"' does not exist");
 	return;
     }
 
+    debug(3,"DEBUG: adding core metadata to zip archive");
     $member = $zip->addFile('mimetype');
     $member->desiredCompressionMethod(COMPRESSION_STORED);
 
     $member = $zip->addFile('META-INF/container.xml');
     $member->desiredCompressionLevel(9);
 
-    $member = $zip->addFile($self->{opffile});
+    $member = $zip->addFile($self->{opfsubdir} . '/' . $self->{opffile});
     $member->desiredCompressionLevel(9);
 
+    debug(3,"DEBUG: adding manifest files to zip archive");
     foreach my $file ($self->manifest_hrefs())
     {
 	if(! $file)
@@ -4190,12 +4251,12 @@ sub gen_epub :method    ## no critic (Always unpack @_ first)
             debug(1,"No items found in manifest!");
 	    return;
 	}
-	if(-f $file)
+	if(-f $self->{opfsubdir} . '/' . $file)
 	{
-	    $member = $zip->addFile($file);
+	    $member = $zip->addFile($self->{opfsubdir} . '/' . $file);
 	    $member->desiredCompressionLevel(9);
 	}
-	else { print STDERR "WARNING: ",$file," not found, skipping.\n"; }
+	else { print STDERR "WARNING: ",$self->{opfsubdir} . '/' . $file," not found, skipping.\n"; }
     }
 
     if(! $filename)
@@ -4221,6 +4282,8 @@ sub gen_epub :method    ## no critic (Always unpack @_ first)
         debug(1,"Failed to create epub as '",$filename,"'");
 	return;
     }
+
+    usedir($cwd);
     return 1;
 }
 
@@ -4247,12 +4310,22 @@ sub gen_epub_files :method
     my $manifest = $self->{twigroot}->first_descendant('manifest');
 
     $self->fix_opf20();
-    create_epub_mimetype();
-    create_epub_container($self->{opffile});
-
     if( ! $manifest->first_child('item[@id="ncx"]') ) {
         $self->gen_ncx();
-        $self->save();
+    }
+    $self->save();
+
+    # These two functions must happen from the top-level directory, not the OPF directory
+    if($self->{opfsubdir} ne '.') {
+        debug(3,"DEBUG: switching to ",$self->{topdir}," to generate EPUB metadata");
+        my $cwd = usedir($self->{topdir});
+        create_epub_mimetype();
+        create_epub_container($self->{opfsubdir} . '/' . $self->{opffile});
+        usedir($cwd);
+    }
+    else {
+        create_epub_mimetype();
+        create_epub_container($self->{opffile});
     }
 
     return 1;
@@ -4302,6 +4375,7 @@ sub gen_ncx :method    ## no critic (Always unpack @_ first)
 
     $filename = 'toc.ncx' if(!$filename);
 
+    my $cwd = usedir($self->opfdir);
     my $twigroot = $self->{twigroot};
     my $identifier = $self->identifier;
     my $element;            # Generic element container
@@ -4475,6 +4549,7 @@ sub gen_ncx :method    ## no critic (Always unpack @_ first)
     $spine = $twigroot->first_descendant('spine');
     $spine->set_att('toc' => 'ncx');
 
+    usedir($cwd);
     return $ncx;
 }
 
@@ -4497,6 +4572,7 @@ sub save :method
         if(!$self->{opffile});
 
     my $fh_opf;
+    my $cwd = usedir($self->opfdir);
     my $filename = $self->{opffile};
 
     # Backup existing file
@@ -4521,6 +4597,8 @@ sub save :method
 	add_error(sprintf("Failure while closing '%s'!",$self->{opffile}));
 	return;
     }
+
+    usedir($cwd);
     return 1;
 }
 
@@ -7346,7 +7424,7 @@ sub usedir
 {
     my ($dir) = @_;
     my $subname = ( caller(0) )[3];
-    debug(2,"DEBUG[",$subname,"]");
+    debug(2,"DEBUG[",$subname,"]: $dir");
 
     my $cwd = getcwd();
     return $cwd unless($dir);
