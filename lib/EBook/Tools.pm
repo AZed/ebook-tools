@@ -1432,6 +1432,7 @@ sub manifest_hrefs :method
     my @items;
     my $href;
     my $manifest;
+    my $mimetype;
     my @retval = ();
 
     $manifest = $self->{twigroot}->first_child('manifest');
@@ -1441,9 +1442,11 @@ sub manifest_hrefs :method
     foreach my $item (@items)
     {
 	$href = $item->att('href');
-        debug(3,"DEBUG: '",$href,"' has mime-type '",mimetype($href),"'")
-            if($href);
-	push(@retval,$href) if($href);
+        if($href) {
+            $mimetype = mimetype($href) || "UNKNOWN";
+            debug(3,"DEBUG: '",$href,"' has mime-type '",$mimetype,"'");
+            push(@retval,$href);
+        }
     }
     debug(2,"DEBUG[/",$subname,"]");
     if(wantarray) { return @retval; }
