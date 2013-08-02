@@ -4259,10 +4259,8 @@ sub gen_epub :method    ## no critic (Always unpack @_ first)
 	else { print STDERR "WARNING: ",$self->{opfsubdir} . '/' . $file," not found, skipping.\n"; }
     }
 
-    if(! $filename)
-    {
-	($filename) = fileparse($self->{opffile},'\.\w+$');
-	$filename .= ".epub";
+    if(! $filename) {
+	$filename = basename($self->{topdir}) . '.epub';
     }
 
     if($dir)
