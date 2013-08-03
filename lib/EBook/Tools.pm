@@ -1,7 +1,6 @@
 package EBook::Tools;
 use warnings; use strict; use utf8;
-#use 5.010; # Needed for smart-match operator
-#v5.10 feature use removed until 5.10 is standard on MacOSX and Debian
+use v5.10.1; # Needed for smart-match operator and given/when
 use English qw( -no_match_vars );
 use version 0.74; our $VERSION = qv("0.4.9");
 
@@ -3112,7 +3111,7 @@ Fixes problems related to the OPF guide elements, specifically:
 
 =over
 
-=item * Deletes empty guide elements
+=item * Ensures the guide element exists
 
 =item * Moves all reference elements directly underneath the guide element
 
@@ -3142,67 +3141,57 @@ sub fix_guide :method
     my $parent;
     my $href;
     my @spine;
-    my @elements = $twigroot->descendants(qr/^reference$/ix);
-    if(@elements)
-    {
-        # If <guide> doesn't exist, create it
-        unless($guide)
-        {
-            debug(1,"DEBUG: creating <guide>");
-            $guide = $twigroot->insert_new_elt('last_child','guide');
-        }
 
-        # Make sure that the guide is a child of the twigroot,
-        $parent = $guide->parent;
-        if( $parent->cmp($twigroot) )
-        {
-            debug(1,"DEBUG: moving <guide>");
-            $guide->move('last_child',$twigroot);
-        }
-
-        foreach my $el (@elements)
-        {
-            $href = $el->att('href');
-            if(!$href)
-            {
-                # No href means it is broken.
-                # Leave it alone, but log a warning
-                $self->add_warning(
-                    "fix_guide(): <reference> with no href -- skipping");
-                next;
-            }
-            if($href =~ /^#/)
-            {
-                # Anchor-only href.  Attempt to fix from the first
-                # spine entry
-                @spine = $self->spine;
-                if(!@spine)
-                {
-                    $self->add_warning(
-                        "fix_guide(): Cannot correct reference href '",$href,
-                        "', spine is empty");
-                }
-                elsif(!$spine[0]->{href})
-                {
-                    $self->add_warning(
-                        "fix_guide(): Cannot correct reference href '",$href,
-                        "', cannot find href for first spine entry");
-                }
-                else
-                {
-                    debug(1,"DEBUG: correcting reference href from '",$href,
-                          "' to '",$spine[0]->{href} . $href,"'");
-                    $el->set_att('href',$spine[0]->{href} . $href);
-                }
-            }
-            debug(3,"DEBUG: processing reference '",$href,"')");
-            $el->move('last_child',$guide);
-        } # foreach my $el (@elements)
-    } # if(@elements)
-    else # No elements, delete guide if it exists
+    # If <guide> doesn't exist, create it
+    unless($guide)
     {
-        $guide->delete if($guide);
+        debug(1,"DEBUG: creating <guide>");
+        $guide = $twigroot->insert_new_elt('last_child','guide');
     }
+
+    # Make sure that the guide is a child of the twigroot,
+    $parent = $guide->parent;
+    if( $parent->cmp($twigroot) )
+    {
+        debug(1,"DEBUG: moving <guide>");
+        $guide->move('last_child',$twigroot);
+    }
+
+
+    my @elements = $twigroot->descendants(qr/^reference$/ix);
+    foreach my $el (@elements) {
+        $href = $el->att('href');
+        if (!$href) {
+            # No href means it is broken.
+            # Leave it alone, but log a warning
+            $self->add_warning(
+                "fix_guide(): <reference> with no href -- skipping");
+            next;
+        }
+        if ($href =~ /^#/) {
+            # Anchor-only href.  Attempt to fix from the first
+            # spine entry
+            @spine = $self->spine;
+            if (!@spine) {
+                $self->add_warning(
+                    "fix_guide(): Cannot correct reference href '",$href,
+                    "', spine is empty");
+            }
+            elsif (!$spine[0]->{href}) {
+                $self->add_warning(
+                    "fix_guide(): Cannot correct reference href '",$href,
+                    "', cannot find href for first spine entry");
+            }
+            else {
+                debug(1,"DEBUG: correcting reference href from '",$href,
+                      "' to '",$spine[0]->{href} . $href,"'");
+                $el->set_att('href',$spine[0]->{href} . $href);
+            }
+        }
+        debug(3,"DEBUG: processing reference '",$href,"')");
+        $el->move('last_child',$guide);
+    } # foreach my $el (@elements)
+
     return 1;
 }
 
