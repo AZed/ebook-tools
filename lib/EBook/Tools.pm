@@ -4848,8 +4848,8 @@ sub set_adult :method
 
 Sets a cover image
 
-In OPF 2.0, this is done by setting a guide reference element.  In
-OEB1.2, this is done by setting the <EmbeddedCover> tag.
+In OPF 2.0, this is done by setting both a meta and a guide reference
+element.  In OEB1.2, this is done by setting the <EmbeddedCover> tag.
 
 If the filename is not currently listed as an item in the manifest, it is added.
 
@@ -4895,6 +4895,7 @@ sub set_cover :method
     my $href = $args{href};
     my $newid = $args{id};
     my $spec = $args{spec};
+    my $id;
     my $mimetype;
     my $manifest;
     my $guide;
@@ -4917,40 +4918,6 @@ sub set_cover :method
         $spec = $self->spec || 'OPF20';
     }
 
-    given($spec) {
-        when(/OPF20/) {
-            $self->fix_metastructure_basic;
-            $self->fix_guide;
-            $guide = $self->{twigroot}->first_child('guide');
-            $element = $guide->first_child('reference[@type="other.ms-coverimage-standard"]');
-            if($element) {
-                $element->set_att('href',$href);
-                $element->set_att('title','Cover');
-            }
-            else {
-                $element = $guide->insert_new_elt('last_child','reference');
-                $element->set_att('href',$href);
-                $element->set_att('title','Cover');
-                $element->set_att('type','other.ms-coverimage-standard');
-            }
-        }
-        when(/OEB12/) {
-            $self->fix_metastructure_oeb12;
-            $dcmeta = $self->{twigroot}->first_child('dc-metadata');
-            $element = $dcmeta->first_child('EmbeddedCover');
-            if($element) {
-                $element->set_text($href);
-            }
-            else {
-                $element = $dcmeta->insert_new_elt('last_child','EmbeddedCover');
-                $element->set_text($href);
-            }
-        }
-        default {
-            self->add_error($subname,"(): unknown specification type: '",$spec,"'");
-        }
-    }
-
     # Ensure that there is a matching manifest item
     $manifest = $self->{twigroot}->first_child('manifest');
     $element = $manifest->first_child('item[@href="' . $href . '"]');
@@ -4970,6 +4937,44 @@ sub set_cover :method
         $element->set_att('href',$href);
         $element->set_att('media-type',$mimetype);
     }
+    $id = $element->id;
+
+    given($spec) {
+        when(/OPF20/) {
+            $self->fix_metastructure_basic;
+            $self->fix_guide;
+            $guide = $self->{twigroot}->first_child('guide');
+            $element = $guide->first_child('reference[@type="other.ms-coverimage-standard"]');
+            if($element) {
+                $element->set_att('href',$href);
+                $element->set_att('title','Cover');
+            }
+            else {
+                $element = $guide->insert_new_elt('last_child','reference');
+                $element->set_att('href',$href);
+                $element->set_att('title','Cover');
+                $element->set_att('type','other.ms-coverimage-standard');
+            }
+            $self->set_meta('name' => 'cover',
+                            'content' => $href);
+        }
+        when(/OEB12/) {
+            $self->fix_metastructure_oeb12;
+            $dcmeta = $self->{twigroot}->first_child('dc-metadata');
+            $element = $dcmeta->first_child('EmbeddedCover');
+            if($element) {
+                $element->set_text($href);
+            }
+            else {
+                $element = $dcmeta->insert_new_elt('last_child','EmbeddedCover');
+                $element->set_text($href);
+            }
+        }
+        default {
+            self->add_error($subname,"(): unknown specification type: '",$spec,"'");
+        }
+    }
+        return;
 }
 
 
