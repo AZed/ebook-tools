@@ -1651,9 +1651,14 @@ sub primary_author :method
 
     $element = $twigroot->first_descendant(\&twigelt_is_author);
     $element = $twigroot->first_descendant(qr/dc:creator/ix) if(!$element);
-    carp("##DEBUG: primary_author not found") unless($element->text);
-    return unless($element);
-    return unless($element->text);
+    if(! $element) {
+        carp("## WARNING: no dc:creator elements found!");
+        return;
+    }
+    if(! $element->text) {
+        carp("## WARNING: dc:creator element is empty!");
+        return;
+    }
     $fileas = $element->att('opf:file-as');
     $fileas = $element->att('file-as') unless($fileas);
     if(wantarray) { return ($element->text, $fileas); }
