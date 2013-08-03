@@ -687,6 +687,7 @@ sub init :method    ## no critic (Always unpack @_ first)
 
     $self->{twig}->parse($opfstring);
     $self->{twigroot} = $self->{twig}->root;
+    $self->opf_namespace;
     $self->twigcheck;
     debug(2,"DEBUG[/",$subname,"]");
     return $self;
@@ -1470,21 +1471,28 @@ sub manifest_hrefs :method
 }
 
 
-=head2 C<opffile()>
+=head2 C<opf_namespace()>
 
-Returns the name of the file where the OPF metadata will be stored or
-undef if no value is found..
+Some OPF generators explicity assign 'opf:' in the gi as a prefix on
+OPF elements.  This makes later parsing more complex and is
+unnecessary, so this is stripped before any parsing takes place.
 
 =cut
 
-sub opffile :method
-{
+sub opf_namespace :method {
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(3,"DEBUG[",$subname,"]");
-    return unless($self->{opffile});
-    return $self->{opffile};
+
+    my @elements = $self->{twig}->descendants(qr/^opf:/ix);
+    foreach my $el (@elements)
+    {
+        my $gi = $el->gi;
+        $gi =~ s/^opf:(.*)/$1/ix;
+        $el->set_gi($gi);
+    }
+    return;
 }
 
 
@@ -1508,6 +1516,24 @@ sub opfdir :method {
         return $self->{topdir};
     }
     return $self->{topdir} . '/' . $self->{opfsubdir};
+}
+
+
+=head2 C<opffile()>
+
+Returns the name of the file where the OPF metadata will be stored or
+undef if no value is found..
+
+=cut
+
+sub opffile :method
+{
+    my $self = shift;
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(3,"DEBUG[",$subname,"]");
+    return unless($self->{opffile});
+    return $self->{opffile};
 }
 
 
