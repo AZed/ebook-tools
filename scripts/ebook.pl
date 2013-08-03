@@ -1191,9 +1191,10 @@ none exists.
 Both the element to set and the value are specified as additional
 arguments, not as options.
 
-The elements that can be set are currently 'author', 'description',
-'title', 'publisher', 'rights', and 'subject'.  The 'subject' elements
-can be added multiple times.  Other entries will be overwritten.
+The elements that can be set are currently 'author', 'date',
+'description', 'title', 'publisher', 'rights', and 'subject'.  The
+'subject' elements can be added multiple times.  Other entries will be
+overwritten.
 
 The element argument can be shortened to the minimum number of letters
 necessary to uniquely identify it.
@@ -1269,7 +1270,12 @@ sub setmeta
                                        'fileas' => $fileas,
                                        'id' => $id );
         }
-        when (/^d/) {
+        when (/^da/) {
+            $value = fix_datestring($value);
+            $ebook->set_date('text' => $value,
+                             'id' => $id);
+        }
+        when (/^de/) {
             $ebook->set_description('text' => $value,
                                     'id' => $id);
         }
