@@ -2899,6 +2899,117 @@ sub delete_meta_filepos :method
 }
 
 
+=head2 C<delete_subject(%args)
+
+Deletes dc:subject and dc:Subject elements based on text content or
+the id, scheme, or basiccode attributes.  Matches are case-sensitive.
+
+Specifying multiple arguments will delete subject matching any of them.
+
+This has the same potential arguments as add_subject.
+
+Returns the count of elements deleted.
+
+=cut
+
+sub delete_subject :method {
+    my $self = shift;
+    my (%args) = @_;
+    my %valid_args = (
+        'text' => 1,
+        'id' => 1,
+        'scheme' => 1,
+        'basiccode' => 1,
+        );
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+    $self->twigcheck();
+    foreach my $arg (keys %args)
+    {
+        croak($subname,"(): invalid argument '",$arg,"'")
+            if(!$valid_args{$arg});
+    }
+
+    my @elements;
+    my $count = 0;
+
+    if($args{text}) {
+        @elements = $self->{twigroot}->descendants('dc:subject[text()="' . $args{text} . '"]');
+        foreach my $el (@elements)
+        {
+            $el->delete;
+            $count++;
+        }
+        @elements = $self->{twigroot}->descendants('dc:Subject[text()="' . $args{text} . '"]');
+        foreach my $el (@elements)
+        {
+            $el->delete;
+            $count++;
+        }
+    }
+
+    if($args{id}) {
+        @elements = $self->{twigroot}->descendants('dc:subject[@id="' . $args{id} . '"]');
+        foreach my $el (@elements)
+        {
+            $el->delete;
+            $count++;
+        }
+        @elements = $self->{twigroot}->descendants('dc:Subject[@id="' . $args{id} . '"]');
+        foreach my $el (@elements)
+        {
+            $el->delete;
+            $count++;
+        }
+    }
+
+    if($args{scheme}) {
+        @elements = $self->{twigroot}->descendants('dc:subject[@scheme="' . $args{scheme} . '"]');
+        foreach my $el (@elements)
+        {
+            $el->delete;
+            $count++;
+        }
+        @elements = $self->{twigroot}->descendants('dc:subject[@opf:scheme="' . $args{scheme} . '"]');
+        foreach my $el (@elements)
+        {
+            $el->delete;
+            $count++;
+        }
+        @elements = $self->{twigroot}->descendants('dc:Subject[@scheme="' . $args{scheme} . '"]');
+        foreach my $el (@elements)
+        {
+            $el->delete;
+            $count++;
+        }
+        @elements = $self->{twigroot}->descendants('dc:Subject[@opf:scheme="' . $args{scheme} . '"]');
+        foreach my $el (@elements)
+        {
+            $el->delete;
+            $count++;
+        }
+    }
+
+    if($args{basiccode}) {
+        @elements = $self->{twigroot}->descendants('dc:subject[@BASICCode="' . $args{id} . '"]');
+        foreach my $el (@elements)
+        {
+            $el->delete;
+            $count++;
+        }
+        @elements = $self->{twigroot}->descendants('dc:Subject[@BASICCode="' . $args{id} . '"]');
+        foreach my $el (@elements)
+        {
+            $el->delete;
+            $count++;
+        }
+    }
+    debug(2,"DEBUG: Deleted ",$count," elements");
+    return $count;
+}
+
+
 =head2 C<fix_creator()>
 
 Normalizes creator names and file-as attributes

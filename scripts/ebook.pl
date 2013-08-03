@@ -97,6 +97,7 @@ GetOptions(
     'author=s',
     'category|cat=s',
     'compression|c=i',
+    'delete',
     'dir|d=s',
     'fileas=s',
     'firstname=s',
@@ -1183,14 +1184,15 @@ sub impmeta
 
 =head2 C<setmeta>
 
-Set specific metadata values on an OPF file, creating a new entry only
-if none exists.
+Set specific metadata values on an OPF file, creating a new entry if
+none exists.
 
 Both the element to set and the value are specified as additional
 arguments, not as options.
 
 The elements that can be set are currently 'author', 'title',
-'publisher', and 'rights'.
+'publisher', 'rights', and 'subject'.  The 'subject' elements can be
+added multiple times.  Other entries will be overwritten.
 
 =head3 Options
 
@@ -1201,6 +1203,10 @@ The elements that can be set are currently 'author', 'title',
 
 Specifies the OPF file to modify.  If not specified, the script will
 attempt to find one in the current directory.
+
+=item * C<--delete>
+
+Allows the deletion of subject elements.  Has no effect on other elements.
 
 =item * C<--fileas>
 
@@ -1267,6 +1273,16 @@ sub setmeta
     {
         $ebook->set_rights('text' => $value,
                            'id' => $id );
+    }
+    elsif($element eq 'subject') {
+        if($opt{delete}) {
+            $ebook->delete_subject('text' => $value,
+                                   'id' => $id);
+        }
+        else {
+            $ebook->add_subject('text' => $value,
+                                'id' => $id);
+        }
     }
     elsif($element eq 'title')
     {
