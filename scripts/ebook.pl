@@ -1191,10 +1191,33 @@ none exists.
 Both the element to set and the value are specified as additional
 arguments, not as options.
 
-The elements that can be set are currently 'author', 'date',
-'description', 'title', 'publisher', 'rights', and 'subject'.  The
-'subject' elements can be added multiple times.  Other entries will be
-overwritten.
+The elements that can be set are currently:
+
+=over
+
+=item author
+
+=item date
+
+=item description
+
+=item publisher
+
+=item rights
+
+=item series
+
+=item subject
+
+=item title
+
+=back
+
+The 'series' values can take an extra argument containing the series
+index position.
+
+The 'subject' elements can be added multiple times.  Other entries
+will be overwritten.
 
 The element argument can be shortened to the minimum number of letters
 necessary to uniquely identify it.
@@ -1211,7 +1234,7 @@ attempt to find one in the current directory.
 
 =item * C<--delete>
 
-Allows the deletion of subject elements.  Has no effect on other elements.
+Allows the deletion of subject and series metadata.  Has no effect on other elements.
 
 =item * C<--fileas>
 
@@ -1228,6 +1251,7 @@ Specifies the ID to assign to the element.
 
 =head3 Examples
 
+ ebook setmeta series 'Some Other Series' 03
  ebook setmeta title 'My Great Title'
  ebook setmeta t 'My Great Title'
  ebook --opf newfile.opf setmeta author 'John Smith' --fileas 'Smith, John' --id mainauthor
@@ -1236,13 +1260,7 @@ Specifies the ID to assign to the element.
 
 sub setmeta
 {
-    my ($element,$value) = @_;
-    my %valid_elements = (
-        'title' => 1,
-        'author' => 1,
-        'publisher' => 1,
-        'rights' => 1,
-        );
+    my ($element,$value,$extra) = @_;
 
     unless($element)
     {
@@ -1250,12 +1268,7 @@ sub setmeta
         print "Example: ebook setmeta title 'My Great Title'\n";
         exit(EXIT_BADOPTION);
     }
-    unless($value)
-    {
-        print "You muts specify the value to set.\n";
-        print "Example: ebook setmeta title 'My Great Title'\n";
-        exit(EXIT_BADOPTION);
-    }
+    $value ||= '';
 
     my $opffile = $opt{opffile};
     my $fileas = $opt{fileas};
@@ -1287,7 +1300,28 @@ sub setmeta
             $ebook->set_rights('text' => $value,
                                'id' => $id);
         }
-        when (/^s/) {
+        when (/^se/) {
+            # Unfortunately, there are no readers as of this writing
+            # that support the EPub 3.0 collection standard, so the
+            # only way to currently designate series is via the
+            # calibre:series and calibre:series_index meta tags.
+
+            if($opt{delete}) {
+                $ebook->set_meta(name => 'calibre:series',
+                                 content => undef);
+                $ebook->set_meta(name => 'calibre:series_index',
+                                 content => undef);
+            }
+            else {
+                $ebook->set_meta(name => 'calibre:series',
+                                 content => $value);
+                if($extra) {
+                    $ebook->set_meta(name => 'calibre:series_index',
+                                     content => $extra);
+                }
+            }
+        }
+        when (/^su/) {
             if($opt{delete}) {
                 $ebook->delete_subject('text' => $value,
                                        'id' => $id);
