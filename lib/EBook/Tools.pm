@@ -4839,8 +4839,9 @@ not specified, the method sets an error and returns undef.
 
 =item C<event>
 
-This specifies the event attribute for the date.  If not specified,
-the method sets an error and returns undef.
+This optionally specifies the event attribute for the date.  This
+attribute is not valid in OPF 3.0 (which only allows publication date
+in this element) and should no longer be used.
 
 =item C<id> (optional)
 
@@ -4878,11 +4879,6 @@ sub set_date :method    ## no critic (Always unpack @_ first)
         $self->add_error($subname,"(): no text specified");
         return;
     }
-    unless($event)
-    {
-        $self->add_error($subname,"(): no event specified");
-        return;
-    }
 
     my $meta = $self->{twigroot}->first_child('metadata');
     my $dcmeta = $meta->first_child('dc-metadata');
@@ -4891,11 +4887,19 @@ sub set_date :method    ## no critic (Always unpack @_ first)
 
     $self->fix_metastructure_basic();
 
-    my $element = $self->{twigroot}->first_descendant(
-        "dc:date[\@opf:event=~/$event/ix or \@event=~/$event/ix]");
-    $element = $self->{twigroot}->first_descendant(
-        "dc:Date[\@opf:event=~/$event/ix or \@event=~/$event/ix]")
-        unless($element);
+    my $element;
+    if($event) {
+        $element = $self->{twigroot}->first_descendant(
+            "dc:date[\@opf:event=~/$event/ix or \@event=~/$event/ix]");
+        $element = $self->{twigroot}->first_descendant(
+            "dc:Date[\@opf:event=~/$event/ix or \@event=~/$event/ix]")
+          unless($element);
+    }
+    else {
+        $element = $self->{twigroot}->first_descendant("dc:date");
+        $element = $self->{twigroot}->first_descendant("dc:Date")
+          unless($element);
+    }
 
     if($element)
     {
@@ -4904,14 +4908,18 @@ sub set_date :method    ## no critic (Always unpack @_ first)
     elsif($dcmeta)
     {
         $element = $dcmeta->insert_new_elt('last_child','dc:Date');
-        $element->set_att('event',$event);
         $element->set_text($text);
+        if($event) {
+            $element->set_att('event',$event);
+        }
     }
     else
     {
         $element = $meta->insert_new_elt('last_child','dc:date');
-        $element->set_att('opf:event',$event);
         $element->set_text($text);
+        if($event) {
+            $element->set_att('opf:event',$event);
+        }
     }
 
     if($idelem && $idelem->cmp($element) )
