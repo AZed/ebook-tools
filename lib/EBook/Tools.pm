@@ -3528,7 +3528,9 @@ sub fix_manifest :method
 =head2 C<fix_metastructure_basic()>
 
 Verifies that <metadata> exists (creating it if necessary), and moves
-it to be the first child of <package>.
+it to be the first child of <package>.  If additional <metadata>
+elements exist, their children are moved into the first one found and
+then the extras are deleted.
 
 Used in L</fix_metastructure_oeb12()>, L</fix_packageid()>, and
 L</set_primary_author(%args)>.
@@ -3546,10 +3548,22 @@ sub fix_metastructure_basic :method
     my $twigroot = $self->{twigroot};
     my $metadata = $twigroot->first_descendant('metadata');
 
+    my @extras = $twigroot->descendants('metadata');
+    shift @extras;
+
     if(! $metadata)
     {
 	debug(1,"DEBUG: creating <metadata>");
 	$metadata = $twigroot->insert_new_elt('first_child','metadata');
+    }
+
+    foreach my $extra (@extras) {
+        my @elements = $extra->children;
+        foreach my $el (@elements) {
+            debug(2,"DEBUG: moving <",$el->gi,"> into primary metadata");
+            $el->move('last_child',$metadata);
+        }
+        $extra->delete;
     }
     debug(3,"DEBUG: moving <metadata> to be the first child of <package>");
     $metadata->move('first_child',$twigroot);
