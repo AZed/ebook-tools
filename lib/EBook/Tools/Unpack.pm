@@ -162,7 +162,7 @@ If specified, overrides the detected language information.
 =item * C<opffile>
 
 The name of the file in which the metadata will be stored.  If not
-specified, defaults to the value of C<dir> with C<.opf> appended.
+specified, defaults to C<content.opf>.
 
 =item * C<raw>
 
@@ -265,7 +265,7 @@ sub new   ## no critic (Always unpack @_ first)
     $self->{format} = $args{format} if($args{format});
     $self->{key} = $args{key} if($args{key});
     $self->{keyfile} = $args{keyfile} if($args{keyfile});
-    $self->{opffile} = $args{opffile} || ($self->{dir} . ".opf");
+    $self->{opffile} = $args{opffile} || "content.opf";
     $self->{author} = $args{author} if($args{author});
     $self->{title} = $args{title} if($args{title});
     $self->{datahashes} = {};
