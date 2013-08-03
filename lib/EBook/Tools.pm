@@ -856,6 +856,60 @@ sub contributor_list :method
 }
 
 
+=head2 C<coverimage()>
+
+Returns the href to the cover image, or undef if none is found.
+
+Checks the following in order:
+
+=over
+
+=item <reference type="other.ms-coverimage-standard">
+
+=item <EmbeddedCover>
+
+=item <meta name="cover"> (as href)
+
+=item <meta name="cover"> (as item id)
+
+=back
+
+=cut
+
+sub coverimage :method {
+    my ($self) = @_;
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+    $self->twigcheck();
+
+    my $twigroot = $self->{twigroot};
+    my $element;
+    my $href;
+    my $id;
+
+    $element = $twigroot->first_descendant('reference[@type="other.ms-coverimage-standard"]');
+    $href = $element->att('href') if $element;
+    return $href if $href;
+
+    $element = $twigroot->first_descendant('EmbeddedCover');
+    $href = $element->text if $element;
+    return $href if $href;
+
+    $element = $twigroot->first_descendant('meta[@name="cover"]');
+    if($element) {
+        if(-f $element->att('content')) {
+            return $element->att('content');
+        }
+        $id = $element->att('content');
+        $element = $twigroot->first_descendant("item[\@id='${id}']");
+        $href = $element->att('href') if $element;
+        return $href if $href;
+    }
+    return;
+}
+
+
 =head2 C<date_list(%args)>
 
 Returns the text of all dc:date elements (case-insensitive) matching
@@ -4018,6 +4072,10 @@ sub fix_opf20 :method
 
     # Ensure a sane structure
     $self->fix_metastructure_basic();
+
+    # If there is an existing cover image, ensure it hits all standards
+    my $coverimage = $self->coverimage;
+    $self->set_cover('href' => $coverimage) if $coverimage;
 
     my $twigroot = $self->{twigroot};
     my $metadata = $twigroot->first_descendant('metadata');
