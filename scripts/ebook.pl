@@ -760,7 +760,14 @@ sub fix
     $ebook = EBook::Tools->new();
     $ebook->init($opffile);
     $ebook->fix_oeb12 if($opt{oeb12});
-    $ebook->fix_opf20 if($opt{opf20});
+    if($opt{opf20}) {
+        if(-f 'META-INF/container.xml') {
+            $ebook->gen_epub_files;
+        }
+        else {
+            $ebook->fix_opf20;
+        }
+    }
     $ebook->fix_misc;
     $ebook->fix_mobi if($opt{mobi});
     unless($opt{nosave})
