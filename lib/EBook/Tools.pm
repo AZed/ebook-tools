@@ -2784,12 +2784,18 @@ sub add_subject :method     ## no critic (Always unpack @_ first)
 
     if($dcmeta)
     {
-        $element = $dcmeta->insert_new_elt('last_child','dc:Subject');
+        $element = $dcmeta->first_child('dc:Subject[text()="' . $args{text} .  '"]');
+        if(! $element) {
+            $element = $dcmeta->insert_new_elt('last_child','dc:Subject');
+        }
         $element->set_att('scheme' => $args{scheme}) if($args{scheme});
     }
     else
     {
-        $element = $meta->insert_new_elt('last_child','dc:subject');
+        $element = $meta->first_child('dc:subject[text()="' . $args{text} .  '"]');
+        if(! $element) {
+            $element = $meta->insert_new_elt('last_child','dc:subject');
+        }
         $element->set_att('opf:scheme' => $args{scheme}) if($args{scheme});
     }
     $element->set_text($args{text});

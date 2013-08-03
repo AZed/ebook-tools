@@ -1272,8 +1272,9 @@ The elements that can be set are currently:
 The 'series' values can take an extra argument containing the series
 index position.
 
-The 'subject' elements can be added multiple times.  Other entries
-will be overwritten.
+The 'subject' elements can be added multiple times (including in a
+single command-line, though --id will only set the ID on the first one
+specified).  Other entries will be overwritten.
 
 The element argument can be shortened to the minimum number of letters
 necessary to uniquely identify it.
@@ -1316,7 +1317,7 @@ Specifies the ID to assign to the element.
 
 sub setmeta
 {
-    my ($element,$value,$extra) = @_;
+    my ($element,$value,@extra) = @_;
 
     unless($element)
     {
@@ -1371,9 +1372,9 @@ sub setmeta
             else {
                 $ebook->set_meta(name => 'calibre:series',
                                  content => $value);
-                if($extra) {
+                if($extra[0]) {
                     $ebook->set_meta(name => 'calibre:series_index',
-                                     content => $extra);
+                                     content => $extra[0]);
                 }
             }
         }
@@ -1381,10 +1382,16 @@ sub setmeta
             if($opt{delete}) {
                 $ebook->delete_subject('text' => $value,
                                        'id' => $id);
+                foreach my $subject(@extra) {
+                    $ebook->delete_subject('text' => $subject);
+                }
             }
             else {
                 $ebook->add_subject('text' => $value,
                                     'id' => $id);
+                foreach my $subject(@extra) {
+                    $ebook->add_subject('text' => $subject);
+                }
             }
         }
         when (/^t/) {
