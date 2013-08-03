@@ -6494,6 +6494,14 @@ sub find_links
     my %linkhash;
     my @links;
 
+    my $subdir = dirname($filename);
+    if($subdir eq '.') {
+        $subdir = '';
+    }
+    else {
+        $subdir = $subdir . '/';
+    }
+
     open($fh,'<:raw',$filename)
         or croak($subname,"(): unable to open '",$filename,"'\n");
 
@@ -6506,6 +6514,13 @@ sub find_links
             # Strip off any named anchors
             $link =~ s/#.*$//;
             next unless($link);
+
+            # If the link is not a URI and we are in a subdirectory
+            # relative to the OPF, ensure that subdirectory is placed
+            # as a prefix.
+            if($subdir and $link !~ m#^ \w+://#ix) {
+                $link = $subdir . $link;
+            }
             debug(2, "DEBUG: found link '",$link,"'");
             $linkhash{$link}++;
         }
