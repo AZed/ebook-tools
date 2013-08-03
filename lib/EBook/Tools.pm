@@ -5083,6 +5083,78 @@ sub set_language :method    ## no critic (Always unpack @_ first)
 }
 
 
+=head2 set_meta(%args)
+
+Sets a <meta> element in the <metadata> element area.
+
+=head3 Arguments
+
+=over
+
+=item C<name>
+
+The name attribute to use when finding or creating the <meta> element.
+This must be specified.
+
+=item C<content>
+
+The value of the content attribute to set.  If this value is empty or
+undefined, but C<name> is provided and matches an existing element,
+that element will be deleted.
+
+=back
+
+=cut
+
+sub set_meta :method    ## no critic (Always unpack @_ first)
+{
+    my $self = shift;
+    my (%args) = @_;
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(3,"DEBUG[",$subname,"]");
+    my %valid_args = (
+        'name' => 1,
+        'content' => 1,
+        );
+    foreach my $arg (keys %args) {
+        croak($subname,"(): invalid argument '",$arg,"'")
+            if(!$valid_args{$arg});
+    }
+
+    my $name = $args{name};
+    my $content = $args{content};
+
+    unless($name) {
+        $self->add_error($subname,"(): no name specified for the meta tag");
+        return;
+    }
+
+    $self->fix_metastructure_basic();
+    my $metadata = $self->{twigroot}->first_child('metadata');
+    my $element = $metadata->first_descendant('meta[@name="' . $name . '"]');
+
+    if($element) {
+        if(! $content) {
+            debug(2,"DEBUG: deleting <meta name='",$name,"'>");
+            $element->delete;
+        }
+        else {
+            debug(2,"DEBUG: updating <meta name='",$name,"'>");
+            $element->set_att('content',$content);
+        }
+    }
+    else {
+        if($content) {
+            debug(2,"DEBUG: creating <meta name='",$name,"'>");
+            $element = $metadata->insert_new_elt('last_child','meta');
+            $element->set_att('name',$name);
+            $element->set_att('content',$content);
+        }
+    }
+}
+
+
 =head2 set_metadata(%args)
 
 Sets the text and optionally the ID of the first specified element
