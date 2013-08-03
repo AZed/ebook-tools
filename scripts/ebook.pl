@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 use warnings; use strict;
+use v5.10.1;
 
 
 =head1 NAME
@@ -97,7 +98,7 @@ GetOptions(
     'author=s',
     'category|cat=s',
     'compression|c=i',
-    'delete',
+    'delete|del',
     'dir|d=s',
     'fileas=s',
     'firstname=s',
@@ -1190,9 +1191,12 @@ none exists.
 Both the element to set and the value are specified as additional
 arguments, not as options.
 
-The elements that can be set are currently 'author', 'title',
-'publisher', 'rights', and 'subject'.  The 'subject' elements can be
-added multiple times.  Other entries will be overwritten.
+The elements that can be set are currently 'author', 'description',
+'title', 'publisher', 'rights', and 'subject'.  The 'subject' elements
+can be added multiple times.  Other entries will be overwritten.
+
+The element argument can be shortened to the minimum number of letters
+necessary to uniquely identify it.
 
 =head3 Options
 
@@ -1224,6 +1228,7 @@ Specifies the ID to assign to the element.
 =head3 Examples
 
  ebook setmeta title 'My Great Title'
+ ebook setmeta t 'My Great Title'
  ebook --opf newfile.opf setmeta author 'John Smith' --fileas 'Smith, John' --id mainauthor
 
 =cut
@@ -1258,37 +1263,44 @@ sub setmeta
     my $ebook = EBook::Tools->new();
     $ebook->init($opffile);
 
-    if($element eq 'author')
-    {
-        $ebook->set_primary_author('text' => $value,
-                                   'fileas' => $fileas,
-                                   'id' => $id );
-    }
-    elsif($element eq 'publisher')
-    {
-        $ebook->set_publisher('text' => $value,
-                              'id' => $id );
-    }
-    elsif($element eq 'rights')
-    {
-        $ebook->set_rights('text' => $value,
-                           'id' => $id );
-    }
-    elsif($element eq 'subject') {
-        if($opt{delete}) {
-            $ebook->delete_subject('text' => $value,
-                                   'id' => $id);
+    given($element) {
+        when (/^a/) {
+            $ebook->set_primary_author('text' => $value,
+                                       'fileas' => $fileas,
+                                       'id' => $id );
         }
-        else {
-            $ebook->add_subject('text' => $value,
-                                'id' => $id);
+        when (/^d/) {
+            $ebook->set_description('text' => $value,
+                                    'id' => $id);
+        }
+        when (/^p/) {
+            $ebook->set_publisher('text' => $value,
+                                  'id' => $id);
+        }
+        when (/^r/) {
+            $ebook->set_rights('text' => $value,
+                               'id' => $id);
+        }
+        when (/^s/) {
+            if($opt{delete}) {
+                $ebook->delete_subject('text' => $value,
+                                       'id' => $id);
+            }
+            else {
+                $ebook->add_subject('text' => $value,
+                                    'id' => $id);
+            }
+        }
+        when (/^t/) {
+            $ebook->set_title('text' => $value,
+                              'id' => $id);
+        }
+        default {
+            print "Unrecognized metadata element '",$element,"'!\n";
+            exit(EXIT_BADOPTION);
         }
     }
-    elsif($element eq 'title')
-    {
-        $ebook->set_title('text' => $value,
-                          'id' => $id);
-    }
+
     $ebook->save;
     $ebook->print_errors;
     $ebook->print_warnings;
