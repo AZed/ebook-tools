@@ -71,6 +71,8 @@ http://search.cpan.org/perldoc?Date::Manip#TIME_ZONES
 
 =item HTML::Parser
 
+=item Lingua::EN::NameParse
+
 =item Tie::IxHash
 
 =item Time::Local
@@ -148,6 +150,7 @@ use File::Path;     # Exports 'mkpath' and 'rmtree'
 use File::Temp;
 use HTML::Entities qw(decode_entities _decode_entities %entity2char);
 #use HTML::Tidy;
+use Lingua::EN::NameParse qw(case_surname);
 use Tie::IxHash;
 use Time::Local;
 use XML::Twig;
@@ -2896,6 +2899,50 @@ sub delete_meta_filepos :method
 }
 
 
+=head2 C<fix_creator()>
+
+Normalizes creator names and file-as attributes
+
+Names are normalized to 'First Last' format, while file-as attributes
+are normalized to 'Last, First' format.
+
+=cut
+
+sub fix_creator :method {
+    my $self = shift;
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+    $self->twigcheck();
+
+    my $twigroot = $self->{twigroot};
+    my @elements = $twigroot->descendants(qr/dc:creator/ix);
+    my $nameparse = new Lingua::EN::NameParse(
+        allow_reversed  => 1,
+        extended_titles => 1,
+        force_case      => 1,
+        lc_prefix       => 1,
+       );
+    foreach my $el (@elements) {
+        my $fileas = $el->att('opf:file-as') || '';
+        my $name = $el->text || '';
+        my $fixed;
+
+        if ( $nameparse->parse($name) ) {
+	    $self->add_warning(
+                "WARNING: failure while parsing name: ",
+                $nameparse->properties->{non_matching});
+        }
+        debug(2,"DEBUG: creator name '",$name,"' -> '",
+               $nameparse->case_all,"'");
+        $el->set_text($nameparse->case_all);
+        debug(2,"DEBUG: creator file-as '",$fileas,"' -> '",
+               $nameparse->case_all_reversed,"'");
+        $el->set_att('opf:file-as',$nameparse->case_all_reversed);
+    }
+}
+
+
 =head2 C<fix_dates()>
 
 Standardizes all <dc:date> elements via fix_datestring().  Adds a
@@ -3473,6 +3520,7 @@ sub fix_misc :method
 
     $self->delete_meta_filepos();
     $self->fix_packageid();
+    $self->fix_creator();
     $self->fix_dates();
     $self->fix_languages();
     $self->fix_publisher();
@@ -5813,6 +5861,21 @@ sub set_type :method    ## no critic (Always unpack @_ first)
 
 All procedures are exportable, but none are exported by default.  All
 procedures can be exported by using the ":all" tag.
+
+
+=head2 C<capitalize($string)>
+
+Capitalizes the first letter of each word in $string.
+
+Returns the corrected string.
+
+=cut
+
+sub capitalize {
+    my ($string) = @_;
+    $string =~ s/(?<=\w)(.)/\l$1/gx;
+    return $string;
+}
 
 
 =head2 C<create_epub_container($opffile)>
