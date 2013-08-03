@@ -4051,7 +4051,7 @@ sub fix_opf20 :method
 	@elements = $twigroot->descendants(qr/$dcmetatag/ix);
 	foreach my $el (@elements)
 	{
-	    debug(1,"DEBUG: checking element '",$el->gi,"'");
+	    debug(2,"DEBUG: checking DC element <",$el->gi,">");
 	    $el->set_gi($dcelements20{$dcmetatag});
             $el = twigelt_fix_opf20_atts($el);
 	    $el->move('last_child',$metadata);
@@ -4061,9 +4061,11 @@ sub fix_opf20 :method
     # Find any <meta> elements anywhere in the package and move them
     # under <metadata>.  Force the tag to lowercase.
 
-    @elements = $twigroot->children(qr/^meta$/ix);
+    @elements = $twigroot->descendants(qr/^meta$/ix);
     foreach my $el (@elements)
     {
+        debug(2,'DEBUG: checking meta element <',$el->gi,
+              ' name="',$el->att('name'),'">');
         $el->set_gi(lc $el->gi);
         $el->move('last_child',$metadata);
     }
@@ -7640,7 +7642,7 @@ sub twigelt_fix_opf20_atts
     my ($element) = @_;
     return unless($element);
     my $subname = ( caller(0) )[3];
-    debug(2,"DEBUG[",$subname,"]");
+    debug(3,"DEBUG[",$subname,"]");
 
     my %opfatts_ns = (
         "role" => "opf:role",
