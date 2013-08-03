@@ -158,6 +158,7 @@ my %dispatch = (
     'genmobi'     => \&genmobi,
     'genncx'	  => \&genncx,
     'impmeta'     => \&impmeta,
+    'setcover'    => \&setcover,
     'setmeta'     => \&setmeta,
     'splitmeta'   => \&splitmeta,
     'splitpre'    => \&splitpre,
@@ -1179,6 +1180,54 @@ sub impmeta
         print "Failed to write '",$output,"' -- aborting!\n";
         exit(EXIT_BADOUTPUT);
     }
+    exit(EXIT_SUCCESS);
+}
+
+=head2 C<setcover>
+
+Sets the cover image
+
+Takes as a single argument the href of the file to use.
+
+=head3 Options
+
+=over
+
+=item * C<--opffile>
+
+=item * C<--opf>
+
+Specifies the OPF file to modify.  If not specified, the script will
+attempt to find one
+
+=item * C<--identifier>
+
+=item * C<--id>
+
+Specifies the ID to assign to the associated manifest item.
+
+=back
+
+=cut
+
+sub setcover {
+    my ($href) = @_;
+
+    unless($href) {
+        print "You must specify the href (filename) of the cover image!\n";
+        exit(EXIT_BADOPTION);
+    }
+
+    my $opffile = $opt{opffile};
+    my $id = $opt{identifier};
+
+    my $ebook = EBook::Tools->new();
+    $ebook->init($opffile);
+    $ebook->set_cover(href => $href,
+                      id => $id);
+    $ebook->save;
+    $ebook->print_errors;
+    $ebook->print_warnings;
     exit(EXIT_SUCCESS);
 }
 

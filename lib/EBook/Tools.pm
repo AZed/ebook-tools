@@ -4802,6 +4802,135 @@ sub set_adult :method
 }
 
 
+=head2 C<set_cover(%args)>
+
+Sets a cover image
+
+In OPF 2.0, this is done by setting a guide reference element.  In
+OEB1.2, this is done by setting the <EmbeddedCover> tag.
+
+If the filename is not currently listed as an item in the manifest, it is added.
+
+=head3 Arguments
+
+=over
+
+=item C<href>
+
+The filename of the image file to use.  This is mandatory.
+
+=item C<id>
+
+The id attribute to assign to its item element
+
+=item C<spec>
+
+The specification to use, either OEB12 or OPF20.  If this is left
+undefined, the current spec state will be checked, and if that is
+undefined, it will default to OPF20.
+
+=back
+
+=cut
+
+sub set_cover :method
+{
+    my ($self,%args) = @_;
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+    my %valid_args = (
+        'href' => 1,
+        'id' => 1,
+        'spec' => 1,
+        );
+    foreach my $arg (keys %args)
+    {
+        croak($subname,"(): invalid argument '",$arg,"'")
+            if(!$valid_args{$arg});
+    }
+
+    my $href = $args{href};
+    my $newid = $args{id};
+    my $spec = $args{spec};
+    my $mimetype;
+    my $manifest;
+    my $guide;
+    my $dcmeta;
+    my $element;
+
+    if(! $href) {
+        $self->add_error($subname,"(): no href specified");
+        return;
+    }
+    $mimetype = mimetype($href);
+    if($mimetype !~ m#^image/#ix) {
+        $self->add_warning(
+            $subname,"(): ",$href,
+            " does not appear to be an image (detected: ",$mimetype,")"
+           );
+    }
+
+    if(! $spec) {
+        $spec = $self->spec || 'OPF20';
+    }
+
+    given($spec) {
+        when(/OPF20/) {
+            $self->fix_metastructure_basic;
+            $self->fix_guide;
+            $guide = $self->{twigroot}->first_child('guide');
+            $element = $guide->first_child('reference[@type="other.ms-coverimage-standard"]');
+            if($element) {
+                $element->set_att('href',$href);
+                $element->set_att('title','Cover');
+            }
+            else {
+                $element = $guide->insert_new_elt('last_child','reference');
+                $element->set_att('href',$href);
+                $element->set_att('title','Cover');
+                $element->set_att('type','other.ms-coverimage-standard');
+            }
+        }
+        when(/OEB12/) {
+            $self->fix_metastructure_oeb12;
+            $dcmeta = $self->{twigroot}->first_child('dc-metadata');
+            $element = $dcmeta->first_child('EmbeddedCover');
+            if($element) {
+                $element->set_text($href);
+            }
+            else {
+                $element = $dcmeta->insert_new_elt('last_child','EmbeddedCover');
+                $element->set_text($href);
+            }
+        }
+        default {
+            self->add_error($subname,"(): unknown specification type: '",$spec,"'");
+        }
+    }
+
+    # Ensure that there is a matching manifest item
+    $manifest = $self->{twigroot}->first_child('manifest');
+    $element = $manifest->first_child('item[@href="' . $href . '"]');
+    if($element) {
+        if($newid) {
+            $element->set_id($newid);
+        }
+    }
+    else {
+        $element = $manifest->insert_new_elt('first_child','item');
+        if($newid) {
+            $element->set_id($newid);
+        }
+        else {
+            $element->set_id($href);
+        }
+        $element->set_att('href',$href);
+        $element->set_att('media-type',$mimetype);
+    }
+}
+
+
 =head2 C<set_date(%args)>
 
 Sets the date metadata for a given event.  If more than one dc:date or
