@@ -201,6 +201,11 @@ L</fix_misc()>.
 Keys should be entered in lowercase.  The hash can also be set empty
 to prevent fix_publisher() from taking any action at all.
 
+=item C<%referencetypes>
+
+A hash mapping valid OPF 2.0 reference types to themselves, along with
+common variants to standard types.
+
 =item C<%relatorcodes>
 
 A hash mapping the MARC Relator Codes (see:
@@ -395,6 +400,33 @@ delete($nonxmlentity2char{'gt'});
 delete($nonxmlentity2char{'lt'});
 delete($nonxmlentity2char{'quot'});
 delete($nonxmlentity2char{'apos'});
+
+our %referencetypes = (
+    # standard types
+    'acknowledgements'   => 'acknowledgements',
+    'bibliography'       => 'bibliography',
+    'colophon'           => 'colophon',
+    'copyright-page'     => 'copyright-page',
+    'cover'              => 'cover',
+    'dedication'         => 'dedication',
+    'epigraph'           => 'epigraph',
+    'foreword'           => 'foreword',
+    'glossary'           => 'glossary',
+    'index'              => 'index',
+    'loi'                => 'loi',
+    'lot'                => 'lot',
+    'notes'              => 'notes',
+    'preface'            => 'preface',
+    'text'               => 'text',
+    'title-page'         => 'title-page',
+    'toc'                => 'toc',
+    # common nonstandard types
+    'start'              => 'text',
+    'coverimage'         => 'other.ms-coverimage',
+    'coverimagestandard' => 'other.ms-coverimage-standard',
+    'thumbimage'         => 'other.ms-thumbimage',
+    'thumbimagestandard' => 'other.ms-thumbimage-standard',
+   );
 
 our %relatorcodes = (
     'act' => 'Actor',
@@ -3206,6 +3238,9 @@ Fixes problems related to the OPF guide elements, specifically:
 
 =item * Moves all reference elements directly underneath the guide element
 
+=item * Finds nonstandard reference types and either converts them to
+standard or prefaces them with 'other.'
+
 =item * Finds reference elements with a href with only an anchor
 portion and assigns them to the first spine href.  This only works if
 the spine is in working condition, so it may be wise to run
@@ -3231,6 +3266,7 @@ sub fix_guide :method
     my $guide = $twigroot->first_descendant('guide');
     my $parent;
     my $href;
+    my $type;
     my @spine;
 
     # If <guide> doesn't exist, create it
@@ -3251,6 +3287,15 @@ sub fix_guide :method
 
     my @elements = $twigroot->descendants(qr/^reference$/ix);
     foreach my $el (@elements) {
+        $type = $el->att('type');
+        if($referencetypes{$type}) {
+            $el->set_att('type',$referencetypes{$type});
+        }
+        elsif($type !~ /^other./x) {
+            $type = 'other.' . $type;
+            $el->set_att('type',$type);
+        }
+
         $href = $el->att('href');
         if (!$href) {
             # No href means it is broken.
