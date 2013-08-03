@@ -4030,7 +4030,7 @@ sub fix_opf20 :method
     }
 
     # Find any <meta> elements anywhere in the package and move them
-    # under <x-metadata>.  Force the tag to lowercase.
+    # under <metadata>.  Force the tag to lowercase.
 
     @elements = $twigroot->children(qr/^meta$/ix);
     foreach my $el (@elements)
