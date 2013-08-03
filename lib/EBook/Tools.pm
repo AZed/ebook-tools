@@ -2959,7 +2959,7 @@ sub delete_subject :method {
     my @elements;
     my $count = 0;
 
-    if($args{text}) {
+    if(defined $args{text}) {
         @elements = $self->{twigroot}->descendants('dc:subject[text()="' . $args{text} . '"]');
         foreach my $el (@elements)
         {
@@ -3659,6 +3659,7 @@ sub fix_misc :method
     $self->twigcheck();
 
     $self->delete_meta_filepos();
+    $self->delete_subject('text' => '');
     $self->fix_packageid();
     $self->fix_creator();
     $self->fix_dates();
