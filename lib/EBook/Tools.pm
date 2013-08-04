@@ -5048,7 +5048,7 @@ sub set_cover :method
         if($newid) {
             $element->set_id($newid);
         }
-        elsif($self->{twig}->first_elt('*[\@id="coverimage"]')) {
+        elsif($self->{twig}->first_elt('*[@id="coverimage"]')) {
             $element->set_id(basename($href));
         }
         else {
