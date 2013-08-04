@@ -76,6 +76,8 @@ http://search.cpan.org/perldoc?Date::Manip#TIME_ZONES
 
 =item Time::Local
 
+=item URI::Encode
+
 =item XML::Twig
 
 =back
@@ -152,6 +154,7 @@ use HTML::Entities qw(decode_entities _decode_entities %entity2char);
 use Lingua::EN::NameParse qw(case_surname);
 use Tie::IxHash;
 use Time::Local;
+use URI::Encode qw(uri_encode uri_decode);
 use XML::Twig;
 
 =head1 CONFIGURABLE PACKAGE VARIABLES
@@ -3446,6 +3449,7 @@ sub fix_links :method
             );
         return;
     }
+
     @unchecked = $self->manifest_hrefs;
     if(!@unchecked)
     {
@@ -3459,6 +3463,7 @@ sub fix_links :method
     # the manifest
     foreach my $mhref (@unchecked)
     {
+        $mhref = uri_decode($mhref);
         $links{$mhref} = undef unless(exists $links{$mhref});
     }
 
@@ -3468,6 +3473,7 @@ sub fix_links :method
               " items left to check at start of loop");
         $href = shift(@unchecked);
         $href = trim($href);
+        $href = uri_decode($href);
         debug(3,"DEBUG: checking '",$href,"'");
         next if(defined $links{$href});
 
@@ -4552,12 +4558,7 @@ sub gen_epub :method    ## no critic (Always unpack @_ first)
     debug(3,"DEBUG: adding manifest files to zip archive");
     foreach my $file ($self->manifest_hrefs())
     {
-	if(! $file)
-	{
-	    error("No items found in manifest!");
-            debug(1,"No items found in manifest!");
-	    return;
-	}
+        $file = uri_decode($file);
 	if(-f $self->{opfsubdir} . '/' . $file)
 	{
 	    $member = $zip->addFile($self->{opfsubdir} . '/' . $file);
@@ -6630,6 +6631,9 @@ sub find_links
                   ([^">]+)/gix;
         foreach my $link (@links)
         {
+            # Perform URI decoding
+            $link = uri_decode($link);
+
             # Strip off any named anchors
             $link =~ s/#.*$//;
             next unless $link;
