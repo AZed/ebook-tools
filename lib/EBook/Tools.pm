@@ -3567,10 +3567,12 @@ sub fix_manifest :method
 
     my $manifest = $twigroot->first_descendant('manifest');
     my @elements;
+    my @extras;
     my $parent;
 
     my $href;
     my $id;
+    my $type;
 
     # If <manifest> doesn't exist, create it
     if(! $manifest)
@@ -3585,7 +3587,19 @@ sub fix_manifest :method
     if($parent != $twigroot)
     {
 	debug(1,"DEBUG: moving <manifest>");
-	$manifest->move('last_child',$twigroot);
+	$manifest->move('first_child',$twigroot);
+    }
+
+    # Find and merge any other manifests
+    @extras = $twigroot->descendants('manifest');
+    shift @extras;
+    foreach my $extra (@extras) {
+        my @elements = $extra->children;
+        foreach my $el (@elements) {
+            debug(2,"DEBUG: moving <",$el->gi,"> into primary manifest");
+            $el->move('last_child',$manifest);
+        }
+        $extra->delete;
     }
 
     @elements = $twigroot->descendants(qr/^item$/ix);
@@ -3593,6 +3607,21 @@ sub fix_manifest :method
     {
         $href = $el->att('href');
         $id = $el->id;
+        $type = $el->att('media-type');
+
+        # Convert to OPF2.0 document types if necessary
+        if($self->spec and $self->spec eq 'OPF20') {
+            if($type eq "text/x-oeb1-document") {
+                $type = "application/xhtml+xml";
+                $el->set_att('media-type',$type);
+            }
+            if($id eq 'ncx') {
+                $type = 'application/x-dtbncx+xml';
+                $el->set_att('media-type',$type);
+            }
+
+        }
+
         if(!$id)
         {
             if(!$href)
@@ -4165,6 +4194,12 @@ sub fix_opf20 :method
 	    $xmeta->move('last_child',$metadata);
 	    $xmeta->erase;
 	}
+    }
+
+    # Delete any old OEB12 output elements
+    @elements = $twigroot->descendants('output');
+    foreach my $el (@elements) {
+        $el->delete;
     }
 
     # For all DC elements at any location, set the correct tag name
@@ -4763,6 +4798,7 @@ sub gen_ncx :method    ## no critic (Always unpack @_ first)
     # <ncx>
     $element = XML::Twig::Elt->new('ncx');
     $element->set_att('xmlns' => 'http://www.daisy.org/z3986/2005/ncx/');
+    $element->set_att('version' => '2005-1');
     $ncx->set_root($element);
     $ncxroot = $ncx->root;
 
@@ -5078,6 +5114,14 @@ sub set_cover :method
             }
             $self->set_meta('name' => 'cover',
                             'content' => $href);
+
+            # Now that the OPF 2.0 elements are set, we can delete the
+            # OEB12 EmbeddedCover element
+            $element = $self->{twigroot}->first_descendant('EmbeddedCover');
+            if($element) {
+                debug(1,"deleting cover");
+                $element->delete;
+            }
         }
         when(/OEB12/) {
             $self->fix_metastructure_oeb12;
