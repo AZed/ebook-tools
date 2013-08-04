@@ -374,6 +374,7 @@ our %publishermap = (
     'harper-collins'        => 'HarperCollins',
     'manybooks'             => 'ManyBooks',
     'manybooks.net'         => 'ManyBooks',
+    'penguin'               => 'Penguin Group',
     'penguin group'         => 'Penguin Group',
     'project gutenberg'     => 'Project Gutenberg',
     'gutenberg'             => 'Project Gutenberg',
@@ -424,6 +425,7 @@ our %referencetypes = (
     'start'              => 'text',
     'coverimage'         => 'other.ms-coverimage',
     'coverimagestandard' => 'other.ms-coverimage-standard',
+    'other.copyright'    => 'copyright-page',
     'thumbimage'         => 'other.ms-thumbimage',
     'thumbimagestandard' => 'other.ms-thumbimage-standard',
    );
