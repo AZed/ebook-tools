@@ -5,10 +5,23 @@
 
 # change 'tests => 1' to 'tests => last_test_to_print';
 
-use Test::More tests => 31;
+use Test::More tests => 32;
+
 # Add blib/scripts to the path to find the executables
 
-BEGIN { use_ok('EBook::Tools') };
+BEGIN {
+    use_ok('EBook::Tools');
+    use_ok('EBook::Tools::BISG');
+
+    # We have to ensure that the BISAC codes have been cached locally
+    # as early as possible before we begin, or the subject cleanup
+    # tests will fail in 20-Unpack.
+    my $bisg = EBook::Tools::BISG->new();
+    if(! $bisg->bisac() ) {
+        $bisg->download_bisac;
+        $bisg->save_bisac;
+    }
+};
 # $EBook::Tools::debug = 2;
 my $ebook;
 my ($meta1,$meta2);

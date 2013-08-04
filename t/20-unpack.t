@@ -2,13 +2,15 @@ use strict; use warnings; use utf8;
 use Cwd qw(chdir getcwd);
 use Digest::MD5 qw(md5_base64);
 use EBook::Tools;
+use EBook::Tools::BISG;
 use File::Basename qw(basename);
 use File::Copy;
 use File::Path;    # Exports 'mkpath' and 'rmtree'
-use Test::More tests => 48;
+use Test::More tests => 49;
 BEGIN
 {
     use_ok('EBook::Tools::Unpack');
+    use_ok('EBook::Tools::BISG');
     use_ok('EBook::Tools::EReader',qw(:all));
     use_ok('EBook::Tools::Mobipocket',qw(:all));
     use_ok('EBook::Tools::MSReader',qw(:all));
@@ -18,6 +20,7 @@ BEGIN
 # Set this to 1 or 2 to stress the debugging code, but expect lots of
 # output.
 $EBook::Tools::debug = 0;
+
 
 my $cwd;
 my $ebook = EBook::Tools->new();
@@ -31,6 +34,7 @@ my %md5sums = (
 
 my $mobitest_description =
     '<P>Description line 1 — <EM>emphasized</EM> </P> <P>Description line 2 — <STRONG>a bold move </STRONG></P>';
+
 
 ########## TESTS BEGIN ##########
 
@@ -61,8 +65,9 @@ is_deeply(\@list, ['Me Myself'],
 is_deeply(\@list, ['0-9999-XXXX-1'],
           'content.opf has correct ISBNs');
 @list = $ebook->subject_list;
-is_deeply(\@list, ['Computing, Internet','Secondary subject','Education'],
-   'content.opf has correct subjects');
+is_deeply(\@list, ['Computing, Internet','Secondary subject','Education',
+                   'COMPUTERS / General','EDUCATION / General','Computers'],
+          'content.opf has correct subjects');
 is($ebook->description,$mobitest_description,
    'content.opf has correct description');
 @list = $ebook->publishers;

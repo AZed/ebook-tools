@@ -68,6 +68,7 @@ my %opt = (
     'category'    => undef,
     'compression' => undef,
     'dir'         => '',
+    'erotic'      => 0,
     'fileas'      => '',
     'firstname'   => undef,
     'fix'         => 1,
@@ -104,6 +105,7 @@ GetOptions(
     'compression|c=i',
     'delete|del',
     'dir|d=s',
+    'erotic|sex',
     'fileas=s',
     'firstname=s',
     'fix',
@@ -860,6 +862,11 @@ C<--oeb12> are specified, the program will abort with an error.
 Correct Mobipocket-specific elements, creating an output element to
 force UTF-8 output if one does not yet exist.
 
+=item C<--erotic> or C<--sex>
+
+Enable special handling for erotic fiction (most notably special
+subject normalization rules).
+
 =item C<--names>
 
 Normalize names to standard capitalization and format (primary name
@@ -884,6 +891,7 @@ sub fix
     $opffile = $opt{opffile} if(!$opffile);
     $ebook = EBook::Tools->new();
     $ebook->init($opffile);
+    if($opt{erotic}) { $ebook->set_erotic(1); }
     $ebook->fix_oeb12 if($opt{oeb12});
     if($opt{opf20}) {
         if(-f 'META-INF/container.xml') {
