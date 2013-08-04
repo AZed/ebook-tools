@@ -6632,7 +6632,11 @@ sub find_links
         {
             # Strip off any named anchors
             $link =~ s/#.*$//;
-            next unless($link);
+            next unless $link;
+
+            # Skip links that begin with backwards directory traversal
+            $link =~ s#^../.*$##;
+            next unless $link;
 
             # If the link is not a URI and we are in a subdirectory
             # relative to the OPF, ensure that subdirectory is placed
