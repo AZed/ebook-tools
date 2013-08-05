@@ -7486,7 +7486,7 @@ sub system_tidy_xhtml
 		     '-asxhtml',
                      '--output-xhtml','yes',
                      '--add-xml-decl','yes',
-		     '--doctype','transitional',
+		     '--doctype','auto',
 		     '-f',$tidyxhtmlerrors,
 		     '-o',$outfile,
 		     $infile);
