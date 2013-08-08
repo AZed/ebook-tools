@@ -2606,7 +2606,11 @@ sub add_item :method   ## no critic (Always unpack @_ first)
 
     $id = $href unless($id);
     $id =~ s/[^\w.-]//gx; # Delete all nonvalid XML 1.0 namechars
-    $id =~ s/^[.\d -]+//gx; # Delete all nonvalid XML 1.0 namestartchars
+    if($id =~ /^[.\d -]+/x) {
+       # We're starting with a nonvalid XML 1.0 namestartchar, so
+       # prefix with id_
+        $id = 'id_' . $id;
+    }
 
     $element = $twig->first_elt("*[\@id='$id']");
     if($element)
