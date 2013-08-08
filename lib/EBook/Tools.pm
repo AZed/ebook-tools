@@ -429,6 +429,7 @@ our %referencetypes = (
     'coverimage'         => 'other.ms-coverimage',
     'coverimagestandard' => 'other.ms-coverimage-standard',
     'other.copyright'    => 'copyright-page',
+    'other.ms-firstpage' => 'text',
     'thumbimage'         => 'other.ms-thumbimage',
     'thumbimagestandard' => 'other.ms-thumbimage-standard',
    );
