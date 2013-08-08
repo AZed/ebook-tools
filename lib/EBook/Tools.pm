@@ -2643,7 +2643,7 @@ sub add_item :method   ## no critic (Always unpack @_ first)
 	'media-type' => $mediatype
 	);
 
-    debug(2,"DEBUG[/",$subname,"]");
+    debug(3,"DEBUG[/",$subname,"]");
     return 1;
 }
 
@@ -3516,10 +3516,10 @@ sub fix_links :method
         }
 
         debug(1,"DEBUG: finding links in '",$href,"'");
-        push(@newlinks,find_links($href));
+        @newlinks = find_links($href);
         trim(@newlinks) if(@newlinks);
         $links{$href} = 1;
-        foreach my $newlink (@newlinks)
+        foreach my $newlink (sort @newlinks)
         {
             # Skip mailto: links
             if($newlink =~ m#^mailto:#ix) {
@@ -3534,9 +3534,10 @@ sub fix_links :method
             }
             elsif(!exists $links{$newlink})
             {
-                debug(2,"DEBUG: adding '",$newlink,"' to the list");
+                debug(2,"DEBUG: adding '",$newlink,"' to the manifest");
                 push(@unchecked,$newlink);
                 $self->add_item($newlink);
+                $links{$newlink} = 1;
             }
         }
         debug(2,"DEBUG: ",scalar(@unchecked),
@@ -3570,6 +3571,7 @@ sub fix_manifest :method
 
     my $twigroot = $self->{twigroot};
 
+    my $spec = $self->spec || '';
     my $manifest = $twigroot->first_descendant('manifest');
     my @elements;
     my @extras;
@@ -3615,7 +3617,7 @@ sub fix_manifest :method
         $type = $el->att('media-type');
 
         # Convert to OPF2.0 document types if necessary
-        if($self->spec and $self->spec eq 'OPF20') {
+        if($spec eq 'OPF20') {
             if($type eq "text/x-oeb1-document") {
                 $type = "application/xhtml+xml";
                 $el->set_att('media-type',$type);
@@ -6688,8 +6690,11 @@ sub find_links
             next unless $link;
 
             # Skip links that begin with backwards directory traversal
-            $link =~ s#^../.*$##;
-            next unless $link;
+            next if $link =~ m#^\.\./.*$#;
+
+            # Baen HTML sources in particular may contain javascript
+            # href generators
+            next if $link =~ /\+ /;
 
             # If the link is not a URI and we are in a subdirectory
             # relative to the OPF, ensure that subdirectory is placed
