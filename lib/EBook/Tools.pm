@@ -3721,6 +3721,12 @@ sub fix_metastructure_basic :method
     }
     debug(3,"DEBUG: moving <metadata> to be the first child of <package>");
     $metadata->move('first_child',$twigroot);
+
+    if($metadata->att('xmlns:calibre')) {
+        # xmlns:calibre isn't a real namespace; it's just there for
+        # advertising, so remove it
+        $metadata->del_att('xmlns:calibre');
+    }
     return 1;
 }
 
