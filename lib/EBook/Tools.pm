@@ -3483,7 +3483,7 @@ sub fix_links :method
         next if(defined $links{$href});
 
         # Skip mailto: links
-        if($href =~ m#^mailto:#ix) {
+        if($href =~ m#mailto:#ix) {
             debug(1,"DEBUG: mailto link '",$href,"' skipped");
             $links{$href} = 0;
             next;
@@ -3522,7 +3522,7 @@ sub fix_links :method
         foreach my $newlink (sort @newlinks)
         {
             # Skip mailto: links
-            if($newlink =~ m#^mailto:#ix) {
+            if($newlink =~ m#mailto:#ix) {
                 debug(1,"DEBUG: mailto link '",$href,"' skipped");
                 next;
             }
