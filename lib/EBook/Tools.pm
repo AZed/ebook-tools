@@ -2885,7 +2885,7 @@ sub add_subject :method     ## no critic (Always unpack @_ first)
 
     if($dcmeta)
     {
-        $element = $dcmeta->first_child('dc:Subject[text()="' . $args{text} .  '"]');
+        $element = $dcmeta->first_child('dc:Subject[string()="' . $args{text} .  '"]');
         if(! $element) {
             $element = $dcmeta->insert_new_elt('last_child','dc:Subject');
         }
@@ -2893,7 +2893,7 @@ sub add_subject :method     ## no critic (Always unpack @_ first)
     }
     else
     {
-        $element = $meta->first_child('dc:subject[text()="' . $args{text} .  '"]');
+        $element = $meta->first_child('dc:subject[string()="' . $args{text} .  '"]');
         if(! $element) {
             $element = $meta->insert_new_elt('last_child','dc:subject');
         }
@@ -4076,6 +4076,12 @@ sub fix_oeb12 :method
     @elements = $xmeta->children;
     $xmeta->delete unless(@elements);
 
+    # Delete Calibre advertisements in dc:Contributor elements
+    @elements = $twigroot->descendants('dc:Contributor[string() =~ /calibre-ebook.com|calibre.kovidgoyal.net/]');
+    foreach my $el (@elements) {
+	$el->delete;
+    }
+
     # Fix <manifest> and <spine>
     $self->fix_manifest;
     $self->fix_spine;
@@ -4239,6 +4245,17 @@ sub fix_opf20 :method
               ' name="',$el->att('name'),'">');
         $el->set_gi(lc $el->gi);
         $el->move('last_child',$metadata);
+    }
+
+    # Delete Calibre advertisements in dc:contributor elements
+    @elements = $twigroot->descendants('dc:contributor[string() =~ /calibre-ebook.com/]');
+    foreach my $el (@elements) {
+	$el->delete;
+    }
+    # Delete Aspose.Words advertisements in dc:contributor elements
+    @elements = $twigroot->descendants('dc:contributor[string() =~ /Aspose.Words/]');
+    foreach my $el (@elements) {
+	$el->delete;
     }
 
     # Fix the <package> attributes
