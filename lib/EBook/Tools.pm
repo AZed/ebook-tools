@@ -747,7 +747,7 @@ C<init_blank> takes up to three optional named arguments:
 =item C<opffile>
 
 This specifies the OPF filename to use.  If not specified, defaults to
-the name of the current working directory with ".opf" appended
+'content.opf'
 
 =item C<author>
 
@@ -782,13 +782,12 @@ sub init_blank :method    ## no critic (Always unpack @_ first)
         'author' => 1,
         'title' => 1,
         );
-    foreach my $arg (keys %args)
-    {
+    foreach my $arg (keys %args) {
         croak($subname,"(): invalid argument '",$arg,"'")
             if(!$valid_args{$arg});
     }
 
-    $args{opffile} ||= basename(getcwd) . ".opf";
+    $args{opffile} ||= "content.opf";
 
     my $author = $args{author} || 'Unknown Author';
     my $title = $args{title} || 'Unknown Title';
