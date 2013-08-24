@@ -1517,7 +1517,7 @@ sub fix_html_filepos :method
             # Insert a whole new <a id> here
             debug(2,"DEBUG: filepos ",$pos," points to '<mbp',",
                   " creating new anchor");
-            substr($$self{text},$pos,4,'<a id="' . $pos . '"></a><mbp');
+            substr($$self{text},$pos,4,'<a id="fp' . $pos . '"></a><mbp');
         }
         elsif($atpos =~ /^<(a|p)[ >]/ix)
         {
@@ -1542,7 +1542,7 @@ sub fix_html_filepos :method
             # All other elements
             debug(2,"DEBUG: filepos ",$pos," points to '",$atpos,
                   "', creating new anchor");
-            substr($$self{text},$pos,1,'<a id="' . $pos . '"></a><');
+            substr($$self{text},$pos,1,'<a id="fp' . $pos . '"></a><');
         }
         else
         {
