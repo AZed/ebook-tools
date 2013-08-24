@@ -373,13 +373,10 @@ sub blank
     $args{author} = $opt{author} if($opt{author});
     $args{title} = $opt{title} if($opt{title});
 
+    useoptdir() unless($opt{nosave});
     $ebook = EBook::Tools->new();
     $ebook->init_blank(%args);
-    unless($opt{nosave})
-    {
-        useoptdir();
-        $ebook->save;
-    }
+    $ebook->save unless($opt{nosave});
     exit(EXIT_SUCCESS);
 }
 
