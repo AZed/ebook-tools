@@ -389,7 +389,7 @@ sub raw :method
 sub title :method
 {
     my $self = shift;
-    return $$self{opffile};
+    return $$self{title};
 }
 
 sub detected :method
