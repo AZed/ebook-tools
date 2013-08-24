@@ -103,6 +103,8 @@ use base qw(Exporter);
 
 our @EXPORT_OK;
 @EXPORT_OK = qw (
+    &capitalize
+    &clean_filename
     &create_epub_container
     &create_epub_mimetype
     &debug
@@ -6424,6 +6426,22 @@ Returns the corrected string.
 sub capitalize {
     my ($string) = @_;
     $string =~ s/(?<=\w)(.)/\l$1/gx;
+    return $string;
+}
+
+
+=head2 C<clean_filename($string)>
+
+Takes an input string and cleans out any characters that would not be
+valid in a filename.
+
+Returns the cleaned string.
+
+=cut
+
+sub clean_filename {
+    my ($string) = @_;
+    $string =~ s/[^A-Za-z0-9_ \-\.]//g;
     return $string;
 }
 

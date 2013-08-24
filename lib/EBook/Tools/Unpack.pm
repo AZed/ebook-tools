@@ -925,7 +925,7 @@ sub unpack_mobi :method
     my $firstimagerec = 0;
 
     # Used for file output
-    my $htmlname = $self->filebase . ".html";
+    my $htmlname;
 
     my $reccount = 0; # The Record ID cannot be reliably used to identify
                       # the first record.  This increments as each
@@ -949,6 +949,12 @@ sub unpack_mobi :method
     = $mobi->{header}{mobi}{dolanguage};
 
     $self->detect_from_mobi_exth();
+    if($self->{detected}->{title}) {
+        $htmlname = clean_filename($self->{detected}->{title} . ".html");
+    }
+    else {
+        $htmlname = clean_filename($self->filebase . ".html");
+    }
 
     if($$self{raw} && !$$self{nosave})
     {
