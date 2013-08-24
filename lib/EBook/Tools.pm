@@ -3174,15 +3174,17 @@ sub fix_creator :method {
 
         if ( $nameparse->parse($name) ) {
 	    $self->add_warning(
-                "WARNING: failure while parsing name: ",
-                $nameparse->properties->{non_matching});
+                "failure while parsing name: ",
+                {$nameparse->properties}->{non_matching});
         }
-        debug(2,"DEBUG: creator name '",$name,"' -> '",
-               $nameparse->case_all,"'");
-        $el->set_text($nameparse->case_all);
-        debug(2,"DEBUG: creator file-as '",$fileas,"' -> '",
-               $nameparse->case_all_reversed,"'");
-        $el->set_att('opf:file-as',$nameparse->case_all_reversed);
+        else {
+            debug(2,"DEBUG: creator name '",$name,"' -> '",
+                  $nameparse->case_all,"'");
+            $el->set_text($nameparse->case_all);
+            debug(2,"DEBUG: creator file-as '",$fileas,"' -> '",
+                  $nameparse->case_all_reversed,"'");
+            $el->set_att('opf:file-as',$nameparse->case_all_reversed);
+        }
     }
 }
 
