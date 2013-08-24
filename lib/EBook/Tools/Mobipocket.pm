@@ -494,13 +494,12 @@ sub write_text :method
     return unless($$self{text});
 
     debug(1,"DEBUG: writing text to '",$filename,
-          "', encoding ",$pdbencoding{$$self{encoding}});
+          "', encoding ",$pdbencoding{$self->{encoding}});
 
     open(my $fh,">",$filename)
         or croak($subname,"(): unable to open '",$filename,"' for writing!\n");
-    if($$self{encoding} == 65001) { binmode($fh,":utf8"); }
-    else { binmode($fh); }
-    print {*$fh} $$self{text};
+    binmode($fh);
+    print {*$fh} $self->{text};
     close($fh)
         or croak($subname,"(): unable to close '",$filename,"'!\n");
 
@@ -1337,6 +1336,8 @@ sub fix_html :method   ## no critic (Always unpack @_ first)
 
     my $tree;
     my @elements;
+    my $head_element;
+    my $element;
     my $recindex;
     my $link;
 
@@ -1347,30 +1348,58 @@ sub fix_html :method   ## no critic (Always unpack @_ first)
     $self->fix_html_filepos();
 
     # Convert or remove the Mobipocket-specific tags
-    $$self{text} =~ s#<mbp:pagebreak [\s\n]*
-                     #<br style="page-break-after: always" #gix;
-    $$self{text} =~ s#</mbp:pagebreak>##gix;
-    $$self{text} =~ s#</?mbp:nu>##gix;
-    $$self{text} =~ s#</?mbp:section>##gix;
-    $$self{text} =~ s#</?mbp:frameset##gix;
-    $$self{text} =~ s#</?mbp:slave-frame##gix;
+    $self->{text} =~ s#<mbp:pagebreak [\s\n]*
+                      #<br style="page-break-after: always" #gix;
+    $self->{text} =~ s#</mbp:pagebreak>##gix;
+    $self->{text} =~ s#</?mbp:nu>##gix;
+    $self->{text} =~ s#</?mbp:section>##gix;
+    $self->{text} =~ s#</?mbp:frameset##gix;
+    $self->{text} =~ s#</?mbp:slave-frame##gix;
 
 
     # More complex alterations will require a HTML tree
     $tree = HTML::TreeBuilder->new();
     $tree->ignore_unknown(0);
+    $tree->no_expand_entities(1);
+    $tree->store_comments(1);
 
-    # If the encoding is UTF-8, we have to decode it before the parse
-    # or the parser will break
-    if($encoding == 65001)
-    {
-        debug(1,"DEBUG: decoding utf8 text");
-        croak($subname,"(): failed to decode UTF-8 text")
-            unless(decode_utf8($$self{text}));
-        $tree->parse($$self{text});
+    # If the encoding is UTF-8, we have to note it specially before
+    # the parse or the parser will break
+    if($encoding == 65001) {
+        $tree->utf8_mode(1);
     }
-    else { $tree->parse($$self{text}); }
+    $tree->parse($self->{text});
     $tree->eof();
+
+    # Update contents of <head>
+    $head_element = $tree->find('head');
+    if(! $head_element) {
+        $self->add_warning("No <head> element found in Mobipocket HTML!");
+    }
+    else {
+        # Fix missing <title>
+        $element = $head_element->find('title');
+        if(! $element) {
+            debug(1,"DEBUG: title element missing, creating as '",
+                  $self->{title},"'");
+            $head_element->push_content(['title',$self->{title}]);
+        }
+        else {
+            if(! $element->as_trimmed_text) {
+                debug(1,"DEBUG: title is empty, setting to '",$self->{title},"'");
+                $element->replace_with($self->{title});
+            }
+        }
+
+        # Set UTF8 content type if necessary
+        if($encoding == 65001) {
+            $head_element->push_content(
+                [ 'meta',
+                {'http-equiv' => 'Content-type'},
+                {'content' => 'text/html;charset=UTF-8' },
+                 ]);
+        }
+    }
 
     # Replace img recindex links with img src links
     debug(2,"DEBUG: converting img recindex attributes");
@@ -1402,36 +1431,43 @@ sub fix_html :method   ## no critic (Always unpack @_ first)
     }
 
     debug(2,"DEBUG: converting HTML tree");
-    $$self{text} = $tree->as_HTML;
+    # We don't bother specifying an indent here, as the resulting
+    # formatting is still broken and we have to insert newlines later
+    # anyway.
+    #
+    # TODO: experiment with using Mojo::DOM instead
+    $self->{text} = $tree->as_HTML(undef,'',{});
 
     croak($subname,"(): HTML tree output is empty")
-        unless($$self{text});
+        unless($self->{text});
 
     # Strip embedded nulls
     debug(2,"DEBUG: stripping nulls");
-    $$self{text} =~ s/\0//gx;
+    $self->{text} =~ s/\0//gx;
 
-    # HTML::TreeBuilder will remove all of the newlines, so add some
-    # back in for readability even if tidy isn't called
+    # HTML::TreeBuilder will not insert all appropriate newlines even
+    # specifying indents in as_HTML, so add some back in for
+    # readability even if tidy isn't called
+    #
     # This is unfortunately quite slow.
-    unless($args{nonewlines})
-    {
+    unless($args{nonewlines}) {
         debug(1,"DEBUG: adding newlines");
-        $$self{text} =~ s#<(body|html)> \s* \n?
-                         #<$1>\n#gix;
-        $$self{text} =~ s#\n? <div
-                         #\n<div#gix;
-        $$self{text} =~ s#</div> \s* \n?
-                         #</div>\n#gix;
-        $$self{text} =~ s#</h(\d)> \s* \n?
-                         #</h$1>\n#gix;
-        $$self{text} =~ s#</head> \s* \n?
-                         #</head>\n#gix;
-        $$self{text} =~ s#\n? <(br|p)([\s>])
-                         #\n<$1$2#gix;
-        $$self{text} =~ s#</p>\s*
-                         #</p>\n#gix;
+        $self->{text} =~ s#<(body|html)> \s* \n?
+                          #<$1>\n#gix;
+        $self->{text} =~ s#\n? <div
+                          #\n<div#gix;
+        $self->{text} =~ s#</div> \s* \n?
+                          #</div>\n#gix;
+        $self->{text} =~ s#</h(\d)> \s* \n?
+                          #</h$1>\n#gix;
+        $self->{text} =~ s#</head> \s* \n?
+                          #</head>\n#gix;
+        $self->{text} =~ s#\n? <(br|p)([\s>])
+                          #\n<$1$2#gix;
+        $self->{text} =~ s#</p>\s*
+                          #</p>\n#gix;
     }
+
     return 1;
 }
 
