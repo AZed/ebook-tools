@@ -65,7 +65,7 @@ is($ebook1->opffile,'missingfwid.opf',
 # init_blank()
 $blank = EBook::Tools->new() or die;
 ok($blank->init_blank(),'init_blank() returned successfully');
-is($blank->opffile,'t.opf','init_blank() created opf from directory name');
+is($blank->opffile,'content.opf','init_blank() created default opf filename');
 
 # init_blank(opffile => $filename)
 ok($blank->init_blank(opffile => 'test-blank.opf'),

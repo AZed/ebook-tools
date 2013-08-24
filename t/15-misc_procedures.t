@@ -52,7 +52,7 @@ SKIP:
        'system_tidy_xml: missingfwid.opf');
 }
 
-SKIP: 
+SKIP:
 {
     skip('No /proc/PID/statm',1) unless(-f "/proc/$$/statm");
     ok(print_memory('15-misc_procedures.t'),'print_memory returns sucessfully');

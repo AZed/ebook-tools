@@ -28,6 +28,7 @@ BEGIN { use_ok('EBook::Tools') };
 $EBook::Tools::debug = 1;
 
 ok( (basename(getcwd()) eq 't') || chdir('t/'), "Working in 't/" ) or die;
+my $cwd = getcwd();
 
 copy('test-containsmetadata.html','containsmetadata.html')
     or die("Could not copy containsmetadata.html: $!");
@@ -73,15 +74,16 @@ $exitval = system('perl','-I../lib','../scripts/ebook.pl',
                   '--dir','epubdir');
 $exitval >>= 8;
 is($exitval,0,'ebook genepub exits successfully');
-ok(-f 'epubdir/emptyuid.epub','ebook genepub created the epub book');
+ok(-f 'epubdir/t.epub','ebook genepub created the epub book');
 
 # ebook fix -d testdir
+rmtree('testdir');
 $exitval = system('perl','-I../lib','../scripts/ebook.pl',
                   'fix','emptyuid.opf',
                   '-d','testdir');
 $exitval >>= 8;
 is($exitval,0,'ebook fix -d testdir exits successfully');
-ok(-f 'testdir/emptyuid.opf',
+ok(-f 'testdir/content.opf',
    'ebook fix -d testdir created file in correct place');
 
 # ebook splitmeta

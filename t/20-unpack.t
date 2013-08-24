@@ -45,76 +45,78 @@ ok($unpacker = EBook::Tools::Unpack->new(
 ok($unpacker->unpack,'unpack(mobi) returns successfully');
 chdir($cwd);
 ok(-d 'mobitest','unpack() created mobitest/');
-ok(-f 'mobitest/mobitest.opf','unpack() created mobitest/mobitest.opf');
-ok(-f 'mobitest/mobitest.html','unpack() created mobitest/mobitest.html');
+ok(-f 'mobitest/content.opf','unpack() created mobitest/content.opf');
+ok(-f 'mobitest/A Noncompliant OPF Test Sample.html',
+   'unpack() created mobitest/A Noncompliant OPF Test Sample.html');
 
-ok($ebook->init('mobitest/mobitest.opf'),'mobitest.opf parses');
+ok($ebook->init('mobitest/content.opf'),'content.opf parses');
 is($ebook->title,'A Noncompliant OPF Test Sample',
-   'mobitest.opf title is correct');
+   'content.opf title is correct');
 is($ebook->primary_author,'Zed 1 Pobre',
-   'mobitest.opf author is correct');
+   'content.opf author is correct');
 @list = $ebook->contributor_list;
 is_deeply(\@list, ['Me Myself'],
-          'mobitest.opf has correct contributors');
+          'content.opf has correct contributors');
 @list = $ebook->isbn_list;
 is_deeply(\@list, ['0-9999-XXXX-1'],
-          'mobitest.opf has correct ISBNs');
+          'content.opf has correct ISBNs');
 @list = $ebook->subject_list;
 is_deeply(\@list, ['Computing, Internet','Secondary subject','Education'],
-   'mobitest.opf has correct subjects');
+   'content.opf has correct subjects');
 is($ebook->description,$mobitest_description,
-   'mobitest.opf has correct description');
+   'content.opf has correct description');
 @list = $ebook->publishers;
 is_deeply(\@list, ['CPAN'],
-          'mobitest.opf has correct publishers');
+          'content.opf has correct publishers');
 is($ebook->date_list(event => 'publication'),'2008-10',
-   'mobitest.opf has correct publication date');
+   'content.opf has correct publication date');
 is($ebook->languages,'en',
-   'mobitest.opf has correct language');
+   'content.opf has correct language');
 is($ebook->element_list(cond => 'DictionaryInLanguage'),'de-at',
-   'mobitest.opf has correct DictionaryInLanguage');
+   'content.opf has correct DictionaryInLanguage');
 is($ebook->element_list(cond => 'DictionaryOutLanguage'),'es-ar',
-   'mobitest.opf has correct DictionaryOutLanguage');
+   'content.opf has correct DictionaryOutLanguage');
 is($ebook->adult,'yes',
-   'mobitest.opf is flagged adult');
+   'content.opf is flagged adult');
 @list = $ebook->retailprice;
 is_deeply(\@list, ['1.23','USD'],
-          'mobitest.opf has correct SRP');
+          'content.opf has correct SRP');
 @list = $ebook->manifest_hrefs;
-is_deeply(\@list, ['mobitest.html'],
-          'mobitest.opf has correct manifest');
+is_deeply(\@list, ['A Noncompliant OPF Test Sample.html'],
+          'content.opf has correct manifest');
 @list = $ebook->spine_idrefs;
 is_deeply(\@list, ['text-main'],
-          'mobitest.opf has correct spine');
+          'content.opf has correct spine');
 
 
 ##### MOBIPOCKET HUFF/CDIC #####
+chdir($cwd);
 ok($unpacker = EBook::Tools::Unpack->new(
-       'file' => 'mobi/hufftest.mobi'),
+    'file' => 'mobi/hufftest.mobi'),
    'new(file => mobi/hufftest.mobi) returns successfully');
 ok($unpacker->unpack,'unpack(mobi/hufftest) returns successfully');
 chdir($cwd);
 ok(-d 'hufftest','unpack(mobi/hufftest.mobi) created hufftest/');
-ok(-f 'hufftest/hufftest.opf',
-   'unpack(mobi/hufftest.mobi) created hufftest/hufftest.opf');
-ok(-f 'hufftest/hufftest.html',
-   'unpack(mobi/hufftest.mobi) created hufftest/hufftest.html');
+ok(-f 'hufftest/content.opf',
+   'unpack(mobi/hufftest.mobi) created hufftest/content.opf');
+ok(-f 'hufftest/Space Encyclopedia HUFFCDIC test.html',
+   'unpack(mobi/hufftest.mobi) created hufftest/Space Encyclopedia HUFFCDIC test.html');
 ok(-f 'hufftest/Space_Encycl-_HUFFCDIC_test-0001.jpg',
    'unpack(mobi/hufftest.mobi) created image');
-ok($ebook->init('hufftest/hufftest.opf'),'mobitest.opf parses');
+ok($ebook->init('hufftest/content.opf'),'content.opf parses');
 is($ebook->title,'Space Encyclopedia (HUFF/CDIC test)',
-   'hufftest.opf title is correct');
+   'content.opf title is correct');
 is($ebook->primary_author,'Mobipocket',
-   'hufftest.opf author is correct');
+   'content.opf author is correct');
 
 ##### EREADER #####
+chdir($cwd);
 ok($unpacker = EBook::Tools::Unpack->new(
        'file' => 'ereader/ertest.pdb'),
    'new(file => ereader/ertest.pdb) returns successfully');
 ok($unpacker->unpack,'unpack(ereader) returns successfully');
-chdir($cwd);
 ok(-d 'ertest','unpack() created ertest/');
-ok(-f 'ertest/ertest.opf','created ertest/ertest.opf');
+ok(-f 'ertest/content.opf','created ertest/content.opf');
 ok(-f 'ertest/ertest.pml','created ertest/ertest.pml');
 ok(-d 'ertest/ertest_img','unpack() created ertest/ertest_img');
 open(my $fh_md5,'<:raw','ertest/ertest_img/resonance.png')
@@ -123,16 +125,16 @@ $md5->addfile($fh_md5);
 close($fh_md5);
 is($md5->b64digest,$md5sums{'resonance.png'},
    'unpack() created ertest/ertest_img/resonance.png with correct checksum');
-ok($ebook->init('ertest/ertest.opf'),'ertest.opf parses');
+ok($ebook->init('ertest/content.opf'),'content.opf parses');
 is($ebook->title,'eReader Test',
-   'ertest.opf title is correct');
+   'content.opf title is correct');
 is($ebook->primary_author,'Zed Pobre',
-   'ertest.opf author is correct');
+   'content.opf author is correct');
 @list = $ebook->publishers;
 is_deeply(\@list, ['CPAN'],
-          'ertest.opf has correct publishers');
+          'content.opf has correct publishers');
 is($ebook->rights,"Copyright \x{a9} 2008 Zed Pobre",
-   'ertest.opf has correct rights (in UTF-8)');
+   'content.opf has correct rights (in UTF-8)');
 
 ########## CLEANUP ##########
 
