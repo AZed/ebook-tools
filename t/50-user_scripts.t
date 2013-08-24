@@ -9,7 +9,7 @@ BEGIN
     }
     else
     {
-        plan tests => 18;
+        plan tests => 16;
     }
 };
 use Cwd qw(chdir getcwd);
@@ -62,6 +62,7 @@ is($ebook->twigroot->first_descendant('dc:title')->text,'Testing Title',
 is($ebook->twigroot->first_descendant('dc:creator')->text,'Testing Author',
    'ebook blank created correct author');
 
+chdir($cwd);
 # ebook fix
 $exitval = system('perl','-I../lib','../scripts/ebook.pl','fix','emptyuid.opf');
 $exitval >>= 8;
@@ -75,16 +76,6 @@ $exitval = system('perl','-I../lib','../scripts/ebook.pl',
 $exitval >>= 8;
 is($exitval,0,'ebook genepub exits successfully');
 ok(-f 'epubdir/t.epub','ebook genepub created the epub book');
-
-# ebook fix -d testdir
-rmtree('testdir');
-$exitval = system('perl','-I../lib','../scripts/ebook.pl',
-                  'fix','emptyuid.opf',
-                  '-d','testdir');
-$exitval >>= 8;
-is($exitval,0,'ebook fix -d testdir exits successfully');
-ok(-f 'testdir/content.opf',
-   'ebook fix -d testdir created file in correct place');
 
 # ebook splitmeta
 unlink('containsmetadata.opf');
@@ -114,6 +105,7 @@ unlink('missingfwid.opf');
 unlink('missingfwid.opf.backup');
 unlink('part1.html');
 unlink('part2.html');
+unlink('toc.ncx');
 rmtree('META-INF');
 rmtree('epubdir');
 rmtree('testdir');

@@ -732,14 +732,6 @@ C<--oeb12> are specified, the program will abort with an error.
 Correct Mobipocket-specific elements, creating an output element to
 force UTF-8 output if one does not yet exist.
 
-=item C<--dir directory>
-
-=item C<-d directory>
-
-Save the fixed output into the specified directory.  The default is to
-write all output in the current working directory.  Note that this
-only affects the output, and not where the OPF file is found.
-
 =back
 
 =cut
@@ -767,13 +759,9 @@ sub fix
     }
     $ebook->fix_misc;
     $ebook->fix_mobi if($opt{mobi});
-    unless($opt{nosave})
-    {
-        useoptdir();
-        $ebook->save;
-    }
-    if($ebook->errors)
-    {
+    $ebook->save unless($opt{nosave});
+
+    if($ebook->errors) {
         $ebook->print_errors;
         print "Unrecoverable errors while fixing '",$opffile,"'!\n";
         exit(EXIT_TOOLSERROR);
