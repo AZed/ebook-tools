@@ -1222,7 +1222,7 @@ sub ParseRecordText :method
     my $recordtext;
     my $extradatasize;
 
-    debug(1,"DEBUG: extradataflags = ",$$self{header}{mobi}{extradataflags});
+    debug(3,"DEBUG: extradataflags = ",$$self{header}{mobi}{extradataflags});
     if( $$self{header}{mobi}{extradataflags} )
     {
         $extradatasize = record_extradata_size(

@@ -853,6 +853,7 @@ sub uncompress_palmdoc
                 {
                     debug(1,"WARNING: LZ77 decompression reference is before",
                           " beginning of text!");
+                    debug(2,"  textlength=${textlength}, lz77offset=${lz77offset}");
                     return;
                 }
                 $text .= substr($text,$textpos,1);
