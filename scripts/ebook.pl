@@ -79,6 +79,7 @@ my %opt = (
     'mimetype'    => '',
     'mobi'        => 0,
     'mobigencmd'  => $config->val('helpers','mobigen') || undef,
+    'names'	  => 0,
     'nosave'      => 0,
     'noscript'    => 0,
     'oeb12'       => 0,
@@ -112,6 +113,7 @@ GetOptions(
     'mimetype|mtype=s',
     'mobi|m',
     'mobigencmd|mobigen=s',
+    'names',
     'nosave',
     'noscript',
     'raw',
@@ -732,6 +734,14 @@ C<--oeb12> are specified, the program will abort with an error.
 Correct Mobipocket-specific elements, creating an output element to
 force UTF-8 output if one does not yet exist.
 
+=item C<--names>
+
+Normalize names to standard capitalization and format (primary name
+display is "First Middle Last", but file-as is "Last, First Middle".
+
+This is not done by default as it can damage unusual but correct
+names.
+
 =back
 
 =cut
@@ -759,6 +769,9 @@ sub fix
     }
     $ebook->fix_misc;
     $ebook->fix_mobi if($opt{mobi});
+    if($opt{names}) {
+        $ebook->fix_creators;
+    }
     $ebook->save unless($opt{nosave});
 
     if($ebook->errors) {
