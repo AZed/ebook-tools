@@ -3143,16 +3143,19 @@ sub delete_subject :method {
 }
 
 
-=head2 C<fix_creator()>
+=head2 C<fix_creators()>
 
 Normalizes creator names and file-as attributes
 
 Names are normalized to 'First Last' format, while file-as attributes
 are normalized to 'Last, First' format.
 
+This can damage some unusual names that do not match standard
+capitalization formats, so it is not made part of L</fix_misc()>.
+
 =cut
 
-sub fix_creator :method {
+sub fix_creators :method {
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
@@ -3805,7 +3808,10 @@ Fixes miscellaneous potential problems in OPF data.  Specifically,
 this is a shortcut to calling L</delete_meta_filepos()>,
 L</fix_packageid()>, L</fix_dates()>, L</fix_languages()>,
 L</fix_publisher()>, L</fix_manifest()>, L</fix_spine()>,
-L</fix_guide()>, and L</fix_links()>.
+L</fix_subjects()>, L</fix_guide()>, and L</fix_links()>.
+
+L</fix_creators()> is not run from this, as it carries a risk of taking
+a correct name and making it incorrect.
 
 The objective here is that you can run either C<fix_misc()> and either
 L</fix_oeb12()> or L</fix_opf20()> and a perfectly valid OPF file will
@@ -3824,7 +3830,6 @@ sub fix_misc :method
     $self->delete_meta_filepos();
     $self->delete_subject('text' => '');
     $self->fix_packageid();
-    $self->fix_creator();
     $self->fix_dates();
     $self->fix_languages();
     $self->fix_publisher();
