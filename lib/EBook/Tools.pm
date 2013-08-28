@@ -217,6 +217,14 @@ A hash mapping the MARC Relator Codes (see:
 http://www.loc.gov/marc/relators/relacode.html) to their descriptive
 names.
 
+=item C<%strangenames>
+
+=item C<%strangefileas>
+
+Hashes mapping mapping known incorrect outputs of name normalization
+to correct format.  The first handles the main name display, the
+second the file-as output.
+
 =item C<$tidycmd>
 
 The tidy executable name.  This has to be a fully qualified pathname
@@ -567,6 +575,16 @@ our %relatorcodes = (
     'wde' => 'Wood-engraver',
     'wit' => 'Witness',
     );
+
+our %strangenames = (
+    'brian d foy'	=> 'brian d foy',
+    'brian d. foy'	=> 'brian d foy',
+   );
+
+our %strangefileas = (
+    'foy, brian d'	=> 'd foy, brian',
+    'foy, brian d.'	=> 'd foy, brian',
+   );
 
 our %validspecs = (
     'OEB12' => 'OEB12',
@@ -3181,12 +3199,21 @@ sub fix_creators :method {
                 {$nameparse->properties}->{non_matching});
         }
         else {
+            $fixed = $nameparse->case_all;
+            if($strangenames{lc $fixed}) {
+                $fixed = $strangenames{lc $fixed};
+            }
             debug(2,"DEBUG: creator name '",$name,"' -> '",
-                  $nameparse->case_all,"'");
-            $el->set_text($nameparse->case_all);
+                  $fixed,"'");
+            $el->set_text($fixed);
+
+            $fixed = $nameparse->case_all_reversed;
+            if($strangefileas{lc $fixed}) {
+                $fixed = $strangefileas{lc $fixed};
+            }
             debug(2,"DEBUG: creator file-as '",$fileas,"' -> '",
-                  $nameparse->case_all_reversed,"'");
-            $el->set_att('opf:file-as',$nameparse->case_all_reversed);
+                  $fixed,"'");
+            $el->set_att('opf:file-as',$fixed);
         }
     }
 }
