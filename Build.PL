@@ -24,7 +24,7 @@ my $build = Module::Build->new
          'String::CRC32'     => 1,
          'Tie::IxHash'       => 1.21,
          'Time::Local'       => 1.18,
-         'URI::Encode'	     => 0.09,
+         'URI::Escape'	     => 1,
          'version'           => 0.74,
          'XML::Twig'         => 3.32,
      },
