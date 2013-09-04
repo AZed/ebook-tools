@@ -6766,6 +6766,9 @@ sub find_links
             # Skip links that begin with backwards directory traversal
             next if $link =~ m#^\.\./.*$#;
 
+            # Strip javascript: hrefs
+            next if $link =~ m#javascript:#;
+
             # Baen HTML sources in particular may contain javascript
             # href generators
             next if $link =~ /\+ /;
