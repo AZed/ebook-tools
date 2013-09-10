@@ -629,18 +629,15 @@ it will also immediately initialize itself via the C<init> method.
 
 =cut
 
-sub new   ## no critic (Always unpack @_ first)
-{
-    my $self = shift;
+sub new {
+    my ($self,$filename) = @_;
     my $class = ref($self) || $self;
-    my ($filename) = @_;
     my $subname = (caller(0))[3];
     debug(2,"DEBUG[",$subname,"]");
 
     $self = fields::new($class);
 
-    if($filename)
-    {
+    if($filename) {
 	debug(2,"DEBUG: new object from '",$filename,"'");
 	$self->init($filename);
     }
@@ -664,10 +661,8 @@ initialization croaks.
 
 =cut
 
-sub init :method    ## no critic (Always unpack @_ first)
-{
-    my $self = shift;
-    my ($filename) = @_;
+sub init :method {
+    my ($self,$filename) = @_;
     my $fh_opffile;
     my $opfstring;
     my $subname = (caller(0))[3];
@@ -718,7 +713,7 @@ sub init :method    ## no critic (Always unpack @_ first)
 	);
 
     # Read and decode entities before parsing to avoid parsing errors
-    open($fh_opffile,'<:utf8',$self->{opffile})
+    open($fh_opffile,'<:encoding(UTF-8)',$self->{opffile})
         or croak($subname,"(): failed to open '",$self->{opffile},
                  "' for reading!");
     read($fh_opffile,$opfstring,-s $self->opffile)
@@ -788,10 +783,8 @@ specified, defaults to "Unknown Title".
 
 =cut
 
-sub init_blank :method    ## no critic (Always unpack @_ first)
-{
-    my $self = shift;
-    my (%args) = @_;
+sub init_blank :method {
+    my ($self,%args) = @_;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
@@ -862,8 +855,7 @@ exists.  Expected values are 'yes' and undef.
 
 =cut
 
-sub adult :method
-{
+sub adult :method {
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
@@ -889,8 +881,7 @@ In scalar context, returns the first contributor, not the last.
 
 =cut
 
-sub contributor_list :method
-{
+sub contributor_list :method {
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
@@ -993,10 +984,8 @@ matches either one (i.e. the logic is OR).
 
 =cut
 
-sub date_list :method    ## no critic (Always unpack @_ first)
-{
-    my $self = shift;
-    my (%args) = @_;
+sub date_list :method {
+    my ($self,%args) = @_;
     my %valid_args = (
         'id' => 1,
         'event' => 1,
@@ -1005,8 +994,7 @@ sub date_list :method    ## no critic (Always unpack @_ first)
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
     $self->twigcheck();
-    foreach my $arg (keys %args)
-    {
+    foreach my $arg (keys %args) {
         croak($subname,"(): invalid argument '",$arg,"'")
             if(!$valid_args{$arg});
     }
@@ -1015,22 +1003,17 @@ sub date_list :method    ## no critic (Always unpack @_ first)
     my @list = ();
     my $id;
     my $scheme;
-    foreach my $el (@elements)
-    {
-        if($args{id})
-        {
+    foreach my $el (@elements) {
+        if($args{id}) {
             $id = $el->att('id') || '';
-            if($id eq $args{id})
-            {
+            if($id eq $args{id}) {
                 push(@list,$el->text);
                 next;
             }
         }
-        if($args{event})
-        {
+        if($args{event}) {
             $scheme = $el->att('opf:event') || $el->att('event') || '';
-            if($scheme eq $args{event})
-            {
+            if($scheme eq $args{event}) {
                 push(@list,$el->text);
                 next;
             }
@@ -1050,8 +1033,7 @@ Returns the description of the e-book, if set, or undef otherwise.
 
 =cut
 
-sub description :method
-{
+sub description :method {
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
@@ -1111,10 +1093,8 @@ logic is OR).
 
 =cut
 
-sub element_list :method    ## no critic (Always unpack @_ first)
-{
-    my $self = shift;
-    my (%args) = @_;
+sub element_list :method {
+    my ($self,%args) = @_;
     my %valid_args = (
         'cond' => 1,
         'id' => 1,
@@ -1124,13 +1104,11 @@ sub element_list :method    ## no critic (Always unpack @_ first)
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
     $self->twigcheck();
-    foreach my $arg (keys %args)
-    {
+    foreach my $arg (keys %args) {
         croak($subname,"(): invalid argument '",$arg,"'")
             if(!$valid_args{$arg});
     }
-    unless($args{cond})
-    {
+    unless($args{cond}) {
         $self->add_error($subname,"(): no search condition specified");
         return;
     }
@@ -1139,31 +1117,24 @@ sub element_list :method    ## no critic (Always unpack @_ first)
     my @list = ();
     my $id;
     my $scheme;
-    foreach my $el (@elements)
-    {
-        if($args{id})
-        {
+    foreach my $el (@elements) {
+        if($args{id}) {
             $id = $el->att('id') || '';
-            if($id eq $args{id})
-            {
+            if($id eq $args{id}) {
                 push(@list,$el->text);
                 next;
             }
         }
-        if($args{event})
-        {
+        if($args{event}) {
             $scheme = $el->att('opf:event') || $el->att('event') || '';
-            if($scheme eq $args{event})
-            {
+            if($scheme eq $args{event}) {
                 push(@list,$el->text);
                 next;
             }
         }
-        if($args{scheme})
-        {
+        if($args{scheme}) {
             $scheme = $el->att('opf:scheme') || $el->att('scheme') || '';
-            if($scheme eq $args{scheme})
-            {
+            if($scheme eq $args{scheme}) {
                 push(@list,$el->text);
                 next;
             }
@@ -1183,8 +1154,7 @@ Returns an arrayref containing any generated error messages.
 
 =cut
 
-sub errors :method
-{
+sub errors :method {
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
@@ -1201,8 +1171,7 @@ if it could not be located.
 
 =cut
 
-sub identifier :method
-{
+sub identifier :method {
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
@@ -1255,10 +1224,8 @@ matches either one (i.e. the logic is OR).
 
 =cut
 
-sub isbn_list :method    ## no critic (Always unpack @_ first)
-{
-    my $self = shift;
-    my (%args) = @_;
+sub isbn_list :method {
+    my ($self,%args) = @_;
     my %valid_args = (
         'id' => 1,
         'scheme' => 1,
@@ -1267,8 +1234,7 @@ sub isbn_list :method    ## no critic (Always unpack @_ first)
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
     $self->twigcheck();
-    foreach my $arg (keys %args)
-    {
+    foreach my $arg (keys %args) {
         croak($subname,"(): invalid argument '",$arg,"'")
             if(!$valid_args{$arg});
     }
@@ -1316,10 +1282,8 @@ matches either one (i.e. the logic is OR).
 
 =cut
 
-sub isbns :method    ## no critic (Always unpack @_ first)
-{
-    my $self = shift;
-    my (%args) = @_;
+sub isbns :method {
+    my ($self,%args) = @_;
     my %valid_args = (
         'id' => 1,
         'scheme' => 1,
@@ -1328,8 +1292,7 @@ sub isbns :method    ## no critic (Always unpack @_ first)
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
     $self->twigcheck();
-    foreach my $arg (keys %args)
-    {
+    foreach my $arg (keys %args) {
         croak($subname,"(): invalid argument '",$arg,"'")
             if(!$valid_args{$arg});
     }
@@ -1338,13 +1301,10 @@ sub isbns :method    ## no critic (Always unpack @_ first)
     my @list = ();
     my $id;
     my $scheme;
-    foreach my $el (@elements)
-    {
-        if($args{id})
-        {
+    foreach my $el (@elements) {
+        if($args{id}) {
             $id = $el->att('id') || '';
-            if($id eq $args{id})
-            {
+            if($id eq $args{id}) {
                 push(@list,
                      {
                          'isbn' => $el->text,
@@ -1354,11 +1314,9 @@ sub isbns :method    ## no critic (Always unpack @_ first)
                 next;
             }
         }
-        if($args{scheme})
-        {
+        if($args{scheme}) {
             $scheme = $el->att('opf:scheme') || $el->att('scheme') || '';
-            if($scheme eq $args{scheme})
-            {
+            if($scheme eq $args{scheme}) {
                 push(@list,
                      {
                          'isbn' => $el->text,
@@ -1392,8 +1350,7 @@ In scalar context returns the first match, not the last.
 
 =cut
 
-sub languages :method
-{
+sub languages :method {
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
@@ -1402,8 +1359,7 @@ sub languages :method
 
     my @retval = ();
     my @elements = $self->{twigroot}->descendants(qr/^dc:language$/ix);
-    foreach my $el (@elements)
-    {
+    foreach my $el (@elements) {
         push(@retval,$el->text) if($el->text);
     }
     return unless(@retval);
@@ -1459,10 +1415,8 @@ L</manifest_hrefs()>, L</spine()>
 
 =cut
 
-sub manifest :method    ## no critic (Always unpack @_ first)
-{
-    my $self = shift;
-    my (%args) = @_;
+sub manifest :method {
+    my ($self,%args) = @_;
     my %valid_args = (
         'id' => 1,
         'href' => 1,
@@ -1478,13 +1432,11 @@ sub manifest :method    ## no critic (Always unpack @_ first)
     debug(2,"DEBUG[",$subname,"]");
     $self->twigcheck();
 
-    foreach my $arg (keys %args)
-    {
+    foreach my $arg (keys %args) {
         croak($subname,"(): invalid argument '",$arg,"'")
             if(!$valid_args{$arg});
     }
-    if($args{logic})
-    {
+    if($args{logic}) {
         croak($subname,
               "(): logic must be 'and' or 'or' (got '",$args{logic},"')")
             if(!$valid_logic{$args{logic}});
@@ -1549,8 +1501,7 @@ See also: C<manifest()>, C<spine_idrefs()>
 
 =cut
 
-sub manifest_hrefs :method
-{
+sub manifest_hrefs :method {
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
@@ -1567,8 +1518,7 @@ sub manifest_hrefs :method
     if(! $manifest) { return @retval; }
 
     @items = $manifest->descendants('item');
-    foreach my $item (@items)
-    {
+    foreach my $item (@items) {
 	$href = $item->att('href');
         if($href) {
             $mimetype = mimetype($href) || "UNKNOWN";
@@ -1637,8 +1587,7 @@ undef if no value is found..
 
 =cut
 
-sub opffile :method
-{
+sub opffile :method {
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
@@ -1695,8 +1644,7 @@ Uses L</twigelt_is_author()> in the first half of the search.
 
 =cut
 
-sub primary_author :method
-{
+sub primary_author :method {
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
@@ -1729,8 +1677,7 @@ Prints the current list of errors to STDERR.
 
 =cut
 
-sub print_errors :method
-{
+sub print_errors :method {
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
@@ -1738,15 +1685,13 @@ sub print_errors :method
 
     my $errorref = $self->{errors};
 
-    if(!$self->errors)
-    {
+    if(!$self->errors) {
 	debug(1,"DEBUG: no errors found!");
 	return 1;
     }
 
 
-    foreach my $error (@$errorref)
-    {
+    foreach my $error (@$errorref) {
 	print "ERROR: ",$error,"\n";
     }
     return 1;
@@ -1759,8 +1704,7 @@ Prints the current list of warnings to STDERR.
 
 =cut
 
-sub print_warnings :method
-{
+sub print_warnings :method {
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
@@ -1768,15 +1712,12 @@ sub print_warnings :method
 
     my $warningref = $self->{warnings};
 
-    if(!$self->warnings)
-    {
+    if(!$self->warnings) {
 	debug(2,"DEBUG: no warnings found!");
 	return 1;
     }
 
-
-    foreach my $warning (@$warningref)
-    {
+    foreach my $warning (@$warningref) {
 	print "WARNING: ",$warning,"\n";
     }
     return 1;
@@ -1789,8 +1730,7 @@ Prints the OPF file to the default filehandle
 
 =cut
 
-sub print_opf :method
-{
+sub print_opf :method {
     my $self = shift;
     my $filehandle = shift;
     my $subname = ( caller(0) )[3];
@@ -1812,8 +1752,7 @@ In scalar context returns the first match, not the last.
 
 =cut
 
-sub publishers :method
-{
+sub publishers :method {
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
@@ -1822,8 +1761,7 @@ sub publishers :method
 
     my @pubs = ();
     my @elements = $self->{twigroot}->descendants(qr/^dc:publisher$/ix);
-    foreach my $el (@elements)
-    {
+    foreach my $el (@elements) {
         push(@pubs,$el->text) if($el->text);
     }
     return unless(@pubs);
@@ -1844,8 +1782,7 @@ Returns undef if the SRP element is not found.
 
 =cut
 
-sub retailprice :method
-{
+sub retailprice :method {
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
@@ -1868,8 +1805,7 @@ exists.  Returns undef if one is not found.
 
 =cut
 
-sub review :method
-{
+sub review :method {
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
@@ -1902,10 +1838,8 @@ included only because some broken Mobipocket books use it.
 
 =cut
 
-sub rights :method    ## no critic (Always unpack @_ first)
-{
-    my $self = shift;
-    my (%args) = @_;
+sub rights :method {
+    my ($self,%args) = @_;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
@@ -1957,8 +1891,7 @@ Returns the ID if a match is found, undef otherwise
 
 =cut
 
-sub search_knownuids :method    ## no critic (Always unpack @_ first)
-{
+sub search_knownuids :method {
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
@@ -1988,10 +1921,8 @@ Returns the ID if a match is found, undef otherwise.
 
 =cut
 
-sub search_knownuidschemes :method   ## no critic (Always unpack @_ first)
-{
-    my $self = shift;
-    my ($gi) = @_;
+sub search_knownuidschemes :method {
+    my ($self,$gi) = @_;
     if(!$gi) { $gi = 'dc:identifier'; }
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
@@ -2015,8 +1946,7 @@ sub search_knownuidschemes :method   ## no critic (Always unpack @_ first)
 
     my $retval = undef;
 
-    foreach my $scheme (@knownuidschemes)
-    {
+    foreach my $scheme (@knownuidschemes) {
 	debug(2,"DEBUG: searching for scheme='",$scheme,"'");
 	@elems = $topelement->descendants(
             "dc:identifier[\@opf:scheme=~/$scheme/ix or \@scheme=~/$scheme/ix]"
@@ -2024,13 +1954,10 @@ sub search_knownuidschemes :method   ## no critic (Always unpack @_ first)
         push @elems, $topelement->descendants(
             "dc:Identifier[\@opf:scheme=~/$scheme/ix or \@scheme=~/$scheme/ix]"
             );
-	foreach my $elem (@elems)
-	{
+	foreach my $elem (@elems) {
 	    debug(2,"DEBUG: working on scheme '",$scheme,"'");
-	    if(defined $elem)
-	    {
-		if($scheme eq 'FWID')
-		{
+	    if(defined $elem) {
+		if($scheme eq 'FWID') {
 		    # Fictionwise has a screwy output that sets the ID
 		    # equal to the text.  Fix the ID to just be 'FWID'
 		    debug(1,"DEBUG: fixing FWID");
@@ -2038,8 +1965,7 @@ sub search_knownuidschemes :method   ## no critic (Always unpack @_ first)
 		}
 
 		$id = $elem->id;
-                unless(defined $id)
-                {
+                unless(defined $id) {
 		    debug(1,"DEBUG: assigning ID from scheme '",$scheme,"'");
 		    $id = uc($scheme);
 		    $elem->set_id($id);
@@ -2066,8 +1992,7 @@ until it attempts to enforce it.
 
 =cut
 
-sub spec :method
-{
+sub spec :method {
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
@@ -2094,8 +2019,7 @@ See also: L</spine_idrefs()>, L</manifest()>
 
 =cut
 
-sub spine :method
-{
+sub spine :method {
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
@@ -2165,8 +2089,7 @@ See also: L</spine()>, L</manifest_hrefs()>
 
 =cut
 
-sub spine_idrefs :method
-{
+sub spine_idrefs :method {
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
@@ -2181,8 +2104,7 @@ sub spine_idrefs :method
     if(! $spine) { return @retval; }
 
     @itemrefs = $spine->children('itemref');
-    foreach my $item (@itemrefs)
-    {
+    foreach my $item (@itemrefs) {
 	$idref = $item->att('idref');
 	push(@retval,$idref) if($idref);
     }
@@ -2200,8 +2122,7 @@ In scalar context, returns the first subject, not the last.
 
 =cut
 
-sub subject_list :method
-{
+sub subject_list :method {
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
@@ -2214,8 +2135,7 @@ sub subject_list :method
     my @subjects = $twigroot->descendants(qr/dc:subject/ix);
     return unless(@subjects);
 
-    foreach my $subject (@subjects)
-    {
+    foreach my $subject (@subjects) {
         push(@retval,$subject->text) if($subject->text);
     }
     return unless(@retval);
@@ -2232,8 +2152,7 @@ no text, returns an empty string.
 
 =cut
 
-sub title :method
-{
+sub title :method {
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
@@ -2260,8 +2179,7 @@ and the result of any subsequent action is not defined.
 
 =cut
 
-sub twig :method
-{
+sub twig :method {
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
@@ -2278,8 +2196,7 @@ methods that use twig or twigroot.
 
 =cut
 
-sub twigcheck :method
-{
+sub twigcheck :method {
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
@@ -2317,8 +2234,7 @@ subsequent action is not defined.
 
 =cut
 
-sub twigroot :method
-{
+sub twigroot :method {
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
@@ -2333,8 +2249,7 @@ Returns an arrayref containing any generated warning messages.
 
 =cut
 
-sub warnings :method
-{
+sub warnings :method {
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
@@ -2392,10 +2307,8 @@ autodetect the mime type, and if that fails, will default to
 
 =cut
 
-sub add_document :method   ## no critic (Always unpack @_ first)
-{
-    my $self = shift;
-    my ($href,$id,$mediatype) = @_;
+sub add_document :method {
+    my ($self,$href,$id,$mediatype) = @_;
     my $subname = (caller(0))[3];
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
@@ -2461,10 +2374,8 @@ SEE ALSO: L</add_warning()>, L</clear_errors()>, L</clear_warnerr()>
 
 =cut
 
-sub add_error :method   ## no critic (Always unpack @_ first)
-{
-    my $self = shift;
-    my (@newerror) = @_;
+sub add_error :method {
+    my ($self,@newerror) = @_;
     my $subname = (caller(0))[3];
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(3,"DEBUG[",$subname,"]");
@@ -2472,8 +2383,7 @@ sub add_error :method   ## no critic (Always unpack @_ first)
     my $currenterrors;
     $currenterrors = $self->{errors} if($self->{errors});
 
-    if(@newerror)
-    {
+    if(@newerror) {
         my $error = join('',@newerror);
 	debug(1,"ERROR: ",$error);
 	push(@$currenterrors,$error);
@@ -2516,10 +2426,8 @@ contained it.
 
 =cut
 
-sub add_identifier :method    ## no critic (Always unpack @_ first)
-{
-    my $self = shift;
-    my (%args) = @_;
+sub add_identifier :method {
+    my ($self,%args) = @_;
     my %valid_args = (
         'text' => 1,
         'id' => 1,
@@ -2529,8 +2437,7 @@ sub add_identifier :method    ## no critic (Always unpack @_ first)
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
     $self->twigcheck();
-    foreach my $arg (keys %args)
-    {
+    foreach my $arg (keys %args) {
         croak($subname,"(): invalid argument '",$arg,"'")
             if(!$valid_args{$arg});
     }
@@ -2545,20 +2452,17 @@ sub add_identifier :method    ## no critic (Always unpack @_ first)
     my $newid = $args{id};
     $idelem = $self->{twig}->first_elt("*[\@id='$newid']") if($newid);
 
-    if($dcmeta)
-    {
+    if($dcmeta) {
         $element = $dcmeta->insert_new_elt('last_child','dc:Identifier');
         $element->set_att('scheme' => $args{scheme}) if($args{scheme});
     }
-    else
-    {
+    else {
         $element = $meta->insert_new_elt('last_child','dc:identifier');
         $element->set_att('opf:scheme' => $args{scheme}) if($args{scheme});
     }
     $element->set_text($args{text});
 
-    if($idelem && $idelem->cmp($element) )
-    {
+    if($idelem && $idelem->cmp($element) ) {
         $self->add_warning(
             $subname,"(): reassigning id '",$newid,
             "' from a '",$idelem->gi,"' element!"
@@ -2607,10 +2511,8 @@ return undef.
 
 =cut
 
-sub add_item :method   ## no critic (Always unpack @_ first)
-{
-    my $self = shift;
-    my ($href,$id,$mediatype) = @_;
+sub add_item :method {
+    my ($self,$href,$id,$mediatype) = @_;
     my $subname = (caller(0))[3];
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
@@ -2632,8 +2534,7 @@ sub add_item :method   ## no critic (Always unpack @_ first)
     }
 
     $element = $twig->first_elt("*[\@id='$id']");
-    if($element)
-    {
+    if($element) {
         $self->add_error(
             $subname . "(): ID '" . $id . "' already exists"
             . " (in a '" . $element->gi ."' tag)"
@@ -2642,8 +2543,7 @@ sub add_item :method   ## no critic (Always unpack @_ first)
         return;
     }
 
-    if(!$mediatype)
-    {
+    if(!$mediatype) {
 	my $mimetype = mimetype($href);
 	if($mimetype) { $mediatype = $mimetype; }
 	else { $mediatype = "application/xhtml+xml"; }
@@ -2738,10 +2638,8 @@ This specifies the scheme attribute to set on the element.
 
 =cut
 
-sub add_metadata :method    ## no critic (Always unpack @_ first)
-{
-    my $self = shift;
-    my (%args) = @_;
+sub add_metadata :method {
+    my ($self,%args) = @_;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(3,"DEBUG[",$subname,"]");
@@ -2754,22 +2652,19 @@ sub add_metadata :method    ## no critic (Always unpack @_ first)
         'role' => 1,
         'scheme' => 1,
         );
-    foreach my $arg (keys %args)
-    {
+    foreach my $arg (keys %args) {
         croak($subname,"(): invalid argument '",$arg,"'")
             if(!$valid_args{$arg});
     }
 
     my $gi = $args{gi};
-    unless($gi)
-    {
+    unless($gi) {
         $self->add_error($subname,"(): no gi specified");
         return;
     }
 
     my $text = $args{text};
-    unless($text)
-    {
+    unless($text) {
         $self->add_error($subname,"(): no text specified");
         return;
     }
@@ -2788,16 +2683,14 @@ sub add_metadata :method    ## no critic (Always unpack @_ first)
     $meta = $self->{twigroot}->first_child('metadata');
     $dcmeta = $meta->first_child('dc-metadata');
     $parent = $parent || $dcmeta || $meta;
-    if($parent->gi eq 'metadata')
-    {
+    if($parent->gi eq 'metadata') {
         %dcatts = (
             'file-as' => 'opf:file-as',
             'role' => 'opf:role',
             'scheme' => 'opf:scheme',
             );
     }
-    else
-    {
+    else {
         %dcatts = (
             'file-as' => 'file-as',
             'role' => 'role',
@@ -2816,8 +2709,7 @@ sub add_metadata :method    ## no critic (Always unpack @_ first)
     $element->set_text($text);
 
     $idelem = $self->{twig}->first_elt("*[\@id='$newid']") if($newid);
-    if($idelem && $idelem->cmp($element) )
-    {
+    if($idelem && $idelem->cmp($element) ) {
         $self->add_warning(
             $subname,"(): reassigning id '",$newid,
             "' from a '",$idelem->gi,"' to a '",$element->gi,"'!"
@@ -2872,10 +2764,8 @@ that previously contained it.
 
 =cut
 
-sub add_subject :method     ## no critic (Always unpack @_ first)
-{
-    my $self = shift;
-    my (%args) = @_;
+sub add_subject :method {
+    my ($self,%args) = @_;
     my %valid_args = (
         'text' => 1,
         'id' => 1,
@@ -2886,8 +2776,7 @@ sub add_subject :method     ## no critic (Always unpack @_ first)
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
     $self->twigcheck();
-    foreach my $arg (keys %args)
-    {
+    foreach my $arg (keys %args) {
         croak($subname,"(): invalid argument '",$arg,"'")
             if(!$valid_args{$arg});
     }
@@ -2902,16 +2791,14 @@ sub add_subject :method     ## no critic (Always unpack @_ first)
     my $newid = $args{id};
     $idelem = $self->{twig}->first_elt("*[\@id='$newid']") if($newid);
 
-    if($dcmeta)
-    {
+    if($dcmeta) {
         $element = $dcmeta->first_child('dc:Subject[string()="' . $args{text} .  '"]');
         if(! $element) {
             $element = $dcmeta->insert_new_elt('last_child','dc:Subject');
         }
         $element->set_att('scheme' => $args{scheme}) if($args{scheme});
     }
-    else
-    {
+    else {
         $element = $meta->first_child('dc:subject[string()="' . $args{text} .  '"]');
         if(! $element) {
             $element = $meta->insert_new_elt('last_child','dc:subject');
@@ -2921,8 +2808,7 @@ sub add_subject :method     ## no critic (Always unpack @_ first)
     $element->set_text($args{text});
     $element->set_att('BASICCode' => $args{basiccode}) if($args{basiccode});
 
-    if($idelem && $idelem->cmp($element) )
-    {
+    if($idelem && $idelem->cmp($element) ) {
         $self->add_warning(
             $subname,"(): reassigning id '",$newid,
             "' from a '",$idelem->gi,"' element!"
@@ -2944,10 +2830,8 @@ SEE ALSO: L</add_error()>, L</clear_warnings()>, L</clear_warnerr()>
 
 =cut
 
-sub add_warning :method   ## no critic (Always unpack @_ first)
-{
-    my $self = shift;
-    my (@newwarning) = @_;
+sub add_warning :method {
+    my ($self,@newwarning) = @_;
     my $subname = (caller(0))[3];
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(3,"DEBUG[",$subname,"]");
@@ -2955,8 +2839,7 @@ sub add_warning :method   ## no critic (Always unpack @_ first)
     my @currentwarnings;
     @currentwarnings = @{$self->{warnings}} if($self->{warnings});
 
-    if(@newwarning)
-    {
+    if(@newwarning) {
         my $warning = join('',@newwarning);
 	debug(1,"WARNING: ",$warning);
 	push(@currentwarnings,$warning);
@@ -2974,8 +2857,7 @@ Clear the current list of errors
 
 =cut
 
-sub clear_errors :method
-{
+sub clear_errors :method {
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
@@ -2992,8 +2874,7 @@ Clear both the error and warning lists
 
 =cut
 
-sub clear_warnerr :method
-{
+sub clear_warnerr :method {
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
@@ -3011,8 +2892,7 @@ Clear the current list of warnings
 
 =cut
 
-sub clear_warnings :method
-{
+sub clear_warnings :method {
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
@@ -3033,8 +2913,7 @@ mobi2html may that are not used.
 
 =cut
 
-sub delete_meta_filepos :method
-{
+sub delete_meta_filepos :method {
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
@@ -3042,15 +2921,14 @@ sub delete_meta_filepos :method
     $self->twigcheck();
 
     my @elements = $self->{twigroot}->descendants('metadata[@filepos]');
-    foreach my $el (@elements)
-    {
+    foreach my $el (@elements) {
 	$el->delete;
     }
     return 1;
 }
 
 
-=head2 C<delete_subject(%args)
+=head2 C<delete_subject(%args)>
 
 Deletes dc:subject and dc:Subject elements based on text content or
 the id, scheme, or basiccode attributes.  Matches are case-sensitive.
@@ -3064,8 +2942,7 @@ Returns the count of elements deleted.
 =cut
 
 sub delete_subject :method {
-    my $self = shift;
-    my (%args) = @_;
+    my ($self,%args) = @_;
     my %valid_args = (
         'text' => 1,
         'id' => 1,
@@ -3076,8 +2953,7 @@ sub delete_subject :method {
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
     $self->twigcheck();
-    foreach my $arg (keys %args)
-    {
+    foreach my $arg (keys %args) {
         croak($subname,"(): invalid argument '",$arg,"'")
             if(!$valid_args{$arg});
     }
@@ -3087,14 +2963,12 @@ sub delete_subject :method {
 
     if(defined $args{text}) {
         @elements = $self->{twigroot}->descendants('dc:subject[text()="' . $args{text} . '"]');
-        foreach my $el (@elements)
-        {
+        foreach my $el (@elements) {
             $el->delete;
             $count++;
         }
         @elements = $self->{twigroot}->descendants('dc:Subject[text()="' . $args{text} . '"]');
-        foreach my $el (@elements)
-        {
+        foreach my $el (@elements) {
             $el->delete;
             $count++;
         }
@@ -3102,14 +2976,12 @@ sub delete_subject :method {
 
     if($args{id}) {
         @elements = $self->{twigroot}->descendants('dc:subject[@id="' . $args{id} . '"]');
-        foreach my $el (@elements)
-        {
+        foreach my $el (@elements) {
             $el->delete;
             $count++;
         }
         @elements = $self->{twigroot}->descendants('dc:Subject[@id="' . $args{id} . '"]');
-        foreach my $el (@elements)
-        {
+        foreach my $el (@elements) {
             $el->delete;
             $count++;
         }
@@ -3117,26 +2989,22 @@ sub delete_subject :method {
 
     if($args{scheme}) {
         @elements = $self->{twigroot}->descendants('dc:subject[@scheme="' . $args{scheme} . '"]');
-        foreach my $el (@elements)
-        {
+        foreach my $el (@elements) {
             $el->delete;
             $count++;
         }
         @elements = $self->{twigroot}->descendants('dc:subject[@opf:scheme="' . $args{scheme} . '"]');
-        foreach my $el (@elements)
-        {
+        foreach my $el (@elements) {
             $el->delete;
             $count++;
         }
         @elements = $self->{twigroot}->descendants('dc:Subject[@scheme="' . $args{scheme} . '"]');
-        foreach my $el (@elements)
-        {
+        foreach my $el (@elements) {
             $el->delete;
             $count++;
         }
         @elements = $self->{twigroot}->descendants('dc:Subject[@opf:scheme="' . $args{scheme} . '"]');
-        foreach my $el (@elements)
-        {
+        foreach my $el (@elements) {
             $el->delete;
             $count++;
         }
@@ -3144,14 +3012,12 @@ sub delete_subject :method {
 
     if($args{basiccode}) {
         @elements = $self->{twigroot}->descendants('dc:subject[@BASICCode="' . $args{id} . '"]');
-        foreach my $el (@elements)
-        {
+        foreach my $el (@elements) {
             $el->delete;
             $count++;
         }
         @elements = $self->{twigroot}->descendants('dc:Subject[@BASICCode="' . $args{id} . '"]');
-        foreach my $el (@elements)
-        {
+        foreach my $el (@elements) {
             $el->delete;
             $count++;
         }
@@ -3182,7 +3048,7 @@ sub fix_creators :method {
 
     my $twigroot = $self->{twigroot};
     my @elements = $twigroot->descendants(qr/dc:creator/ix);
-    my $nameparse = new Lingua::EN::NameParse(
+    my $nameparse = Lingua::EN::NameParse->new(
         allow_reversed  => 1,
         extended_titles => 1,
         force_case      => 1,
@@ -3216,6 +3082,7 @@ sub fix_creators :method {
             $el->set_att('opf:file-as',$fixed);
         }
     }
+    return;
 }
 
 
@@ -3228,8 +3095,7 @@ Called from L</fix_misc()>.
 
 =cut
 
-sub fix_dates :method
-{
+sub fix_dates :method {
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
@@ -3242,25 +3108,20 @@ sub fix_dates :method
     @dates = $self->{twigroot}->descendants('dc:date');
     push(@dates,$self->{twigroot}->descendants('dc:Date'));
 
-    foreach my $dcdate (@dates)
-    {
-	if(!$dcdate->text)
-	{
+    foreach my $dcdate (@dates) {
+	if(!$dcdate->text) {
 	    $self->add_warning(
                 "WARNING: found dc:date with no value -- skipping");
 	}
-	else
-	{
+	else {
 	    $newdate = fix_datestring($dcdate->text);
-	    if(!$newdate)
-	    {
+	    if(!$newdate) {
 		$self->add_warning(
 		    sprintf("fixmisc(): can't deal with date '%s' -- skipping",
                             $dcdate->text)
 		    );
 	    }
-	    elsif($dcdate->text ne $newdate)
-	    {
+	    elsif($dcdate->text ne $newdate) {
 		debug(2,"DEBUG: setting date from '",$dcdate->text,
                       "' to '",$newdate,"'");
 		$dcdate->set_text($newdate);
@@ -3297,8 +3158,7 @@ the manifest.
 
 =cut
 
-sub fix_guide :method
-{
+sub fix_guide :method {
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
@@ -3313,16 +3173,14 @@ sub fix_guide :method
     my @spine;
 
     # If <guide> doesn't exist, create it
-    unless($guide)
-    {
+    unless($guide) {
         debug(1,"DEBUG: creating <guide>");
         $guide = $twigroot->insert_new_elt('last_child','guide');
     }
 
     # Make sure that the guide is a child of the twigroot,
     $parent = $guide->parent;
-    if( $parent->cmp($twigroot) )
-    {
+    if( $parent->cmp($twigroot) ) {
         debug(1,"DEBUG: moving <guide>");
         $guide->move('last_child',$twigroot);
     }
@@ -3396,10 +3254,8 @@ element.  If not specified, defaults to 'en'.
 
 =cut
 
-sub fix_languages :method
-{
-    my $self = shift;
-    my %args = @_;
+sub fix_languages :method {
+    my ($self,%args) = @_;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
@@ -3408,8 +3264,7 @@ sub fix_languages :method
     my %valid_args = (
         'default' => 1,
         );
-    foreach my $arg (keys %args)
-    {
+    foreach my $arg (keys %args) {
         croak($subname,"(): invalid argument '",$arg,"'")
             if(!$valid_args{$arg});
     }
@@ -3418,17 +3273,14 @@ sub fix_languages :method
     my $defaultlang = $args{default} || 'en';
     my $langel;
     my @elements = $twigroot->descendants(qr/dc:language/ix);
-    while($langel = shift(@elements) )
-    {
-        foreach my $el (@elements)
-        {
+    while($langel = shift(@elements) ) {
+        foreach my $el (@elements) {
             $el->delete if(twigelt_detect_duplicate($el,$langel) );
         }
     }
 
     @elements = $self->languages;
-    if(!@elements)
-    {
+    if(!@elements) {
         $self->set_language(text => $defaultlang);
     }
     return 1;
@@ -3448,8 +3300,7 @@ returns undef.  Otherwise, it returns 1.
 
 =cut
 
-sub fix_links :method
-{
+sub fix_links :method {
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
@@ -3480,8 +3331,7 @@ sub fix_links :method
         'application/xml' => 1
         );
 
-    if(!$manifest)
-    {
+    if(!$manifest) {
         $self->add_warning(
             "fix_links(): no manifest found!"
             );
@@ -3489,8 +3339,7 @@ sub fix_links :method
     }
 
     @unchecked = $self->manifest_hrefs;
-    if(!@unchecked)
-    {
+    if(!@unchecked) {
         $self->add_warning(
             "fix_links(): empty manifest found!"
             );
@@ -3499,14 +3348,12 @@ sub fix_links :method
 
     # Initialize %links, so we don't try to add something already in
     # the manifest
-    foreach my $mhref (@unchecked)
-    {
+    foreach my $mhref (@unchecked) {
         $mhref = uri_unescape($mhref);
         $links{$mhref} = undef unless(exists $links{$mhref});
     }
 
-    while(@unchecked)
-    {
+    while(@unchecked) {
         debug(3,"DEBUG: ",scalar(@unchecked),
               " items left to check at start of loop");
         $href = shift(@unchecked);
@@ -3523,14 +3370,12 @@ sub fix_links :method
         }
 
         # Skip URIs for now
-        if($href =~ m#^ \w+://#ix)
-        {
+        if($href =~ m#^ \w+://#ix) {
             debug(1,"DEBUG: URI '",$href,"' skipped");
             $links{href} = 0;
             next;
         }
-        if(! -f $href)
-        {
+        if(! -f $href) {
             $self->add_warning(
                 "fix_links(): '" . $href . "' not found"
                 );
@@ -3540,8 +3385,7 @@ sub fix_links :method
 
         $mimetype = mimetype($href);
 
-        if(!$linking_mimetypes{$mimetype})
-        {
+        if(!$linking_mimetypes{$mimetype}) {
             debug(2,"DEBUG: '",$href,"' has mimetype '",$mimetype,
                 "' -- not checking");
             $links{$href} = 1;
@@ -3552,21 +3396,18 @@ sub fix_links :method
         @newlinks = find_links($href);
         trim(@newlinks) if(@newlinks);
         $links{$href} = 1;
-        foreach my $newlink (sort @newlinks)
-        {
+        foreach my $newlink (sort @newlinks) {
             # Skip mailto: and news: links
             if($newlink =~ m#(mailto|news):#ix) {
                 debug(1,"DEBUG: mailto link '",$href,"' skipped");
                 next;
             }
             # Skip URIs for now
-            elsif($newlink =~ m#^ \w+://#ix)
-            {
+            elsif($newlink =~ m#^ \w+://#ix) {
                 debug(1,"DEBUG: URI '",$newlink,"' skipped");
                 next;
             }
-            elsif(!exists $links{$newlink})
-            {
+            elsif(!exists $links{$newlink}) {
                 debug(2,"DEBUG: adding '",$newlink,"' to the manifest");
                 push(@unchecked,$newlink);
                 $self->add_item($newlink);
@@ -3594,8 +3435,7 @@ continues.
 
 =cut
 
-sub fix_manifest :method
-{
+sub fix_manifest :method {
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
@@ -3615,8 +3455,7 @@ sub fix_manifest :method
     my $type;
 
     # If <manifest> doesn't exist, create it
-    if(! $manifest)
-    {
+    if(! $manifest) {
 	debug(1,"DEBUG: creating <manifest>");
 	$manifest = $twigroot->insert_new_elt('last_child','manifest');
     }
@@ -3624,8 +3463,7 @@ sub fix_manifest :method
     # Make sure that the manifest is the first child of the twigroot,
     # which should be <package>
     $parent = $manifest->parent;
-    if($parent != $twigroot)
-    {
+    if($parent != $twigroot) {
 	debug(1,"DEBUG: moving <manifest>");
 	$manifest->move('first_child',$twigroot);
     }
@@ -3643,8 +3481,7 @@ sub fix_manifest :method
     }
 
     @elements = $twigroot->descendants(qr/^item$/ix);
-    foreach my $el (@elements)
-    {
+    foreach my $el (@elements) {
         $href = $el->att('href');
         $id = $el->id;
         $type = $el->att('media-type');
@@ -3662,10 +3499,8 @@ sub fix_manifest :method
 
         }
 
-        if(!$id)
-        {
-            if(!$href)
-            {
+        if(!$id) {
+            if(!$href) {
                 # No ID, no href, there's something very fishy here,
                 # so log a warning.
                 # If it is already underneath <manifest>, move it to
@@ -3674,12 +3509,10 @@ sub fix_manifest :method
                     "fix_manifest(): found item with no id or href"
                     );
                 debug(1,"fix_manifest(): found item with no id or href");
-                if($el->parent == $manifest)
-                {
+                if($el->parent == $manifest) {
                     $el->move('last_child',$manifest);
                 }
-                else
-                {
+                else {
                     print "DEBUG: skipping item with no id or href\n"
                         if($debug);
                 }
@@ -3693,8 +3526,7 @@ sub fix_manifest :method
             debug(1,"DEBUG: processing item with no id (href='",$href,"')");
             $el->move('last_child',$manifest);
         } # if(!$id)
-        if(!$href)
-        {
+        if(!$href) {
             # We have an ID, but no href.  Log a warning, but move it anyway.
             $self->add_warning(
                 "fix_manifest(): item with id '" . $id . "' has no href!"
@@ -3702,8 +3534,7 @@ sub fix_manifest :method
             debug(1,"fix_manifest(): item with id '",$id,"' has no href!");
             $el->move('last_child',$manifest);
         }
-        else
-        {
+        else {
             # We have an ID and a href
             debug(3,"DEBUG: processing item '",$id,"' (href='",$href,"')");
             $el->move('last_child',$manifest);
@@ -3724,8 +3555,7 @@ L</set_primary_author(%args)>.
 
 =cut
 
-sub fix_metastructure_basic :method
-{
+sub fix_metastructure_basic :method {
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
@@ -3738,8 +3568,7 @@ sub fix_metastructure_basic :method
     my @extras = $twigroot->descendants('metadata');
     shift @extras;
 
-    if(! $metadata)
-    {
+    if(! $metadata) {
 	debug(1,"DEBUG: creating <metadata>");
 	$metadata = $twigroot->insert_new_elt('first_child','metadata');
     }
@@ -3775,8 +3604,7 @@ Used in L</fix_oeb12()> and L</fix_mobi()>.
 
 =cut
 
-sub fix_metastructure_oeb12 :method
-{
+sub fix_metastructure_oeb12 :method {
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
@@ -3796,32 +3624,28 @@ sub fix_metastructure_oeb12 :method
 
     # If <dc-metadata> doesn't exist, we'll have to create it.
     $dcmeta = $twigroot->first_descendant('dc-metadata');
-    if(! $dcmeta)
-    {
+    if(! $dcmeta) {
 	debug(2,"DEBUG: creating <dc-metadata>");
 	$dcmeta = $metadata->insert_new_elt('first_child','dc-metadata');
     }
 
     # Make sure that $dcmeta is a child of $metadata
     $parent = $dcmeta->parent;
-    if($parent != $metadata)
-    {
+    if($parent != $metadata) {
 	debug(2,"DEBUG: moving <dc-metadata>");
 	$dcmeta->move('first_child',$metadata);
     }
 
     # If <x-metadata> doesn't exist, create it
     $xmeta = $metadata->first_descendant('x-metadata');
-    if(! $xmeta)
-    {
+    if(! $xmeta) {
         debug(2,"DEBUG: creating <x-metadata>");
         $xmeta = $metadata->insert_new_elt('last_child','x-metadata');
     }
 
     # Make sure that x-metadata is a child of metadata
     $parent = $xmeta->parent;
-    if($parent != $metadata)
-    {
+    if($parent != $metadata) {
         debug(2,"DEBUG: moving <x-metadata>");
         $xmeta->move('after',$dcmeta);
     }
@@ -3846,8 +3670,7 @@ result from only two calls.
 
 =cut
 
-sub fix_misc :method
-{
+sub fix_misc :method {
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
@@ -3891,8 +3714,7 @@ become noncompliant with IDPF specifications.
 
 =cut
 
-sub fix_mobi :method
-{
+sub fix_mobi :method {
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
@@ -3958,49 +3780,42 @@ sub fix_mobi :method
     # If <x-metadata> doesn't exist, create it.  Even if there are no
     # mobi-specific tags, this method will create at least one
     # (<output>) which will need it.
-    if(!$xmeta)
-    {
+    if(!$xmeta) {
         debug(2,"DEBUG: creating <x-metadata>");
         $xmeta = $dcmeta->insert_new_elt('after','x-metadata')
     }
 
-    foreach my $tag (@mobitags)
-    {
+    foreach my $tag (@mobitags) {
         @elements = $twigroot->descendants($tag);
         next unless (@elements);
 
         # In theory, only one Mobipocket-specific element should ever
         # be present in a document.  We'll deal with multiples anyway,
         # but send a warning.
-        if(scalar(@elements) > 1)
-        {
+        if(scalar(@elements) > 1) {
             $self->add_warning(
                 'fix_mobi(): Found ' . scalar(@elements) . " '" . $tag .
                 "' elements, but only one should exist."
                 );
         }
 
-        foreach my $el (@elements)
-        {
+        foreach my $el (@elements) {
             $el->move('last_child',$xmeta);
         }
     }
 
     $output = $xmeta->first_child('output');
-    if($output)
-    {
+    if($output) {
 	my $encoding = $mobiencodings{$output->att('encoding')};
 	my $contenttype = $mobicontenttypes{$output->att('content-type')};
 
-	if($contenttype)
-	{
+	if($contenttype) {
 	    $output->set_att('encoding','utf-8') if(!$encoding);
 	    debug(2,"DEBUG: setting encoding only and returning");
 	    return 1;
 	}
     }
-    else
-    {
+    else {
         debug(1,"DEBUG: creating <output> under <x-metadata>");
         $output = $xmeta->insert_new_elt('last_child','output');
     }
@@ -4042,8 +3857,7 @@ forced to be under <metadata>
 
 =cut
 
-sub fix_oeb12 :method
-{
+sub fix_oeb12 :method {
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
@@ -4072,11 +3886,9 @@ sub fix_oeb12 :method
 
     # Set the correct tag name and move it into <dc-metadata> in the
     # right order
-    foreach my $dcel (keys %dcelements12)
-    {
+    foreach my $dcel (keys %dcelements12) {
         @elements = $twigroot->descendants(qr/^$dcel$/ix);
-        foreach my $el (@elements)
-        {
+        foreach my $el (@elements) {
             debug(3,"DEBUG: processing '",$el->gi,"'");
             croak("Found invalid DC element '",$el->gi,"'!")
                 if(!$dcelements12{lc $el->gi});
@@ -4089,22 +3901,18 @@ sub fix_oeb12 :method
     # Handle non-DC metadata, deleting <x-metadata> if it isn't
     # needed.
     @elements = $metadata->children(qr/^(?!(?s:.*)-metadata)/x);
-    if(@elements)
-    {
-	if($debug)
-	{
+    if(@elements) {
+	if($debug) {
 	    print {*STDERR} "DEBUG: extra metadata elements found: ";
 	    foreach my $el (@elements) { print {*STDERR} $el->gi," "; }
 	    print {*STDERR} "\n";
 	}
-	foreach my $el (@elements)
-	{
+	foreach my $el (@elements) {
 	    $el->move('last_child',$xmeta);
 	}
     }
     @elements = $twigroot->children(qr/^meta$/ix);
-    foreach my $el (@elements)
-    {
+    foreach my $el (@elements) {
         $el->set_gi(lc $el->gi);
         $el->move('last_child',$xmeta);
     }
@@ -4152,8 +3960,7 @@ they are.
 
 =cut
 
-sub fix_oeb12_dcmetatags :method
-{
+sub fix_oeb12_dcmetatags :method {
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
@@ -4164,11 +3971,9 @@ sub fix_oeb12_dcmetatags :method
 
     my @elements;
 
-    foreach my $dcmetatag (keys %dcelements12)
-    {
+    foreach my $dcmetatag (keys %dcelements12) {
 	@elements = $topelement->descendants(qr/^$dcmetatag$/ix);
-	foreach my $el (@elements)
-	{
+	foreach my $el (@elements) {
 	    $el->set_tag($dcelements12{lc $el->tag})
 		if($dcelements12{lc $el->tag});
 	}
@@ -4203,8 +4008,7 @@ dc:rights)
 
 =cut
 
-sub fix_opf20 :method
-{
+sub fix_opf20 :method {
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
@@ -4226,10 +4030,8 @@ sub fix_opf20 :method
     # underneath <metadata> so that its children will collapse to the
     # correct position, then erase it.
     @elements = $twigroot->descendants('dc-metadata');
-    if(@elements)
-    {
-	foreach my $dcmeta (@elements)
-	{
+    if(@elements) {
+	foreach my $dcmeta (@elements) {
 	    debug(1,"DEBUG: moving <dc-metadata>");
 	    $dcmeta->move('first_child',$metadata);
 	    $dcmeta->erase;
@@ -4240,10 +4042,8 @@ sub fix_opf20 :method
     # <metadata> so that its children will collapse to the correct
     # position, then erase it.
     @elements = $twigroot->descendants('x-metadata');
-    if(@elements)
-    {
-	foreach my $xmeta (@elements)
-	{
+    if(@elements) {
+	foreach my $xmeta (@elements) {
 	    debug(1,"DEBUG: moving <x-metadata>");
 	    $xmeta->move('last_child',$metadata);
 	    $xmeta->erase;
@@ -4258,11 +4058,9 @@ sub fix_opf20 :method
 
     # For all DC elements at any location, set the correct tag name
     # and attribute namespace and move it directly under <metadata>
-    foreach my $dcmetatag (keys %dcelements20)
-    {
+    foreach my $dcmetatag (keys %dcelements20) {
 	@elements = $twigroot->descendants(qr/$dcmetatag/ix);
-	foreach my $el (@elements)
-	{
+	foreach my $el (@elements) {
 	    debug(2,"DEBUG: checking DC element <",$el->gi,">");
 	    $el->set_gi($dcelements20{$dcmetatag});
             $el = twigelt_fix_opf20_atts($el);
@@ -4274,8 +4072,7 @@ sub fix_opf20 :method
     # under <metadata>.  Force the tag to lowercase.
 
     @elements = $twigroot->descendants(qr/^meta$/ix);
-    foreach my $el (@elements)
-    {
+    foreach my $el (@elements) {
         debug(2,'DEBUG: checking meta element <',$el->gi,
               ' name="',$el->att('name'),'">');
         $el->set_gi(lc $el->gi);
@@ -4332,8 +4129,7 @@ them moved from wherever they are.
 
 =cut
 
-sub fix_opf20_dcmetatags :method
-{
+sub fix_opf20_dcmetatags :method {
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
@@ -4343,11 +4139,9 @@ sub fix_opf20_dcmetatags :method
     my $topelement = $self->{twigroot};
     my @elements;
 
-    foreach my $dcmetatag (keys %dcelements20)
-    {
+    foreach my $dcmetatag (keys %dcelements20) {
 	@elements = $topelement->descendants(qr/^$dcmetatag$/ix);
-	foreach my $el (@elements)
-	{
+	foreach my $el (@elements) {
 	    $el->set_tag($dcelements20{lc $el->tag})
 		if($dcelements20{lc $el->tag});
 	}
@@ -4369,8 +4163,7 @@ might be very broken.
 
 =cut
 
-sub fix_packageid :method
-{
+sub fix_packageid :method {
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
@@ -4386,8 +4179,7 @@ sub fix_packageid :method
         or croak($subname,"(): metadata not found");
     my $element;
 
-    if($packageid)
-    {
+    if($packageid) {
         # Check that the ID maps to a valid identifier
 	# If not, undefine it
 	debug(2,"DEBUG: checking existing packageid '",$packageid,"'");
@@ -4403,10 +4195,8 @@ sub fix_packageid :method
 	#$element = $self->{twig}->elt_id($packageid);
 	$element = $self->{twig}->first_elt("*[\@id='$packageid']");
 
-	if($element)
-	{
-	    if(lc($element->tag) ne 'dc:identifier')
-	    {
+	if($element) {
+	    if(lc($element->tag) ne 'dc:identifier') {
 		debug(1,"DEBUG: packageid '",$packageid,
                       "' points to a non-identifier element ('",
                       $element->tag,"')");
@@ -4414,8 +4204,7 @@ sub fix_packageid :method
                       $packageid,"'");
 		undef($packageid);
 	    }
-	    elsif(!$element->text)
-	    {
+	    elsif(!$element->text) {
 		debug(1,"DEBUG: packageid '",$packageid,
                       "' points to an empty identifier.");
 		debug(1,"DEBUG: undefining existing packageid '",
@@ -4426,22 +4215,19 @@ sub fix_packageid :method
 	else { undef($packageid); };
     }
 
-    if(!$packageid)
-    {
+    if(!$packageid) {
 	# Search known IDs for a unique Package ID
 	$packageid = $self->search_knownuids;
     }
 
     # If no unique ID found so far, start searching known schemes
-    if(!$packageid)
-    {
+    if(!$packageid) {
 	$packageid = $self->search_knownuidschemes;
     }
 
     # And if we still don't have anything, we have to make one from
     # scratch using Data::UUID
-    if(!$packageid)
-    {
+    if(!$packageid) {
 	debug(1,"DEBUG: creating new UUID");
 	$element = twigelt_create_uuid();
 	$element->paste('first_child',$meta);
@@ -4465,8 +4251,7 @@ Publisher entries with no text are deleted.
 
 =cut
 
-sub fix_publisher :method
-{
+sub fix_publisher :method {
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
@@ -4474,11 +4259,9 @@ sub fix_publisher :method
     $self->twigcheck();
 
     my @publishers = $self->twigroot->descendants(qr/^dc:publisher$/ix);
-    foreach my $pub (@publishers)
-    {
+    foreach my $pub (@publishers) {
         debug(3,"Examining publisher entry in element '",$pub->gi,"'");
-        if(!$pub->text)
-        {
+        if(!$pub->text) {
             debug(1,'Deleting empty publisher entry');
             $pub->delete;
             next;
@@ -4508,8 +4291,7 @@ Fixes problems with the OPF spine, specifically:
 
 =cut
 
-sub fix_spine :method
-{
+sub fix_spine :method {
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
@@ -4523,19 +4305,16 @@ sub fix_spine :method
     my $parent;
 
     @elements = $twigroot->descendants(qr/^itemref$/ix);
-    if(@elements)
-    {
+    if(@elements) {
         # If <spine> doesn't exist, create it
-        if(! $spine)
-        {
+        if(! $spine) {
             debug(1,"DEBUG: creating <spine>");
             $spine = $twigroot->insert_new_elt('last_child','spine');
         }
 
         # Make sure that the spine is a child of the twigroot,
         $parent = $spine->parent;
-        if($parent != $twigroot)
-        {
+        if($parent != $twigroot) {
             debug(1,"DEBUG: moving <spine>");
             $spine->move('last_child',$twigroot);
         }
@@ -4546,10 +4325,8 @@ sub fix_spine :method
             $spine->set_att('toc' => 'ncx');
         }
 
-        foreach my $el (@elements)
-        {
-            if(!$el->att('idref'))
-            {
+        foreach my $el (@elements) {
+            if(!$el->att('idref')) {
                 # No idref means it is broken.
                 # Leave it alone, but log a warning
                 $self->add_warning(
@@ -4560,8 +4337,8 @@ sub fix_spine :method
             $el->move('last_child',$spine);
         }
     }
-    else # No elements, delete spine if it exists
-    {
+    else {
+        # No elements, delete spine if it exists
         $spine->delete if($spine);
     }
 
@@ -4603,10 +4380,8 @@ it will be created, or the method will croak.
 
 =cut
 
-sub gen_epub :method    ## no critic (Always unpack @_ first)
-{
-    my $self = shift;
-    my (%args) = @_;
+sub gen_epub :method {
+    my ($self,%args) = @_;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
@@ -4615,8 +4390,7 @@ sub gen_epub :method    ## no critic (Always unpack @_ first)
         'filename' => 1,
         'dir' => 1,
         );
-    foreach my $arg (keys %args)
-    {
+    foreach my $arg (keys %args) {
         croak($subname,"(): invalid argument '",$arg,"'")
             if(!$valid_args{$arg});
     }
@@ -4628,15 +4402,13 @@ sub gen_epub :method    ## no critic (Always unpack @_ first)
     my $cwd = usedir($self->{topdir});
 
     $self->gen_epub_files();
-    if(! $self->{opffile} )
-    {
+    if(! $self->{opffile} ) {
 	$self->add_error(
 	    "Cannot create epub without an OPF (did you forget to init?)");
         debug(1,"Cannot create epub without an OPF");
 	return;
     }
-    if(! -f $self->opfpath)
-    {
+    if(! -f $self->opfpath) {
 	$self->add_error(
 	    sprintf("OPF '%s' does not exist (did you forget to save?)",
 		    $self->opfpath)
@@ -4656,11 +4428,9 @@ sub gen_epub :method    ## no critic (Always unpack @_ first)
     $member->desiredCompressionLevel(9);
 
     debug(3,"DEBUG: adding manifest files to zip archive");
-    foreach my $file ($self->manifest_hrefs())
-    {
+    foreach my $file ($self->manifest_hrefs()) {
         $file = uri_unescape($file);
-	if(-f $self->{opfsubdir} . '/' . $file)
-	{
+	if(-f $self->{opfsubdir} . '/' . $file) {
 	    $member = $zip->addFile($self->{opfsubdir} . '/' . $file);
 	    $member->desiredCompressionLevel(9);
 	}
@@ -4671,18 +4441,15 @@ sub gen_epub :method    ## no critic (Always unpack @_ first)
 	$filename = basename($self->{topdir}) . '.epub';
     }
 
-    if($dir)
-    {
-        unless(-d $dir)
-        {
+    if($dir) {
+        unless(-d $dir) {
             mkpath($dir)
                 or croak("Unable to create working directory '",$dir,"'!");
         }
         $filename = "$dir/$filename";
     }
 
-    unless ( $zip->writeToFileNamed($filename) == AZ_OK )
-    {
+    unless ( $zip->writeToFileNamed($filename) == AZ_OK ) {
 	$self->add_error(
             sprintf("Failed to create epub as '%s'",$filename));
         debug(1,"Failed to create epub as '",$filename,"'");
@@ -4706,8 +4473,7 @@ If no NCX element exists, it will also be created.
 
 =cut
 
-sub gen_epub_files :method
-{
+sub gen_epub_files :method {
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
@@ -4770,10 +4536,8 @@ Returns a twig containing the NCX XML, or undef on failure.
 
 =cut
 
-sub gen_ncx :method    ## no critic (Always unpack @_ first)
-{
-    my $self = shift;
-    my ($filename) = @_;
+sub gen_ncx :method {
+    my ($self,$filename) = @_;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
@@ -4799,8 +4563,7 @@ sub gen_ncx :method    ## no critic (Always unpack @_ first)
     my $manifest;           # OPF manifest element
     my $spine;		    # OPF spine element
 
-    if($self->{spec} ne 'OPF20')
-    {
+    if($self->{spec} ne 'OPF20') {
         $self->add_error(
             $subname . "(): specification is currently set to '"
             . $self->{spec} . "' -- need 'OPF20'"
@@ -4810,8 +4573,7 @@ sub gen_ncx :method    ## no critic (Always unpack @_ first)
         return;
     }
 
-    if(!$identifier)
-    {
+    if(!$identifier) {
         $self->add_error( $subname . "(): no unique-identifier found" );
         debug(1,"DEBUG: gen_ncx() FAILED: no unique-identifier!");
         return;
@@ -4819,8 +4581,7 @@ sub gen_ncx :method    ## no critic (Always unpack @_ first)
 
     # Get the title
     $title = $self->title();
-    if(!$title)
-    {
+    if(!$title) {
         $self->add_error( $subname . "(): no title found" );
         debug(1,"DEBUG: gen_ncx() FAILED: no title!");
         return;
@@ -4828,8 +4589,7 @@ sub gen_ncx :method    ## no critic (Always unpack @_ first)
 
     # Get the author
     $author = $self->primary_author();
-    if(!$author)
-    {
+    if(!$author) {
         $self->add_error( $subname . "(): no title found" );
         debug(1,"DEBUG: gen_ncx() FAILED: no title!");
         return;
@@ -4837,8 +4597,7 @@ sub gen_ncx :method    ## no critic (Always unpack @_ first)
 
     # Get the spine list
     @spinelist = $self->spine();
-    if(!@spinelist)
-    {
+    if(!@spinelist) {
         $self->add_error( $subname . "(): no spine found" );
         debug(1,"DEBUG: gen_ncx() FAILED: no spine!");
         return;
@@ -4848,8 +4607,7 @@ sub gen_ncx :method    ## no critic (Always unpack @_ first)
     # (This should in theory never fail, since it is also checked by
     # spine() above)
     $manifest = $twigroot->first_descendant('manifest');
-    if(!$manifest)
-    {
+    if(!$manifest) {
         $self->add_error( $subname . "(): no manifest found" );
         debug(1,"DEBUG: gen_ncx() FAILED: no manifest!");
         return;
@@ -4900,27 +4658,25 @@ sub gen_ncx :method    ## no critic (Always unpack @_ first)
     # <navMap>
     $navmap = $parent->insert_new_elt('after','navMap');
 
-    foreach my $spineitem (@spinelist)
-    {
+    foreach my $spineitem (@spinelist) {
         # <navPoint>
         $navpoint = $navmap->insert_new_elt('last_child','navPoint');
-        $navpoint->set_att('id' => $$spineitem{'id'},
+        $navpoint->set_att('id' => $spineitem->{'id'},
                            'playOrder' => $navpointindex);
         $navpointindex++;
 
         # <navLabel>
         $parent = $navpoint->insert_new_elt('last_child','navLabel');
         $element = $parent->insert_new_elt('last_child','text');
-        $element->set_text($$spineitem{'id'});
+        $element->set_text($spineitem->{'id'});
 
         # <content>
         $element = $navpoint->insert_new_elt('last_child','content');
-        $element->set_att('src' => $$spineitem{'href'});
+        $element->set_att('src' => $spineitem->{'href'});
     }
 
     # Backup existing file
-    if(-e $filename)
-    {
+    if(-e $filename) {
         rename($filename,"$filename.backup")
             or croak($subname,"(): could not backup ",$filename,"!");
     }
@@ -4968,8 +4724,7 @@ filename.backup.
 
 =cut
 
-sub save :method
-{
+sub save :method {
     my $self = shift;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
@@ -4983,8 +4738,7 @@ sub save :method
     my $filename = $self->{opffile};
 
     # Backup existing file
-    if(-e $filename)
-    {
+    if(-e $filename) {
         rename($filename,"$filename.backup")
             or croak($subname,"(): could not backup ",$filename,"!");
     }
@@ -4992,15 +4746,13 @@ sub save :method
 
     # Twig handles utf8 on its own.  If you open this file with
     # binmode :utf8, it will double-convert.
-    if(!open($fh_opf,">",$self->{opffile}))
-    {
+    if(!open($fh_opf,">",$self->{opffile})) {
 	add_error(sprintf("Could not open '%s' to save to!",$self->{opffile}));
 	return;
     }
     $self->{twig}->print(\*$fh_opf);
 
-    if(!close($fh_opf))
-    {
+    if(!close($fh_opf)) {
 	add_error(sprintf("Failure while closing '%s'!",$self->{opffile}));
 	return;
     }
@@ -5024,8 +4776,7 @@ Mobipocket's software when placed directly under <metadata>
 
 =cut
 
-sub set_adult :method
-{
+sub set_adult :method {
     my $self = shift;
     my $adult = shift;
     my $subname = ( caller(0) )[3];
@@ -5039,22 +4790,18 @@ sub set_adult :method
     my $element;
     my @elements;
 
-    if($adult)
-    {
+    if($adult) {
         $element = $self->{twigroot}->first_descendant(qr/^adult$/ix);
-        unless($element)
-        {
+        unless($element) {
             $self->fix_metastructure_oeb12();
             $xmeta = $self->{twigroot}->first_descendant('x-metadata');
             $element = $xmeta->insert_new_elt('last_child','Adult');
         }
         $element->set_text('yes');
     }
-    else
-    {
+    else {
         @elements = $self->{twigroot}->descendants(qr/^adult$/ix);
-        foreach my $el (@elements)
-        {
+        foreach my $el (@elements) {
             debug(2,"DEBUG: deleting <Adult> flag");
             $el->delete;
         }
@@ -5067,10 +4814,16 @@ sub set_adult :method
 
 Sets a cover image
 
-In OPF 2.0, this is done by setting both a meta and a guide reference
-element.  In OEB1.2, this is done by setting the <EmbeddedCover> tag.
+In OPF 2.0, this is done by setting both a <meta name="cover"> element
+and a guide <reference type="other.ms-coverimage-standard"> element
+(though some readers will also extract the first image found in the
+HTML of the <reference type="cover"> element, which this method will
+not handle).
 
-If the filename is not currently listed as an item in the manifest, it is added.
+In OEB 1.2, this is done by setting the <EmbeddedCover> tag.
+
+If the filename is not currently listed as an item in the manifest, it
+is added.
 
 =head3 Arguments
 
@@ -5094,8 +4847,7 @@ undefined, it will default to OPF20.
 
 =cut
 
-sub set_cover :method
-{
+sub set_cover :method {
     my ($self,%args) = @_;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
@@ -5105,8 +4857,7 @@ sub set_cover :method
         'id' => 1,
         'spec' => 1,
         );
-    foreach my $arg (keys %args)
-    {
+    foreach my $arg (keys %args) {
         croak($subname,"(): invalid argument '",$arg,"'")
             if(!$valid_args{$arg});
     }
@@ -5248,10 +4999,8 @@ other location and assigned to the element.
 
 =cut
 
-sub set_date :method    ## no critic (Always unpack @_ first)
-{
-    my $self = shift;
-    my (%args) = @_;
+sub set_date :method {
+    my ($self,%args) = @_;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
@@ -5260,8 +5009,7 @@ sub set_date :method    ## no critic (Always unpack @_ first)
         'event' => 1,
         'id' => 1,
         );
-    foreach my $arg (keys %args)
-    {
+    foreach my $arg (keys %args) {
         croak($subname,"(): invalid argument '",$arg,"'")
             if(!$valid_args{$arg});
     }
@@ -5269,8 +5017,7 @@ sub set_date :method    ## no critic (Always unpack @_ first)
     my $text = $args{text};
     my $event = $args{event};
     my $newid = $args{id};
-    unless($text)
-    {
+    unless($text) {
         $self->add_error($subname,"(): no text specified");
         return;
     }
@@ -5296,20 +5043,17 @@ sub set_date :method    ## no critic (Always unpack @_ first)
           unless($element);
     }
 
-    if($element)
-    {
+    if($element) {
         $element->set_text($text);
     }
-    elsif($dcmeta)
-    {
+    elsif($dcmeta) {
         $element = $dcmeta->insert_new_elt('last_child','dc:Date');
         $element->set_text($text);
         if($event) {
             $element->set_att('event',$event);
         }
     }
-    else
-    {
+    else {
         $element = $meta->insert_new_elt('last_child','dc:date');
         $element->set_text($text);
         if($event) {
@@ -5317,8 +5061,7 @@ sub set_date :method    ## no critic (Always unpack @_ first)
         }
     }
 
-    if($idelem && $idelem->cmp($element) )
-    {
+    if($idelem && $idelem->cmp($element) ) {
         $self->add_warning(
             $subname,"(): reassigning id '",$newid,
             "' from a '",$idelem->gi,"' element!"
@@ -5367,10 +5110,8 @@ other location and assigned to the element.
 
 =cut
 
-sub set_description :method    ## no critic (Always unpack @_ first)
-{
-    my $self = shift;
-    my (%args) = @_;
+sub set_description :method {
+    my ($self,%args) = @_;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
@@ -5378,15 +5119,13 @@ sub set_description :method    ## no critic (Always unpack @_ first)
         'text' => 1,
         'id' => 1,
         );
-    foreach my $arg (keys %args)
-    {
+    foreach my $arg (keys %args) {
         croak($subname,"(): invalid argument '",$arg,"'")
             if(!$valid_args{$arg});
     }
 
     my $text = $args{text};
-    unless($text)
-    {
+    unless($text) {
         $self->add_error($subname,"(): no text specified");
         return;
     }
@@ -5441,10 +5180,8 @@ other location and assigned to the element.
 
 =cut
 
-sub set_language :method    ## no critic (Always unpack @_ first)
-{
-    my $self = shift;
-    my (%args) = @_;
+sub set_language :method {
+    my ($self,%args) = @_;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
@@ -5452,15 +5189,13 @@ sub set_language :method    ## no critic (Always unpack @_ first)
         'text' => 1,
         'id' => 1,
         );
-    foreach my $arg (keys %args)
-    {
+    foreach my $arg (keys %args) {
         croak($subname,"(): invalid argument '",$arg,"'")
             if(!$valid_args{$arg});
     }
 
     my $text = lc($args{text});
-    unless($text)
-    {
+    unless($text) {
         $self->add_error($subname,"(): no text specified");
         return;
     }
@@ -5501,10 +5236,8 @@ that element will be deleted.
 
 =cut
 
-sub set_meta :method    ## no critic (Always unpack @_ first)
-{
-    my $self = shift;
-    my (%args) = @_;
+sub set_meta :method {
+    my ($self, %args) = @_;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(3,"DEBUG[",$subname,"]");
@@ -5547,6 +5280,7 @@ sub set_meta :method    ## no critic (Always unpack @_ first)
             $element->set_att('content',$content);
         }
     }
+    return;
 }
 
 
@@ -5623,10 +5357,8 @@ This specifies the scheme attribute to set on the element.
 
 =cut
 
-sub set_metadata :method    ## no critic (Always unpack @_ first)
-{
-    my $self = shift;
-    my (%args) = @_;
+sub set_metadata :method {
+    my ($self,%args) = @_;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(3,"DEBUG[",$subname,"]");
@@ -5639,22 +5371,19 @@ sub set_metadata :method    ## no critic (Always unpack @_ first)
         'role' => 1,
         'scheme' => 1,
         );
-    foreach my $arg (keys %args)
-    {
+    foreach my $arg (keys %args) {
         croak($subname,"(): invalid argument '",$arg,"'")
             if(!$valid_args{$arg});
     }
 
     my $gi = $args{gi};
-    unless($gi)
-    {
+    unless($gi) {
         $self->add_error($subname,"(): no gi specified");
         return;
     }
 
     my $text = $args{text};
-    unless($text)
-    {
+    unless($text) {
         $self->add_error($subname,"(): no text specified");
         return;
     }
@@ -5675,16 +5404,14 @@ sub set_metadata :method    ## no critic (Always unpack @_ first)
     $meta = $self->{twigroot}->first_child('metadata');
     $dcmeta = $meta->first_child('dc-metadata');
     $parent = $parent || $dcmeta || $meta;
-    if($parent->gi eq 'metadata')
-    {
+    if($parent->gi eq 'metadata') {
         %dcatts = (
             'file-as' => 'opf:file-as',
             'role' => 'opf:role',
             'scheme' => 'opf:scheme',
             );
     }
-    else
-    {
+    else {
         %dcatts = (
             'file-as' => 'file-as',
             'role' => 'role',
@@ -5693,51 +5420,42 @@ sub set_metadata :method    ## no critic (Always unpack @_ first)
     }
 
 
-    if($element)
-    {
+    if($element) {
         debug(2,"DEBUG: updating '",$gi,"'");
-        if($element->att('opf:file-as') && $args{fileas})
-        {
+        if($element->att('opf:file-as') && $args{fileas}) {
             debug(3,"DEBUG:   setting opf:file-as '",$args{fileas},"'");
             $element->set_att('opf:file-as',$args{fileas});
         }
-        elsif($args{fileas})
-        {
+        elsif($args{fileas}) {
             debug(3,"DEBUG:   setting file-as '",$args{fileas},"'");
             $element->set_att('file-as',$args{fileas});
         }
-        if($element->att('opf:role') && $args{role})
-        {
+        if($element->att('opf:role') && $args{role}) {
             debug(3,"DEBUG:   setting opf:role '",$args{role},"'");
             $element->set_att('opf:role',$args{role});
         }
-        elsif($args{role})
-        {
+        elsif($args{role}) {
             debug(3,"DEBUG:   setting role '",$args{role},"'");
             $element->set_att('role',$args{role});
         }
-        if($element->att('opf:scheme') && $args{scheme})
-        {
+        if($element->att('opf:scheme') && $args{scheme}) {
             debug(3,"DEBUG:   setting opf:scheme '",$args{scheme},"'");
             $element->set_att('opf:scheme',$args{scheme});
         }
-        elsif($args{scheme})
-        {
+        elsif($args{scheme}) {
             debug(3,"DEBUG:   setting scheme '",$args{scheme},"'");
             $element->set_att('scheme',$args{scheme});
         }
         debug(3,"DEBUG:   setting text");
         $element->set_text($text);
 
-        unless($element->parent->gi eq $parent->gi)
-        {
+        unless($element->parent->gi eq $parent->gi) {
             debug(2,"DEBUG: moving <",$element->gi,"> under <",
                   $parent->gi,">");
             $element->move('last_child',$parent);
         }
     }
-    else
-    {
+    else {
         debug(2,"DEBUG: creating '",$gi,"' under <",$parent->gi,">");
         $element = $parent->insert_new_elt('last_child',$gi);
         $element->set_att($dcatts{'file-as'},$args{fileas})
@@ -5749,8 +5467,7 @@ sub set_metadata :method    ## no critic (Always unpack @_ first)
         $element->set_text($text);
     }
 
-    if($idelem && $idelem->cmp($element) )
-    {
+    if($idelem && $idelem->cmp($element) ) {
         $self->add_warning(
             $subname,"(): reassigning id '",$newid,
             "' from a '",$idelem->gi,"' to a '",$element->gi,"'!"
@@ -5771,16 +5488,13 @@ filename was specified.
 
 =cut
 
-sub set_opffile :method    ## no critic (Always unpack @_ first)
-{
-    my $self = shift;
-    my ($filename) = @_;
+sub set_opffile :method {
+    my ($self,$filename) = @_;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
 
-    unless($filename)
-    {
+    unless($filename) {
         debug(1,$subname,"(): no filename specified!");
         $self->add_warning($subname,"(): no filename specified!");
         return;
@@ -5819,10 +5533,8 @@ defaults to 'USD' (US Dollars)
 
 =cut
 
-sub set_retailprice :method    ## no critic (Always unpack @_ first)
-{
-    my $self = shift;
-    my %args = @_;
+sub set_retailprice :method {
+    my ($self,%args) = @_;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
@@ -5833,13 +5545,11 @@ sub set_retailprice :method    ## no critic (Always unpack @_ first)
         'currency' => 1,
         );
 
-    foreach my $arg (keys %args)
-    {
+    foreach my $arg (keys %args) {
         croak($subname,"(): invalid argument '",$arg,"'")
             if(!$valid_args{$arg});
     }
-    unless(defined $args{text})
-    {
+    unless(defined $args{text}) {
         $self->add_error($subname,"(): text not defined");
         return;
     }
@@ -5848,11 +5558,9 @@ sub set_retailprice :method    ## no critic (Always unpack @_ first)
     my $element;
     my @elements;
 
-    if($args{text})
-    {
+    if($args{text}) {
         $element = $self->{twigroot}->first_descendant(qr/^ SRP $/ix);
-        unless($element)
-        {
+        unless($element) {
             $self->fix_metastructure_oeb12();
             $xmeta = $self->{twigroot}->first_descendant('x-metadata');
             $element = $xmeta->insert_new_elt('last_child','SRP');
@@ -5860,11 +5568,9 @@ sub set_retailprice :method    ## no critic (Always unpack @_ first)
         $element->set_text($args{text});
         $element->set_att('Currency',$args{currency}) if($args{currency});
     }
-    else
-    {
+    else {
         @elements = $self->{twigroot}->descendants(qr/^ SRP $/ix);
-        foreach my $el (@elements)
-        {
+        foreach my $el (@elements) {
             debug(2,"DEBUG: deleting <SRP>");
             $el->delete;
         }
@@ -5935,10 +5641,8 @@ found.
 
 =cut
 
-sub set_primary_author :method    ## no critic (Always unpack @_ first)
-{
-    my $self = shift;
-    my (%args) = @_;
+sub set_primary_author :method {
+    my ($self,%args) = @_;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
@@ -5947,8 +5651,7 @@ sub set_primary_author :method    ## no critic (Always unpack @_ first)
         'fileas' => 1,
         'id' => 1,
         );
-    foreach my $arg (keys %args)
-    {
+    foreach my $arg (keys %args) {
         croak($subname,"(): invalid argument '",$arg,"'")
             if(!$valid_args{$arg});
     }
@@ -5967,23 +5670,19 @@ sub set_primary_author :method    ## no critic (Always unpack @_ first)
     $element = $twigroot->first_descendant(\&twigelt_is_author);
     $element = $twigroot->first_descendant(qr/dc:creator/ix) if(!$element);
 
-    unless($element)
-    {
-        unless($newauthor)
-        {
+    unless($element) {
+        unless($newauthor) {
             add_error(
                 $subname,
                 "(): cannot create a new author element when the author is not specified");
             return;
         }
-        if($dcmeta)
-        {
+        if($dcmeta) {
             $element = $dcmeta->insert_new_elt('last_child','dc:Creator');
             $element->set_att('role' => 'aut');
             $element->set_att('file-as' => $newfileas) if($newfileas);
         }
-        else
-        {
+        else {
             $element = $meta->insert_new_elt('last_child','dc:creator');
             $element->set_att('opf:role' => 'aut');
             $element->set_att('opf:file-as' => $newfileas) if($newfileas);
@@ -5991,8 +5690,7 @@ sub set_primary_author :method    ## no critic (Always unpack @_ first)
     } # unless($element)
     $element->set_text($newauthor);
 
-    if($idelem && $idelem->cmp($element) )
-    {
+    if($idelem && $idelem->cmp($element) ) {
         $self->add_warning(
             $subname,"(): reassigning id '",$newid,
             "' from a '",$idelem->gi,"' element!"
@@ -6041,10 +5739,8 @@ other location and assigned to the element.
 
 =cut
 
-sub set_publisher :method    ## no critic (Always unpack @_ first)
-{
-    my $self = shift;
-    my (%args) = @_;
+sub set_publisher :method {
+    my ($self,%args) = @_;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
@@ -6052,8 +5748,7 @@ sub set_publisher :method    ## no critic (Always unpack @_ first)
         'text' => 1,
         'id' => 1,
         );
-    foreach my $arg (keys %args)
-    {
+    foreach my $arg (keys %args) {
         croak($subname,"(): invalid argument '",$arg,"'")
             if(!$valid_args{$arg});
     }
@@ -6070,17 +5765,14 @@ sub set_publisher :method    ## no critic (Always unpack @_ first)
     my $meta = $self->{twigroot}->first_child('metadata');
     my $dcmeta = $meta->first_child('dc-metadata');
 
-    if(!$element && $dcmeta)
-    {
+    if(!$element && $dcmeta) {
         $element = $dcmeta->insert_new_elt('last_child','dc:Publisher');
     }
-    elsif(!$element)
-    {
+    elsif(!$element) {
         $element = $meta->insert_new_elt('last_child','dc:publisher');
     }
     $element->set_text($publisher);
-    if($idelem && $idelem->cmp($element) )
-    {
+    if($idelem && $idelem->cmp($element) ) {
         $self->add_warning(
             $subname,"(): reassigning id '",$newid,
             "' from a '",$idelem->gi,"' element!"
@@ -6128,10 +5820,8 @@ other location and assigned to the element.
 
 =cut
 
-sub set_review :method    ## no critic (Always unpack @_ first)
-{
-    my $self = shift;
-    my (%args) = @_;
+sub set_review :method {
+    my ($self,%args) = @_;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
@@ -6139,15 +5829,13 @@ sub set_review :method    ## no critic (Always unpack @_ first)
         'text' => 1,
         'id' => 1,
         );
-    foreach my $arg (keys %args)
-    {
+    foreach my $arg (keys %args) {
         croak($subname,"(): invalid argument '",$arg,"'")
             if(!$valid_args{$arg});
     }
 
     my $text = $args{text};
-    unless($text)
-    {
+    unless($text) {
         $self->add_error($subname,"(): no text specified");
         return;
     }
@@ -6194,10 +5882,8 @@ already in use, a warning is logged but the method continues anyway.
 
 =cut
 
-sub set_rights :method    ## no critic (Always unpack @_ first)
-{
-    my $self = shift;
-    my (%args) = @_;
+sub set_rights :method {
+    my ($self,%args) = @_;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
@@ -6205,8 +5891,7 @@ sub set_rights :method    ## no critic (Always unpack @_ first)
         'text' => 1,
         'id' => 1,
         );
-    foreach my $arg (keys %args)
-    {
+    foreach my $arg (keys %args) {
         croak($subname,"(): invalid argument '",$arg,"'")
             if(!$valid_args{$arg});
     }
@@ -6226,8 +5911,7 @@ sub set_rights :method    ## no critic (Always unpack @_ first)
     $element->set_text($rights);
     $element->set_gi('dc:Rights') if($element->gi eq 'dc:Copyrights');
     $element->set_gi('dc:rights') if($element->gi eq 'dc:copyrights');
-    if($idelem && $idelem->cmp($element) )
-    {
+    if($idelem && $idelem->cmp($element) ) {
         $self->add_warning(
             $subname,"(): reassigning id '",$newid,
             "' from a '",$idelem->gi,"' element!"
@@ -6249,16 +5933,13 @@ unknown specification was set.
 
 =cut
 
-sub set_spec :method    ## no critic (Always unpack @_ first)
-{
-    my $self = shift;
-    my ($spec) = @_;
+sub set_spec :method {
+    my ($self,$spec) = @_;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
 
-    unless($validspecs{$spec})
-    {
+    unless($validspecs{$spec}) {
         $self->add_error($subname,"(): invalid specification '",$spec,"'");
         return;
     }
@@ -6299,10 +5980,8 @@ already in use, a warning is logged but the method continues anyway.
 
 =cut
 
-sub set_title :method    ## no critic (Always unpack @_ first)
-{
-    my $self = shift;
-    my (%args) = @_;
+sub set_title :method {
+    my ($self,%args) = @_;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
@@ -6311,8 +5990,7 @@ sub set_title :method    ## no critic (Always unpack @_ first)
         'text' => 1,
         'id' => 1,
         );
-    foreach my $arg (keys %args)
-    {
+    foreach my $arg (keys %args) {
         croak($subname,"(): invalid argument '",$arg,"'")
             if(!$valid_args{$arg});
     }
@@ -6326,10 +6004,8 @@ sub set_title :method    ## no critic (Always unpack @_ first)
     my $meta = $self->{twigroot}->first_child('metadata');
     my $dcmeta = $meta->first_child('dc-metadata');
     my $parent = $dcmeta || $meta;
-    unless($element)
-    {
-        unless($title)
-        {
+    unless($element) {
+        unless($title) {
             add_error($subname,
                       "(): no title specified, but no existing title found");
             return;
@@ -6338,8 +6014,7 @@ sub set_title :method    ## no critic (Always unpack @_ first)
     }
     $element->set_text($title) if($title);
 
-    if($idelem && $idelem->cmp($element) )
-    {
+    if($idelem && $idelem->cmp($element) ) {
         $self->add_warning(
             $subname,"(): reassigning id '",$newid,
             "' from a '",$idelem->gi,"' element!"
@@ -6388,10 +6063,8 @@ other location and assigned to the element.
 
 =cut
 
-sub set_type :method    ## no critic (Always unpack @_ first)
-{
-    my $self = shift;
-    my (%args) = @_;
+sub set_type :method {
+    my ($self,%args) = @_;
     my $subname = ( caller(0) )[3];
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
@@ -6399,8 +6072,7 @@ sub set_type :method    ## no critic (Always unpack @_ first)
         'text' => 1,
         'id' => 1,
         );
-    foreach my $arg (keys %args)
-    {
+    foreach my $arg (keys %args) {
         croak($subname,"(): invalid argument '",$arg,"'")
             if(!$valid_args{$arg});
     }
@@ -6417,17 +6089,14 @@ sub set_type :method    ## no critic (Always unpack @_ first)
     my $meta = $self->{twigroot}->first_child('metadata');
     my $dcmeta = $meta->first_child('dc-metadata');
 
-    if(!$element && $dcmeta)
-    {
+    if(!$element && $dcmeta) {
         $element = $dcmeta->insert_new_elt('last_child','dc:Type');
     }
-    elsif(!$element)
-    {
+    elsif(!$element) {
         $element = $meta->insert_new_elt('last_child','dc:type');
     }
     $element->set_text($text);
-    if($idelem && $idelem->cmp($element) )
-    {
+    if($idelem && $idelem->cmp($element) ) {
         $self->add_warning(
             $subname,"(): reassigning id '",$newid,
             "' from a '",$idelem->gi,"' element!"
@@ -6513,8 +6182,7 @@ otherwise
 
 =cut
 
-sub create_epub_container
-{
+sub create_epub_container {
     my ($opffile) = @_;
     my $subname = ( caller(0) )[3];
     debug(2,"DEBUG[",$subname,"]");
@@ -6527,10 +6195,8 @@ sub create_epub_container
 
     if($opffile eq '') { return; }
 
-    if(-e 'META-INF')
-    {
-	if(! -d 'META-INF')
-	{
+    if(-e 'META-INF') {
+	if(! -d 'META-INF') {
 	    unlink('META-INF') or return;
 	    mkdir('META-INF') or return;
 	}
@@ -6555,8 +6221,7 @@ sub create_epub_container
 
 
     # Backup existing file
-    if(-e 'META-INF/container.xml')
-    {
+    if(-e 'META-INF/container.xml') {
         rename('META-INF/container.xml','META-INF/container.xml.backup')
             or croak($subname,"(): could not backup container.xml!");
     }
@@ -6583,8 +6248,7 @@ Returns the mimetype string if successful, undef otherwise.
 
 =cut
 
-sub create_epub_mimetype
-{
+sub create_epub_mimetype {
     my $subname = ( caller(0) )[3];
     debug(2,"DEBUG[",$subname,"]");
 
@@ -6609,8 +6273,7 @@ Returns true or dies.
 
 =cut
 
-sub debug
-{
+sub debug {
     my ($level,@message) = @_;
     my $subname = ( caller(0) )[3];
     croak($subname,"(): no debugging level specified") unless($level);
@@ -6633,8 +6296,7 @@ characters.
 
 =cut
 
-sub excerpt_line
-{
+sub excerpt_line {
     my @parts = @_;
     my $subname = ( caller(0) )[3];
     my $text = join('',@parts);
@@ -6663,8 +6325,7 @@ no pattern was specified.
 
 =cut
 
-sub find_in_path
-{
+sub find_in_path {
     my ($pattern,@extradirs) = @_;
     return unless($pattern);
     my $subname = ( caller(0) )[3];
@@ -6676,8 +6337,7 @@ sub find_in_path
     my @filelist;
     my $envsep = ':';
     my $filesep = '/';
-    if($OSNAME eq 'MSWin32')
-    {
+    if($OSNAME eq 'MSWin32') {
         $envsep = ';';
         $filesep = "\\";
     }
@@ -6687,12 +6347,9 @@ sub find_in_path
 
     @dirs = split(/$envsep/,$ENV{PATH});
     unshift(@dirs,@extradirs) if(@extradirs);
-    foreach my $dir (@dirs)
-    {
-        if(-d $dir)
-        {
-            if(opendir($fh_dir,$dir))
-            {
+    foreach my $dir (@dirs) {
+        if(-d $dir) {
+            if(opendir($fh_dir,$dir)) {
                 @filelist = grep { /$regexp/ } readdir($fh_dir);
                 @filelist = grep { -f "$dir/$_" } @filelist;
                 closedir($fh_dir);
@@ -6728,8 +6385,7 @@ This also does not distinguish between local files and remote links.
 
 =cut
 
-sub find_links
-{
+sub find_links {
     my ($filename) = @_;
     return unless(-f $filename);
     my $subname = ( caller(0) )[3];
@@ -6750,12 +6406,10 @@ sub find_links
     open($fh,'<:raw',$filename)
         or croak($subname,"(): unable to open '",$filename,"'\n");
 
-    while(<$fh>)
-    {
+    while(<$fh>) {
         @links = /(?:href|src) \s* = \s* "
                   ([^">]+)/gix;
-        foreach my $link (@links)
-        {
+        foreach my $link (@links) {
             # Perform URI decoding
             $link = uri_unescape($link);
 
@@ -6799,22 +6453,18 @@ Returns the filename of the OPF file, or undef if nothing was found.
 
 =cut
 
-sub find_opffile
-{
+sub find_opffile {
     my $subname = ( caller(0) )[3];
     my $opffile = get_container_rootfile();
 
-    if(!$opffile)
-    {
+    if(!$opffile) {
 	my @candidates = glob("*.opf");
-        if(scalar(@candidates) > 1)
-        {
+        if(scalar(@candidates) > 1) {
             debug(1,"DEBUG: Multiple OPF files found, but no container",
                   " to specify which one to choose!");
             return;
         }
-        if(scalar(@candidates) < 1)
-        {
+        if(scalar(@candidates) < 1) {
             debug(1,"DEBUG: No OPF files found!");
             return;
         }
@@ -6857,8 +6507,7 @@ A date string in a format recognizable by Date::Manip
 
 =cut
 
-sub fix_datestring
-{
+sub fix_datestring {
     my ($datestring) = @_;
     return unless($datestring);
     my $subname = ( caller(0) )[3];
@@ -6871,13 +6520,11 @@ sub fix_datestring
     $_ = $datestring;
 
     debug(3,"DEBUG: checking M(M)/D(D)/YYYY");
-    if(( ($month,$day,$year) = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/x ) == 3)
-    {
+    if(( ($month,$day,$year) = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/x ) == 3) {
 	# We have a XX/XX/XXXX datestring
 	debug(3,"DEBUG: found '",$month,"/",$day,"/",$year,"'");
 	($year,$month,$day) = ymd_validate($year,$month,$day);
-	if($year)
-	{
+	if($year) {
 	    $fixeddate = $year;
 	    $fixeddate .= sprintf("-%02u",$month)
 		unless( ($month == 1) && ($day == 1) );
@@ -6888,12 +6535,10 @@ sub fix_datestring
     }
 
     debug(3,"DEBUG: checking M(M)/YYYY");
-    if(( ($month,$year) = /^(\d{1,2})\/(\d{4})$/x ) == 2)
-    {
+    if(( ($month,$year) = /^(\d{1,2})\/(\d{4})$/x ) == 2) {
 	# We have a XX/XXXX datestring
 	debug(3,"DEBUG: found '",$month,"/",$year,"'");
-	if($month <= 12)
-	{
+	if($month <= 12) {
 	    # We probably have MM/YYYY
 	    $fixeddate = sprintf("%04u-%02u",$year,$month);
 	    debug(3,"DEBUG: returning '",$fixeddate,"'");
@@ -6911,22 +6556,19 @@ sub fix_datestring
     ($year,$month,$day) = /^(\d{4})-(\d{2})-(\d{2})$/x;
     ($year,$month,$day) = ymd_validate($year,$month,$day);
 
-    if(!$year)
-    {
+    if(!$year) {
 	debug(3,"DEBUG: checking YYYYMMDD");
 	($year,$month,$day) = /^(\d{4})(\d{2})(\d{2})$/x;
 	($year,$month,$day) = ymd_validate($year,$month,$day);
     }
 
-    if(!$year)
-    {
+    if(!$year) {
 	debug(3,"DEBUG: checking YYYY-M(M)");
 	($year,$month) = /^(\d{4})-(\d{1,2})$/x;
 	($year,$month) = ymd_validate($year,$month,undef);
     }
 
-    if(!$year)
-    {
+    if(!$year) {
 	debug(3,"DEBUG: checking YYYY");
 	($year) = /^(\d{4})$/x;
     }
@@ -6941,8 +6583,7 @@ sub fix_datestring
     # See:
     # http://search.cpan.org/perldoc?Date::Manip#TIME_ZONES
 
-    if(!$year)
-    {
+    if(!$year) {
 	$date = ParseDate($datestring);
 	$year = UnixDate($date,"%Y");
 	$month = UnixDate($date,"%m");
@@ -6950,18 +6591,15 @@ sub fix_datestring
 	debug(2,"DEBUG: Date::Manip found '",UnixDate($date,"%Y-%m-%d"),"'");
     }
 
-    if($year)
-    {
+    if($year) {
 	# If we still have a $year, $month and $day either don't exist
 	# or are plausibly valid.
 	print {*STDERR} "DEBUG: found year=",$year," " if($debug >= 2);
 	$fixeddate = sprintf("%04u",$year);
-	if($month)
-	{
+	if($month) {
 	    print {*STDERR} "month=",$month," " if($debug >= 2);
 	    $fixeddate .= sprintf("-%02u",$month);
-	    if($day)
-	    {
+	    if($day) {
 		print {*STDERR} "day=",$day if($debug >= 2);
 		$fixeddate .= sprintf("-%02u",$day);
 	    }
@@ -6971,13 +6609,11 @@ sub fix_datestring
 	return $fixeddate if($fixeddate);
     }
 
-    if(!$year)
-    {
+    if(!$year) {
 	debug(3,"fix_date: didn't find a valid date in '",$datestring,"'!");
 	return;
     }
-    elsif($debug)
-    {
+    elsif($debug) {
 	print {*STDERR} "DEBUG: found ",sprintf("04u",$year);
 	print {*STDERR} sprintf("-02u",$month) if($month);
 	print {*STDERR} sprintf("-02u",$day),"\n" if($day);
@@ -7014,8 +6650,7 @@ The OPS container to parse.  Defaults to 'META-INF/container.xml'
 
 =cut
 
-sub get_container_rootfile
-{
+sub get_container_rootfile {
     my ($container) = @_;
     my $subname = ( caller(0) )[3];
     debug(2,"DEBUG[",$subname,"]");
@@ -7026,8 +6661,7 @@ sub get_container_rootfile
 
     $container = 'META-INF/container.xml' if(! $container);
 
-    if(-f $container)
-    {
+    if(-f $container) {
 	$twig->parsefile($container) or return;
 	$rootfile = $twig->root->first_descendant('rootfile');
 	return unless($rootfile);
@@ -7045,8 +6679,7 @@ hexadecimal equivalent.  There is no leading "0x" on the string.
 
 =cut
 
-sub hexstring
-{
+sub hexstring {
     my $data = shift;
     my $subname = ( caller(0) )[3];
     debug(4,"DEBUG[",$subname,"]");
@@ -7058,8 +6691,7 @@ sub hexstring
     my $retval = '';
     my $pos = 0;
 
-    while($pos < length($data))
-    {
+    while($pos < length($data)) {
         $byte = unpack("C",substr($data,$pos,1));
         $retval .= sprintf("%02x",$byte);
         $pos++;
@@ -7089,8 +6721,7 @@ Returns 1 on success, undef otherwise.
 
 =cut
 
-sub print_memory
-{
+sub print_memory {
     my ($label) = @_;
     my $subname = ( caller(0) )[3];
     debug(2,"DEBUG[",$subname,"]");
@@ -7098,8 +6729,7 @@ sub print_memory
     my @mem;
     my $fh_procstatm;
 
-    if(!open($fh_procstatm,"<","/proc/$$/statm"))
-    {
+    if(!open($fh_procstatm,"<","/proc/$$/statm")) {
 	print "[",$label,"]: " if(defined $label);
 	print "Couldn't open /proc/$$/statm [$!]\n";
         return;
@@ -7156,8 +6786,7 @@ metadata was found.
 
 =cut
 
-sub split_metadata
-{
+sub split_metadata {
     my ($metahtmlfile,$metafile) = @_;
     my $subname = ( caller(0) )[3];
     debug(2,"DEBUG[",$subname,"]");
@@ -7183,15 +6812,13 @@ sub split_metadata
           "  html='",$htmlfile,"'");
 
     # Move existing output files to avoid overwriting them
-    if(-f $metafile)
-    {
+    if(-f $metafile) {
         debug(3, "DEBUG: moving metafile '",$metafile,"'");
         croak ($subname,"(): output file '",$metafile,
                "' exists and could not be moved!")
             if(! rename($metafile,"$metafile.backup") );
     }
-    if(-f $htmlfile)
-    {
+    if(-f $htmlfile) {
         debug(3, "DEBUG: moving htmlfile '",$htmlfile,"'");
         croak ($subname,"(): output file '",$htmlfile,
                "' exists and could not be moved!")
@@ -7218,8 +6845,7 @@ sub split_metadata
     # Since multiple <metadata> sections may be present, cannot use
     # </metadata> as a delimiter.
     local $/;
-    while(<$fh_metahtml>)
-    {
+    while(<$fh_metahtml>) {
         s/\sfilepos=\d+//gix;
 	(@metablocks) = m#(<metadata>.*</metadata>)#gisx;
 	(@guideblocks) = m#(<guide>.*</guide>)#gisx;
@@ -7239,8 +6865,7 @@ sub split_metadata
     close($fh_metahtml)
         or croak($subname,"(): Failed to close '",$metahtmlfile,"'!");
 
-    if( (-z $htmlfile) && (-z $metafile) )
-    {
+    if( (-z $htmlfile) && (-z $metafile) ) {
         croak($subname,"(): ended up with no text in any output file",
               " -- bailing out!");
     }
@@ -7253,21 +6878,18 @@ sub split_metadata
     undef(@guideblocks);
     undef($_);
 
-    if(-z $htmlfile)
-    {
+    if(-z $htmlfile) {
         debug(1,"split_metadata(): HTML has zero size.",
              "  Not replacing original.");
         unlink($htmlfile);
     }
-    else
-    {
+    else {
         rename($htmlfile,$metahtmlfile)
             or croak("split_metadata(): Failed to rename ",$htmlfile,
                      " to ",$metahtmlfile,"!\n");
     }
 
-    if(-z $metafile)
-    {
+    if(-z $metafile) {
         croak($subname,
               "(): unable to remove empty output file '",$metafile,"'!")
             if(! unlink($metafile) );
@@ -7291,8 +6913,7 @@ Returns a list containing all filenames created.
 
 =cut
 
-sub split_pre
-{
+sub split_pre {
     my ($htmlfile,$outfilebase) = @_;
     my $subname = ( caller(0) )[3];
     debug(2,"DEBUG[",$subname,"]");
@@ -7392,8 +7013,7 @@ well.
 
 =cut
 
-sub strip_script
-{
+sub strip_script {
     my %args = @_;
     my $subname = ( caller(0) )[3];
     debug(2,"DEBUG[",$subname,"]");
@@ -7406,8 +7026,7 @@ sub strip_script
         'outfile' => 1,
         'noscript' => 1,
         );
-    foreach my $arg (keys %args)
-    {
+    foreach my $arg (keys %args) {
         croak($subname,"(): invalid argument '",$arg,"'")
             if(!$valid_args{$arg});
     }
@@ -7440,7 +7059,7 @@ sub strip_script
 }
 
 
-=head2 C<system_result($caller,$retval,@syscmd)
+=head2 C<system_result($caller,$retval,@syscmd)>
 
 Checks the result of a system call and croak on failure with an
 appropriate message.  For this to work, it MUST be used as the line
@@ -7553,8 +7172,7 @@ Returns the return value from tidy
 
 =cut
 
-sub system_tidy_xhtml
-{
+sub system_tidy_xhtml {
     my ($infile,$outfile) = @_;
     my $retval;
 
@@ -7663,8 +7281,7 @@ Returns the return value from tidy
 
 =cut
 
-sub system_tidy_xml
-{
+sub system_tidy_xml {
     my ($infile,$outfile) = @_;
     my $retval;
 
@@ -7735,9 +7352,10 @@ String::Strip.
 
 =cut
 
-sub trim   ## no critic (Always unpack @_ first)
-{
-    ## no critic (Comma used to separate statements)
+sub trim { ## no critic
+    ## no critic
+    # PerlCritic is turned off here, as this is unusual code
+    # deliberately bending rules.
     @_ = $_ if not @_ and defined wantarray;
     @_ = @_ if defined wantarray;
     for ( @_ ? @_ : $_ ) { s/^\s+//, s/\s+$// }
@@ -7764,8 +7382,7 @@ Returns the element.
 
 =cut
 
-sub twigelt_create_uuid
-{
+sub twigelt_create_uuid {
     my ($gi) = @_;
     my $subname = ( caller(0) )[3];
     debug(2,"DEBUG[",$subname,"]");
@@ -7794,8 +7411,7 @@ Croaks if passed anything but twig elements.
 
 =cut
 
-sub twigelt_detect_duplicate
-{
+sub twigelt_detect_duplicate {
     my ($element1,$element2) = @_;
     my $subname = ( caller(0) )[3];
     debug(3,"DEBUG[",$subname,"]");
@@ -7868,8 +7484,7 @@ opf:att exist.
 
 =cut
 
-sub twigelt_fix_oeb12_atts
-{
+sub twigelt_fix_oeb12_atts {
     my ($element) = @_;
     return unless($element);
     my $subname = ( caller(0) )[3];
@@ -7916,8 +7531,7 @@ element didn't exist.
 
 =cut
 
-sub twigelt_fix_opf20_atts
-{
+sub twigelt_fix_opf20_atts {
     my ($element) = @_;
     return unless($element);
     my $subname = ( caller(0) )[3];
@@ -7969,8 +7583,7 @@ Intended to be used as a twig search condition.
 
 =cut
 
-sub twigelt_is_author
-{
+sub twigelt_is_author {
     my ($element) = @_;
     my $subname = ( caller(0) )[3];
     debug(3,"DEBUG[",$subname,"]");
@@ -8014,8 +7627,7 @@ Intended to be used as a twig search condition.
 
 =cut
 
-sub twigelt_is_isbn
-{
+sub twigelt_is_isbn {
     my ($element) = @_;
     my $subname = ( caller(0) )[3];
     debug(3,"DEBUG[",$subname,"]");
@@ -8061,8 +7673,7 @@ Intended to be used as a twig search condition.
 
 =cut
 
-sub twigelt_is_knownuid
-{
+sub twigelt_is_knownuid {
     my ($element) = @_;
     my $subname = ( caller(0) )[3];
     debug(3,"DEBUG[",$subname,"]");
@@ -8111,8 +7722,7 @@ Croaks on any failure.
 
 =cut
 
-sub usedir
-{
+sub usedir {
     my ($dir) = @_;
     my $subname = ( caller(0) )[3];
     debug(2,"DEBUG[",$subname,"]: $dir");
@@ -8120,8 +7730,7 @@ sub usedir
     my $cwd = getcwd();
     return $cwd unless($dir);
 
-    unless(-d $dir)
-    {
+    unless(-d $dir) {
         debug(2,"  Creating directory '",$dir,"'");
         mkpath($dir)
             or croak("Unable to create output directory '",$dir,"'!\n");
@@ -8146,25 +7755,20 @@ sub returns undef.
 
 =cut
 
-sub userconfigdir
-{
+sub userconfigdir {
     my $subname = ( caller(0) )[3];
     debug(3,"DEBUG[",$subname,"]");
 
     my $dir;
     $dir = $ENV{HOME} . '/.ebooktools' if($ENV{HOME});
-    if($OSNAME eq 'MSWin32')
-    {
-        if(! -d $dir)
-        {
+    if($OSNAME eq 'MSWin32') {
+        if(! -d $dir) {
             $dir = $ENV{USERPROFILE} . '\Application Data\EBook-Tools'
                 if($ENV{USERPROFILE});
         }
     }
-    if($dir)
-    {
-        if(! -d $dir)
-        {
+    if($dir) {
+        if(! -d $dir) {
             mkpath($dir)
                 or croak($subname,
                          "(): unable to create configuration directory '",
@@ -8184,19 +7788,15 @@ skipped by passing undef in that spot.
 
 =cut
 
-sub ymd_validate
-{
+sub ymd_validate {
     my ($year,$month,$day) = @_;
 
     return (undef,undef,undef) unless($year);
 
-    if($month)
-    {
+    if($month) {
 	return (undef,undef,undef) if($month > 12);
-	if($day)
-	{
-	    if(!eval { timelocal(0,0,0,$day,$month-1,$year); })
-	    {
+	if($day) {
+	    if(!eval { timelocal(0,0,0,$day,$month-1,$year); }) {
 		debug(1,"DEBUG: timelocal validation failed for year=",
                       $year," month=",$month," day=",$day);
 		return (undef,undef,undef);
@@ -8217,9 +7817,6 @@ sub ymd_validate
 =head1 BUGS AND LIMITATIONS
 
 =over
-
-=item * need to implement fix_primary_author() to convert names to
-standard 'last, first' naming format
 
 =item * fix_links() could be improved to download remote URIs instead
 of ignoring them.
@@ -8269,7 +7866,7 @@ Zed Pobre <zed@debian.org>
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright 2008 Zed Pobre
+Copyright 2008-2013 Zed Pobre
 
 Licensed to the public under the terms of the GNU GPL, version 2
 
