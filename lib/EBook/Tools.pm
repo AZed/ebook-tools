@@ -159,6 +159,7 @@ use Time::Local;
 use URI::Escape;
 use XML::Twig;
 
+
 =head1 CONFIGURABLE PACKAGE VARIABLES
 
 =over
@@ -605,6 +606,7 @@ my %rwfields = (
 my %rofields = (
     'topdir'   => 'string', # Top-level directory of the unpacked book
     'twig'     => 'scalar',
+    'twig_unmodified' => 'scalar',
     'twigroot' => 'scalar',
     'errors'   => 'arrayref',
     'warnings' => 'arrayref',
@@ -712,6 +714,13 @@ sub init :method {
 	pretty_print => 'record'
 	);
 
+    # Initialize a second copy to be used to check for changes
+    $self->{twig_unmodified} = XML::Twig->new(
+	keep_atts_order => 1,
+	output_encoding => 'utf-8',
+	pretty_print => 'record'
+	);
+
     # Read and decode entities before parsing to avoid parsing errors
     open($fh_opffile,'<:encoding(UTF-8)',$self->{opffile})
         or croak($subname,"(): failed to open '",$self->{opffile},
@@ -739,6 +748,7 @@ sub init :method {
 #         / decode_entities($1) /gex;
 
     $self->{twig}->parse($opfstring);
+    $self->{twig_unmodified}->parse($opfstring);
     $self->{twigroot} = $self->{twig}->root;
     $self->opf_namespace;
     $self->twigcheck;
@@ -815,9 +825,15 @@ sub init_blank :method {
 	output_encoding => 'utf-8',
 	pretty_print => 'record'
         );
+    $self->{twig_unmodified} = XML::Twig->new(
+	keep_atts_order => 1,
+	output_encoding => 'utf-8',
+	pretty_print => 'record'
+       );
 
     $element = XML::Twig::Elt->new('package');
     $self->{twig}->set_root($element);
+    $self->{twig_unmodified}->set_root($element);
     $self->{twigroot} = $self->{twig}->root;
     $metadata = $self->{twigroot}->insert_new_elt('first_child','metadata');
 
@@ -4743,6 +4759,11 @@ sub save :method {
             or croak($subname,"(): could not backup ",$filename,"!");
     }
 
+    # Update the last-modified timestamp as the very last thing before
+    # saving if the output changed at all
+    if($self->{twig}->sprint ne $self->{twig_unmodified}->sprint) {
+        $self->set_timestamp();
+    }
 
     # Twig handles utf8 on its own.  If you open this file with
     # binmode :utf8, it will double-convert.
@@ -6053,6 +6074,40 @@ sub set_spec :method {
     }
     $self->{spec} = $validspecs{$spec};
     return 1;
+}
+
+
+=head2 C<set_timestamp()>
+
+Sets the <meta property="dcterms:modified"> element to the current
+timestamp and removes duplicate or nonstandard timestamps.
+
+=cut
+
+sub set_timestamp :method {
+    my ($self) = @_;
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(2,"DEBUG[",$subname,"]");
+
+    my @timestamps;
+    my $twigroot = $self->{twigroot};
+    my $time = Date::Manip::Date->new();
+
+    @timestamps = $twigroot->descendants(
+        'meta[@property="dcterms:modified" or @name="calibre:timestamp"]');
+    foreach my $timestamp (@timestamps) {
+        $timestamp->delete;
+    }
+    @timestamps = $twigroot->descendants(
+        'dc:date[@opf:event="modification" or @event="modification"]');
+    foreach my $timestamp (@timestamps) {
+        $timestamp->delete;
+    }
+    $time->parse('now');
+    $self->set_meta('property' => 'dcterms:modified',
+                    'text' => $time->printf('%O') );
+    return;
 }
 
 
