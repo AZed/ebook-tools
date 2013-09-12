@@ -5223,14 +5223,43 @@ Sets a <meta> element in the <metadata> element area.
 
 =item C<name>
 
-The name attribute to use when finding or creating the <meta> element.
-This must be specified.
+The name attribute to use when finding or creating OPF 2.0 <meta>
+elements.  Either this or the property attribute (below) must be
+specified, but specifying both is an error.
 
 =item C<content>
 
-The value of the content attribute to set.  If this value is empty or
-undefined, but C<name> is provided and matches an existing element,
-that element will be deleted.
+The value of the content attribute to set on OPF 2.0 elements.  If
+this value is empty or undefined, but C<name> is provided and matches
+an existing element, that element will be deleted.
+
+=item C<property>
+
+The property attribute to use when finding or creating OPF 3.0 <meta>
+elements.  Either this or C<name> (above) must be specified, but
+specifying both is an error.
+
+=item C<refines>
+
+The refines attribute to use when finding or creating OPF 3.0 <meta>
+elements.
+
+=item C<scheme>
+
+The scheme attribute to use when creating or updating OPF 3.0 <meta>
+elements.
+
+=item C<text>
+
+The text set on OPF 3.0 <meta> elements.  If this value is empty or
+undefined, but C<property> is provided and the combination of
+C<property> and C<refines> matches an existing element, that element
+will be deleted.
+
+=item C<lang>
+
+The xml:lang attribute to set.  This is valid on both OPF 2 and OPF 3
+<meta> elements.
 
 =back
 
@@ -5242,8 +5271,13 @@ sub set_meta :method {
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(3,"DEBUG[",$subname,"]");
     my %valid_args = (
-        'name' => 1,
-        'content' => 1,
+        'name'     => 1,
+        'content'  => 1,
+        'property' => 1,
+        'refines'  => 1,
+        'scheme'   => 1,
+        'text'     => 1,
+        'lang'     => 1,
         );
     foreach my $arg (keys %args) {
         croak($subname,"(): invalid argument '",$arg,"'")
@@ -5252,34 +5286,108 @@ sub set_meta :method {
 
     my $name = $args{name};
     my $content = $args{content};
+    my $property = $args{property};
+    my $refines = $args{refines};
+    my $scheme = $args{scheme};
+    my $text = $args{text};
+    my $lang = $args{lang};
+    my $standard;
 
-    unless($name) {
-        $self->add_error($subname,"(): no name specified for the meta tag");
-        return;
+    if($name) {
+        if ($property) {
+            $self->add_error($subname,"(): both name (OPF2) and property (OPF3) attributes specified for a meta tag");
+            return;
+        }
+        $standard = 'OPF2',
+    }
+    else {
+        if ($property) {
+            $standard = 'OPF3',
+        }
+        else {
+            $self->add_error($subname,"(): neither name (OPF2) nor property (OPF3) attributes specified for a meta tag");
+            return;
+        }
     }
 
     $self->fix_metastructure_basic();
     my $metadata = $self->{twigroot}->first_child('metadata');
-    my $element = $metadata->first_descendant('meta[@name="' . $name . '"]');
+    my $element;
 
-    if($element) {
-        if(! $content) {
-            debug(2,"DEBUG: deleting <meta name='",$name,"'>");
-            $element->delete;
+    given ($standard) {
+        when (/OPF2/) {
+            $element = $metadata->first_descendant('meta[@name="' . $name . '"]');
+
+            if($element) {
+                if(! $content) {
+                    debug(2,"DEBUG: deleting <meta name='",$name,"'>");
+                    $element->delete;
+                }
+                else {
+                    debug(2,"DEBUG: updating <meta name='",$name,"'>");
+                    $element->set_att('content',$content);
+                    if($lang) {
+                        $element->set_att('xml:lang',$lang);
+                    }
+                }
+            }
+            else {
+                if($content) {
+                    debug(2,"DEBUG: creating <meta name='",$name,"'>");
+                    $element = $metadata->insert_new_elt('last_child','meta');
+                    $element->set_att('name',$name);
+                    $element->set_att('content',$content);
+                }
+            }
         }
-        else {
-            debug(2,"DEBUG: updating <meta name='",$name,"'>");
-            $element->set_att('content',$content);
+        when (/OPF3/) {
+            if($refines) {
+                $element = $metadata->first_descendant(
+                    'meta[@property="' . $property . '" and @refines="' . $refines . '"]');
+            }
+            else {
+                $element = $metadata->first_descendant(
+                    'meta[@property="' . $property . '"]');
+            }
+            if($element) {
+                if(! $text) {
+                    debug(2,"DEBUG: deleting meta property='",$property,"'>");
+                    $element->delete;
+                }
+                else {
+                    debug(2,"DEBUG: updating <meta property='",$property,"'>");
+                    $element->set_text($text);
+                }
+                if($scheme) {
+                    $element->set_att('scheme',$scheme);
+                }
+                if($lang) {
+                    $element->set_att('xml:lang',$lang);
+                }
+            }
+            else {
+                if($text) {
+                    debug(2,"DEBUG: creating <meta property='",$property,"'>");
+                    $element = $metadata->insert_new_elt('last_child','meta');
+                    $element->set_att('property',$property);
+                    if($refines) {
+                        $element->set_att('refines',$refines);
+                    }
+                    if($scheme) {
+                        $element->set_att('scheme',$scheme);
+                    }
+                    if($lang) {
+                        $element->set_att('xml:lang',$lang);
+                    }
+                    $element->set_text($text);
+                }
+            }
+        }
+        default {
+            croak($subname,"(): unknown standard '${standard}'! (This should be impossible!)");
         }
     }
-    else {
-        if($content) {
-            debug(2,"DEBUG: creating <meta name='",$name,"'>");
-            $element = $metadata->insert_new_elt('last_child','meta');
-            $element->set_att('name',$name);
-            $element->set_att('content',$content);
-        }
-    }
+
     return;
 }
 
