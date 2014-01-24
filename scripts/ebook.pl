@@ -1403,6 +1403,8 @@ The elements that can be set are currently:
 
 =item title
 
+=item type
+
 =back
 
 The 'series' values can take an extra argument containing the series
@@ -1530,9 +1532,13 @@ sub setmeta
                 }
             }
         }
-        when (/^t/) {
+        when (/^ti/) {
             $ebook->set_title('text' => $value,
                               'id' => $id);
+        }
+        when (/^ty/) {
+            $ebook->set_type('text' => $value,
+                             'id' => $id);
         }
         default {
             print "Unrecognized metadata element '",$element,"'!\n";
