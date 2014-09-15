@@ -138,6 +138,7 @@ is($ebook->rights,"Copyright \x{a9} 2008 Zed Pobre",
 
 ########## CLEANUP ##########
 
+chdir($cwd);
 rmtree('ertest');
 rmtree('hufftest');
 rmtree('mobitest');
