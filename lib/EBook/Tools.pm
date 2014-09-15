@@ -141,6 +141,8 @@ use Archive::Zip qw( :CONSTANTS :ERROR_CODES );
 use Carp;
 use Cwd qw(getcwd realpath);
 use Date::Manip;
+use Encode;
+require Encode::Detect;
 use File::Basename qw(basename dirname fileparse);
 # File::MimeInfo::Magic gets *.css right, but detects all html as
 # text/html, even if it has an XML header.
@@ -722,7 +724,7 @@ sub init :method {
 	);
 
     # Read and decode entities before parsing to avoid parsing errors
-    open($fh_opffile,'<:encoding(UTF-8)',$self->{opffile})
+    open($fh_opffile,'<:raw',$self->{opffile})
         or croak($subname,"(): failed to open '",$self->{opffile},
                  "' for reading!");
     read($fh_opffile,$opfstring,-s $self->opffile)
@@ -732,6 +734,7 @@ sub init :method {
 
     # We use _decode_entities and the custom hash to decode, but also
     # see below for the regexp
+    $opfstring=decode('Detect',$opfstring);
     _decode_entities($opfstring,\%nonxmlentity2char);
 
     # This runs decode_entities on the substring containing just the
