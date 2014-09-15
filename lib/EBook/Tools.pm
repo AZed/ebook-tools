@@ -6804,7 +6804,7 @@ sub add_warning :method {
     my @currentwarnings;
     @currentwarnings = @{$self->{warnings}} if($self->{warnings});
 
-    if(@newwarning) {
+    if (@newwarning) {
         my $warning = join('',@newwarning);
 	debug(1,"WARNING: ",$warning);
 	push(@currentwarnings,$warning);
@@ -9021,10 +9021,10 @@ sub set_cover :method {
     }
     else {
         $element = $manifest->insert_new_elt('first_child','item');
-        if($newid) {
+        if ($newid) {
             $element->set_id($newid);
         }
-        elsif($self->{twig}->first_elt('*[@id="coverimage"]')) {
+        elsif ($self->{twig}->first_elt('*[@id="coverimage"]')) {
             $element->set_id(basename($href));
         }
         else {
@@ -9035,50 +9035,48 @@ sub set_cover :method {
     }
     $id = $element->id;
 
-    given($spec) {
-        when(/OPF20/) {
-            $self->fix_metastructure_basic;
-            $self->fix_guide;
-            $guide = $self->{twigroot}->first_child('guide');
-            $element = $guide->first_child('reference[@type="other.ms-coverimage-standard"]');
-            if($element) {
-                $element->set_att('href',$href);
-                $element->set_att('title','Cover');
-            }
-            else {
-                $element = $guide->insert_new_elt('last_child','reference');
-                $element->set_att('href',$href);
-                $element->set_att('title','Cover');
-                $element->set_att('type','other.ms-coverimage-standard');
-            }
-            $self->set_meta('name' => 'cover',
-                            'content' => $href);
+    if ($spec eq 'OPF20') {
+        $self->fix_metastructure_basic;
+        $self->fix_guide;
+        $guide = $self->{twigroot}->first_child('guide');
+        $element = $guide->first_child('reference[@type="other.ms-coverimage-standard"]');
+        if ($element) {
+            $element->set_att('href',$href);
+            $element->set_att('title','Cover');
+        }
+        else {
+            $element = $guide->insert_new_elt('last_child','reference');
+            $element->set_att('href',$href);
+            $element->set_att('title','Cover');
+            $element->set_att('type','other.ms-coverimage-standard');
+        }
+        $self->set_meta('name' => 'cover',
+                        'content' => $href);
 
-            # Now that the OPF 2.0 elements are set, we can delete the
-            # OEB12 EmbeddedCover element
-            $element = $self->{twigroot}->first_descendant('EmbeddedCover');
-            if($element) {
-                debug(1,"deleting cover");
-                $element->delete;
-            }
-        }
-        when(/OEB12/) {
-            $self->fix_metastructure_oeb12;
-            $dcmeta = $self->{twigroot}->first_child('dc-metadata');
-            $element = $dcmeta->first_child('EmbeddedCover');
-            if($element) {
-                $element->set_text($href);
-            }
-            else {
-                $element = $dcmeta->insert_new_elt('last_child','EmbeddedCover');
-                $element->set_text($href);
-            }
-        }
-        default {
-            self->add_error($subname,"(): unknown specification type: '",$spec,"'");
+        # Now that the OPF 2.0 elements are set, we can delete the
+        # OEB12 EmbeddedCover element
+        $element = $self->{twigroot}->first_descendant('EmbeddedCover');
+        if ($element) {
+            debug(1,"deleting cover");
+            $element->delete;
         }
     }
-        return;
+    elsif ($spec eq 'OEB12') {
+        $self->fix_metastructure_oeb12;
+        $dcmeta = $self->{twigroot}->first_child('dc-metadata');
+        $element = $dcmeta->first_child('EmbeddedCover');
+        if ($element) {
+            $element->set_text($href);
+        }
+        else {
+            $element = $dcmeta->insert_new_elt('last_child','EmbeddedCover');
+            $element->set_text($href);
+        }
+    }
+    else {
+        self->add_error($subname,"(): unknown specification type: '",$spec,"'");
+    }
+    return;
 }
 
 
@@ -9131,10 +9129,10 @@ sub set_date :method {
         'text' => 1,
         'event' => 1,
         'id' => 1,
-        );
+       );
     foreach my $arg (keys %args) {
         croak($subname,"(): invalid argument '",$arg,"'")
-            if(!$valid_args{$arg});
+          if (!$valid_args{$arg});
     }
 
     my $text = $args{text};
@@ -9153,7 +9151,7 @@ sub set_date :method {
     $self->fix_metastructure_basic();
 
     my $element;
-    if($event) {
+    if ($event) {
         $element = $self->{twigroot}->first_descendant(
             "dc:date[\@opf:event=~/$event/ix or \@event=~/$event/ix]");
         $element = $self->{twigroot}->first_descendant(
@@ -9166,29 +9164,29 @@ sub set_date :method {
           unless($element);
     }
 
-    if($element) {
+    if ($element) {
         $element->set_text($text);
     }
-    elsif($dcmeta) {
+    elsif ($dcmeta) {
         $element = $dcmeta->insert_new_elt('last_child','dc:Date');
         $element->set_text($text);
-        if($event) {
+        if ($event) {
             $element->set_att('event',$event);
         }
     }
     else {
         $element = $meta->insert_new_elt('last_child','dc:date');
         $element->set_text($text);
-        if($event) {
+        if ($event) {
             $element->set_att('opf:event',$event);
         }
     }
 
-    if($idelem && $idelem->cmp($element) ) {
+    if ($idelem && $idelem->cmp($element) ) {
         $self->add_warning(
             $subname,"(): reassigning id '",$newid,
             "' from a '",$idelem->gi,"' element!"
-            );
+           );
         $idelem->del_att('id');
     }
     $element->set_att('id' => $newid) if($newid);
@@ -9241,10 +9239,10 @@ sub set_description :method {
     my %valid_args = (
         'text' => 1,
         'id' => 1,
-        );
+       );
     foreach my $arg (keys %args) {
         croak($subname,"(): invalid argument '",$arg,"'")
-            if(!$valid_args{$arg});
+          if (!$valid_args{$arg});
     }
 
     my $text = $args{text};
@@ -9344,10 +9342,10 @@ sub set_language :method {
     my %valid_args = (
         'text' => 1,
         'id' => 1,
-        );
+       );
     foreach my $arg (keys %args) {
         croak($subname,"(): invalid argument '",$arg,"'")
-            if(!$valid_args{$arg});
+          if (!$valid_args{$arg});
     }
 
     my $text = lc($args{text});
@@ -9434,10 +9432,10 @@ sub set_meta :method {
         'scheme'   => 1,
         'text'     => 1,
         'lang'     => 1,
-        );
+       );
     foreach my $arg (keys %args) {
         croak($subname,"(): invalid argument '",$arg,"'")
-            if(!$valid_args{$arg});
+          if (!$valid_args{$arg});
     }
 
     my $name = $args{name};
@@ -9449,7 +9447,7 @@ sub set_meta :method {
     my $lang = $args{lang};
     my $standard;
 
-    if($name) {
+    if ($name) {
         if ($property) {
             $self->add_error($subname,"(): both name (OPF2) and property (OPF3) attributes specified for a meta tag");
             return;
@@ -9470,78 +9468,76 @@ sub set_meta :method {
     my $metadata = $self->{twigroot}->first_child('metadata');
     my $element;
 
-    given ($standard) {
-        when (/OPF2/) {
-            $element = $metadata->first_descendant('meta[@name="' . $name . '"]');
+    if ($standard eq 'OPF2') {
+        $element = $metadata->first_descendant('meta[@name="' . $name . '"]');
 
-            if($element) {
-                if(! $content) {
-                    debug(2,"DEBUG: deleting <meta name='",$name,"'>");
-                    $element->delete;
-                }
-                else {
-                    debug(2,"DEBUG: updating <meta name='",$name,"'>");
-                    $element->set_att('content',$content);
-                    if($lang) {
-                        $element->set_att('xml:lang',$lang);
-                    }
-                }
+        if ($element) {
+            if (! $content) {
+                debug(2,"DEBUG: deleting <meta name='",$name,"'>");
+                $element->delete;
             }
             else {
-                if($content) {
-                    debug(2,"DEBUG: creating <meta name='",$name,"'>");
-                    $element = $metadata->insert_new_elt('last_child','meta');
-                    $element->set_att('name',$name);
-                    $element->set_att('content',$content);
-                }
-            }
-        }
-        when (/OPF3/) {
-            if($refines) {
-                $element = $metadata->first_descendant(
-                    'meta[@property="' . $property . '" and @refines="' . $refines . '"]');
-            }
-            else {
-                $element = $metadata->first_descendant(
-                    'meta[@property="' . $property . '"]');
-            }
-            if($element) {
-                if(! $text) {
-                    debug(2,"DEBUG: deleting meta property='",$property,"'>");
-                    $element->delete;
-                }
-                else {
-                    debug(2,"DEBUG: updating <meta property='",$property,"'>");
-                    $element->set_text($text);
-                }
-                if($scheme) {
-                    $element->set_att('scheme',$scheme);
-                }
-                if($lang) {
+                debug(2,"DEBUG: updating <meta name='",$name,"'>");
+                $element->set_att('content',$content);
+                if ($lang) {
                     $element->set_att('xml:lang',$lang);
                 }
             }
-            else {
-                if($text) {
-                    debug(2,"DEBUG: creating <meta property='",$property,"'>");
-                    $element = $metadata->insert_new_elt('last_child','meta');
-                    $element->set_att('property',$property);
-                    if($refines) {
-                        $element->set_att('refines',$refines);
-                    }
-                    if($scheme) {
-                        $element->set_att('scheme',$scheme);
-                    }
-                    if($lang) {
-                        $element->set_att('xml:lang',$lang);
-                    }
-                    $element->set_text($text);
-                }
+        }
+        else {
+            if ($content) {
+                debug(2,"DEBUG: creating <meta name='",$name,"'>");
+                $element = $metadata->insert_new_elt('last_child','meta');
+                $element->set_att('name',$name);
+                $element->set_att('content',$content);
             }
         }
-        default {
-            croak($subname,"(): unknown standard '${standard}'! (This should be impossible!)");
+    }
+    elsif ($standard eq 'OPF3') {
+        if ($refines) {
+            $element = $metadata->first_descendant(
+                'meta[@property="' . $property . '" and @refines="' . $refines . '"]');
         }
+        else {
+            $element = $metadata->first_descendant(
+                'meta[@property="' . $property . '"]');
+        }
+        if ($element) {
+            if (! $text) {
+                debug(2,"DEBUG: deleting meta property='",$property,"'>");
+                $element->delete;
+            }
+            else {
+                debug(2,"DEBUG: updating <meta property='",$property,"'>");
+                $element->set_text($text);
+            }
+            if ($scheme) {
+                $element->set_att('scheme',$scheme);
+            }
+            if ($lang) {
+                $element->set_att('xml:lang',$lang);
+            }
+        }
+        else {
+            if ($text) {
+                debug(2,"DEBUG: creating <meta property='",$property,"'>");
+                $element = $metadata->insert_new_elt('last_child','meta');
+                $element->set_att('property',$property);
+                if ($refines) {
+                    $element->set_att('refines',$refines);
+                }
+                if ($scheme) {
+                    $element->set_att('scheme',$scheme);
+                }
+                if ($lang) {
+                    $element->set_att('xml:lang',$lang);
+                }
+                $element->set_text($text);
+            }
+        }
+    }
+    else {
+        croak($subname,"(): unknown standard '${standard}'! (This should be impossible!)");
     }
 
     return;
@@ -11630,54 +11626,52 @@ Returns the return value from tidy
 
 =cut
 
-sub system_tidy_xml {
-    my ($infile,$outfile) = @_;
-    my $retval;
+  sub system_tidy_xml {
+      my ($infile,$outfile) = @_;
+      my $retval;
 
-    croak("system_tidy_xml called with no input file") if(!$infile);
+      croak("system_tidy_xml called with no input file") if(!$infile);
 
-    if(!$outfile)
-    {
-        my ($filebase,$filedir,$fileext) = fileparse($infile,'\.\w+$');
-        $outfile = $filebase . "-tidy" . $fileext;
-    }
-    croak("system_tidy_xml called with no output file") if(!$outfile);
+      if (!$outfile) {
+          my ($filebase,$filedir,$fileext) = fileparse($infile,'\.\w+$');
+          $outfile = $filebase . "-tidy" . $fileext;
+      }
+      croak("system_tidy_xml called with no output file") if(!$outfile);
 
-    $retval = system($tidycmd,
-		     '-q','-utf8','--tidy-mark','no',
-                     '--wrap','0',
-		     '-xml',
-                     '--add-xml-decl','yes',
-		     '-f',$tidyxmlerrors,
-		     '-o',$outfile,
-		     $infile);
+      $retval = system($tidycmd,
+                       '-q','-utf8','--tidy-mark','no',
+                       '--wrap','0',
+                       '-xml',
+                       '--add-xml-decl','yes',
+                       '-f',$tidyxmlerrors,
+                       '-o',$outfile,
+                       $infile);
 
-    # Some systems may return a two-byte code, so deal with that first
-    if($retval >= 256) { $retval = $retval >> 8 };
-    if($retval == 0)
-    {
-	rename($outfile,$infile) if($tidysafety < 4);
-	unlink($tidyxmlerrors);
-    }
-    elsif($retval == 1)
-    {
-	rename($outfile,$infile) if($tidysafety < 3);
-	unlink($tidyxmlerrors) if($tidysafety < 2);
-    }
-    elsif($retval == 2)
-    {
-	print STDERR "WARNING: Tidy errors encountered.  Check ",$tidyxmlerrors,"\n"
-	    if($tidysafety > 0);
-	unlink($tidyxmlerrors) if($tidysafety < 1);
-    }
-    else
-    {
-	# Something unexpected happened (program crash, sigint, other)
-	croak("Tidy did something unexpected (return value=",$retval,
-              ").  Check all output.");
-    }
-    return $retval;
-}
+      # Some systems may return a two-byte code, so deal with that first
+      if ($retval >= 256) {
+          $retval = $retval >> 8;
+      }
+      ;
+      if ($retval == 0) {
+          rename($outfile,$infile) if($tidysafety < 4);
+          unlink($tidyxmlerrors);
+      }
+      elsif ($retval == 1) {
+          rename($outfile,$infile) if($tidysafety < 3);
+          unlink($tidyxmlerrors) if($tidysafety < 2);
+      }
+      elsif ($retval == 2) {
+          print STDERR "WARNING: Tidy errors encountered.  Check ",$tidyxmlerrors,"\n"
+	    if ($tidysafety > 0);
+          unlink($tidyxmlerrors) if($tidysafety < 1);
+      }
+      else {
+          # Something unexpected happened (program crash, sigint, other)
+          croak("Tidy did something unexpected (return value=",$retval,
+                ").  Check all output.");
+      }
+      return $retval;
+  }
 
 
 =head2 C<trim>
@@ -11766,25 +11760,22 @@ sub twigelt_detect_duplicate {
     debug(3,"DEBUG[",$subname,"]");
 
     croak($subname,"(): arguments must be XML::Twig::Elt objects")
-        unless( $element1->isa('XML::Twig::Elt')
+      unless( $element1->isa('XML::Twig::Elt')
                 && $element2->isa('XML::Twig::Elt') );
 
     my (%atts1, %atts2);
 
-    unless($element1->cmp($element2))
-    {
+    unless($element1->cmp($element2)) {
         debug(3,"  both elements have the same position");
         return 0;
     }
 
-    unless( lc($element1->gi) eq lc($element2->gi) )
-    {
+    unless( lc($element1->gi) eq lc($element2->gi) ) {
         debug(3,"  elements have different GIs");
         return 0;
     }
 
-    unless($element1->text eq $element2->text)
-    {
+    unless($element1->text eq $element2->text) {
         debug(3,"  elements have different text");
         return 0;
     }
@@ -11795,21 +11786,13 @@ sub twigelt_detect_duplicate {
     my $attkeys1 = join('',sort keys %atts1);
     my $attkeys2 = join('',sort keys %atts2);
 
-    # This is much simpler with the ~~ operator, but Perl 5.10
-    # features are being avoided until 5.10 is standard both on MacOSX
-    # and Debian
-    # Note that the ~~ operator only checks keys of hashes, not values
-#    unless(%atts1 ~~ %atts2)
-    unless($attkeys1 eq $attkeys2)
-    {
+    unless($attkeys1 eq $attkeys2) {
         debug(3,"  elements have different attributes");
         return 0;
     }
 
-    foreach my $att (keys %atts1)
-    {
-        unless($element1->att($att) eq $element2->att($att))
-        {
+    foreach my $att (keys %atts1) {
+        unless($element1->att($att) eq $element2->att($att)) {
             debug(3,"  elements have different values for attribute '",
                   $att,"'");
             return 0;

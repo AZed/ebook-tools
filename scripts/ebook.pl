@@ -1472,78 +1472,76 @@ sub setmeta
     my $ebook = EBook::Tools->new();
     $ebook->init($opffile);
 
-    given($element) {
-        when (/^a/) {
-            $ebook->set_primary_author('text' => $value,
-                                       'fileas' => $fileas,
-                                       'id' => $id );
-        }
-        when (/^da/) {
-            $value = fix_datestring($value);
-            $ebook->set_date('text' => $value,
-                             'id' => $id);
-        }
-        when (/^de/) {
-            $ebook->set_description('text' => $value,
-                                    'id' => $id);
-        }
-        when (/^p/) {
-            $ebook->set_publisher('text' => $value,
-                                  'id' => $id);
-        }
-        when (/^r/) {
-            $ebook->set_rights('text' => $value,
-                               'id' => $id);
-        }
-        when (/^se/) {
-            # Unfortunately, there are no readers as of this writing
-            # that support the EPub 3.0 collection standard, so the
-            # only way to currently designate series is via the
-            # calibre:series and calibre:series_index meta tags.
-
-            if($opt{delete}) {
-                $ebook->set_meta(name => 'calibre:series',
-                                 content => undef);
-                $ebook->set_meta(name => 'calibre:series_index',
-                                 content => undef);
-            }
-            else {
-                $ebook->set_meta(name => 'calibre:series',
-                                 content => $value);
-                if($extra[0]) {
-                    $ebook->set_meta(name => 'calibre:series_index',
-                                     content => $extra[0]);
-                }
-            }
-        }
-        when (/^su/) {
-            if($opt{delete}) {
-                $ebook->delete_subject('text' => $value,
-                                       'id' => $id);
-                foreach my $subject(@extra) {
-                    $ebook->delete_subject('text' => $subject);
-                }
-            }
-            else {
-                $ebook->add_subject('text' => $value,
-                                    'id' => $id);
-                foreach my $subject(@extra) {
-                    $ebook->add_subject('text' => $subject);
-                }
-            }
-        }
-        when (/^ti/) {
-            $ebook->set_title('text' => $value,
+    if ($element =~ /^a/) {
+        $ebook->set_primary_author('text' => $value,
+                                   'fileas' => $fileas,
+                                   'id' => $id );
+    }
+    elsif ($element =~ /^da/) {
+        $value = fix_datestring($value);
+        $ebook->set_date('text' => $value,
+                         'id' => $id);
+    }
+    elsif ($element =~ /^de/) {
+        $ebook->set_description('text' => $value,
+                                'id' => $id);
+    }
+    elsif ($element =~ /^p/) {
+        $ebook->set_publisher('text' => $value,
                               'id' => $id);
+    }
+    elsif ($element =~ /^r/) {
+        $ebook->set_rights('text' => $value,
+                           'id' => $id);
+    }
+    elsif ($element =~ /^se/) {
+        # Unfortunately, there are no readers as of this writing
+        # that support the EPub 3.0 collection standard, so the
+        # only way to currently designate series is via the
+        # calibre:series and calibre:series_index meta tags.
+
+        if($opt{delete}) {
+            $ebook->set_meta(name => 'calibre:series',
+                             content => undef);
+            $ebook->set_meta(name => 'calibre:series_index',
+                             content => undef);
         }
-        when (/^ty/) {
-            $ebook->set_type('text' => $value,
-                             'id' => $id);
+        else {
+            $ebook->set_meta(name => 'calibre:series',
+                             content => $value);
+            if($extra[0]) {
+                $ebook->set_meta(name => 'calibre:series_index',
+                                 content => $extra[0]);
+            }
         }
-        default {
-            print "Unrecognized metadata element '",$element,"'!\n";
-            exit(EXIT_BADOPTION);
+    }
+    elsif ($element =~ /^su/) {
+        if($opt{delete}) {
+            $ebook->delete_subject('text' => $value,
+                                   'id' => $id);
+            foreach my $subject(@extra) {
+                $ebook->delete_subject('text' => $subject);
+            }
         }
+        else {
+            $ebook->add_subject('text' => $value,
+                                'id' => $id);
+            foreach my $subject(@extra) {
+                $ebook->add_subject('text' => $subject);
+            }
+        }
+    }
+    elsif ($element =~ /^ti/) {
+        $ebook->set_title('text' => $value,
+                          'id' => $id);
+    }
+    elsif ($element =~ /^ty/) {
+        $ebook->set_type('text' => $value,
+                         'id' => $id);
+    }
+    else {
+        print "Unrecognized metadata element '",$element,"'!\n";
+        exit(EXIT_BADOPTION);
     }
 
     $ebook->save;
