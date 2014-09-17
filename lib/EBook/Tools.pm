@@ -7989,8 +7989,9 @@ of ignoring them.
 
 =item * fix_links() needs to check the <reference> links under <guide>
 
-=item * fix_links() needs to be redone with HTML::TreeBuilder to avoid
-the weakness with newlines between attribute names and values
+=item * fix_links() needs to be redone with HTML::TreeBuilder or
+Mojo::DOM to avoid the weakness with newlines between attribute names
+and values
 
 =item * Need to implement fix_tours() that should collect the related
 elements and delete the parent if none are found.  Empty <tours>
