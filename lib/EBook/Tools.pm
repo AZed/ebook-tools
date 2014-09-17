@@ -113,6 +113,7 @@ our @EXPORT_OK;
     &find_in_path
     &find_links
     &find_opffile
+    &hashvalue_key_self
     &hexstring
     &get_container_rootfile
     &print_memory
@@ -6834,6 +6835,57 @@ sub get_container_rootfile {
 	$retval = $rootfile->att('full-path');
     }
     return $retval;
+}
+
+
+=head2 C<hashvalue_key_self(\%hash, $modifier)>
+
+Takes as an argument a hash reference and an optional modifier and
+inserts a new key for every value in that hash if no such key already
+exists.
+
+If the modifer is set to 'lc' or 'uc', the value is either lowercased
+or uppercased respectively before it is used as a key.
+
+Croaks if the first argument is not a hashref, or if an invalid
+modifier string is used.
+
+=cut
+
+sub hashvalue_key_self {
+    my ($hashref, $modifier) = @_;
+    my $subname = ( caller(0) )[3];
+    debug(4,"DEBUG[",$subname,"]");
+
+    if (!$hashref or !ref($hashref)) {
+        croak($subname,"(): first argument is not a reference");
+    }
+    elsif (!UNIVERSAL::isa($hashref,'HASH')) {
+        croak($subname,"(): first argument is not a hashref");
+    }
+
+    my %modifier_dispatch = (
+        'lc' => \&CORE::lc,
+        'uc' => \&CORE::uc,
+       );
+
+    if ($modifier and !$modifier_dispatch{$modifier}) {
+        croak($subname,"(): ",$modifier," is not a valid modifier string");
+    }
+
+    foreach my $value (values %{$hashref}) {
+        my $key;
+        if($modifier) {
+            $key = $modifier_dispatch{$modifier}($value);
+        }
+        else {
+            $key = $value;
+        }
+        if (! $hashref->{$key}) {
+            $hashref->{$key} = $value;
+        }
+    }
+    return;
 }
 
 

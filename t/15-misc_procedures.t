@@ -3,7 +3,7 @@ use Cwd qw(chdir getcwd realpath);
 use File::Basename qw(basename dirname);
 use File::Copy;
 use File::Path;    # Exports 'mkpath' and 'rmtree'
-use Test::More tests => 11;
+use Test::More tests => 17;
 BEGIN
 {
     use_ok('EBook::Tools',qw(:all));
@@ -17,6 +17,15 @@ my $result;
 my $longline = 'We think ourselves possessed, or, at least, we boast that we are so, of liberty of conscience on all subjects, and of the right of free inquiry and private judgment in all cases, and yet how far are we from these exalted privileges in fact! -- John Adams';
 my $hexable = "\x{0}\x{d0}\x{be}\x{d0}\x{be}\x{da}";
 my $scriptname = basename($0);
+
+my %selfhash = (
+    '1'   => 'One',
+    '2'   => 'Two',
+    'One' => '1',
+    'one' => 'Zero',
+    'ONE' => 'Two',
+   );
+my %testhash;
 
 ########## TESTS BEGIN ##########
 
@@ -38,6 +47,21 @@ is(find_opffile(),'emptyuid.opf',
 copy('testopf-missingfwid.xml','missingfwid.opf') or die("Could not copy: $!");
 is(find_opffile(),undef,
    'find_opffile() returns undef with multiple OPF files');
+
+%testhash = %selfhash;
+hashvalue_key_self(\%testhash);
+is($testhash{'One'},'1','hashvalue_key_self/undef did not modify existing key');
+is($testhash{'Two'},'Two','hashvalue_key_self/undef created self reference');
+
+%testhash = %selfhash;
+hashvalue_key_self(\%testhash,'lc');
+is($testhash{'one'},'Zero','hashvalue_key_self/lc did not modify existing key');
+is($testhash{'two'},'Two','hashvalue_key_self/lc created self reference');
+
+%testhash = %selfhash;
+hashvalue_key_self(\%testhash,'uc');
+is($testhash{'ONE'},'Two','hashvalue_key_self/uc did not modify existing key');
+is($testhash{'ZERO'},'Zero','hashvalue_key_self/uc created self reference');
 
 is(hexstring($hexable),'00d0bed0beda',
    'hexstring() returns correct string');
