@@ -152,6 +152,7 @@ my %dispatch = (
     'additem'     => \&additem,
     'blank'       => \&blank,
     'dc'          => \&downconvert,
+    'dlbisac'     => \&dlbisac,
     'downconvert' => \&downconvert,
     'config'      => \&config,
     'fix'         => \&fix,
@@ -525,6 +526,25 @@ sub config
         $config->RewriteConfig;
     }
     exit(EXIT_SUCCESS);
+}
+
+
+=head2 C<dlbisac>
+
+Downloads and caches the Book Industry Study Group BISAC codes into a
+local database.  This will destroy the existing contents of that table
+if this has been done previously.
+
+=cut
+
+sub dlbisac
+{
+    my $subname = ( caller(0) )[3];
+
+    my $bisg = EBook::Tools::BISG->new();
+    $bisg->download_bisac;
+    $bisg->save_bisac;
+    return;
 }
 
 
