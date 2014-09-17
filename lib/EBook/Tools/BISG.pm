@@ -130,6 +130,43 @@ sub bisac :method
 }
 
 
+=head2 C<find($regexp)>
+
+Returns a list of all BISAC values (names) where either the key or the
+value for that entry matches a case-insensitive regular expression.
+If no argument is specified, or it is just '.', then the entire list
+is returned.
+
+=cut
+
+sub find :method
+{
+    my ($self,$regexp) = @_;
+    my $subname = ( caller(0) )[3];
+
+    my %seen;
+    my @keys;
+
+    # Create a list of all unique keys and values (lowercased to be
+    # used again as keys)
+    foreach my $key (keys %{$self->{bisac_codes}}) {
+        $seen{$key} = 1;
+    }
+    foreach my $value (values %{$self->{bisac_codes}}) {
+        $seen{lc $value} = 1;
+    }
+
+    if(! $regexp or $regexp eq '.') {
+        @keys = sort keys %seen;
+    }
+    else {
+        @keys = sort grep(/$regexp/i,keys %seen);
+    }
+
+    return @{$self->{bisac_codes}}{@keys};
+}
+
+
 =head1 MODIFIER METHODS
 
 =head2 C<download_bisac()>

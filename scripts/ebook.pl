@@ -15,7 +15,6 @@ See also L</EXAMPLES>.
 
 =cut
 
-
 use Config::IniFiles;
 use EBook::Tools qw(:all);
 use EBook::Tools::IMP qw(:all);
@@ -150,6 +149,7 @@ $EBook::Tools::tidysafety = $opt{tidysafety} if(defined $opt{tidysafety});
 my %dispatch = (
     'adddoc'      => \&adddoc,
     'additem'     => \&additem,
+    'bisac'       => \&bisac,
     'blank'       => \&blank,
     'dc'          => \&downconvert,
     'dlbisac'     => \&dlbisac,
@@ -320,6 +320,40 @@ sub additem
     $ebook->save;
     $ebook->print_warnings;
     exit(EXIT_SUCCESS);
+}
+
+
+=head2 C<bisac>
+
+Search for a BISAC code matching a case-insensitive regular expression.
+
+=head3 Options
+
+=over
+
+=item C<regexp>
+
+The first argument is taken as a regular expression to use for the
+search.  If this is either '.' or not specified, the entire list of
+valid codes is printed.
+
+This requires that the BISAC codes be downloaded ahead of time.  (See
+C<dlbisac>.)
+
+=back
+
+=cut
+
+sub bisac
+{
+    my ($regexp) = @_;
+    my $bisg = EBook::Tools::BISG->new();
+
+    my @list = $bisg->find($regexp);
+
+    foreach my $code (@list) {
+        print $code,"\n";
+    }
 }
 
 
