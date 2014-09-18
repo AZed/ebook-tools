@@ -857,17 +857,17 @@ Generate a .epub book from existing OPF data.
 
 =item C<--opf filename.opf>
 
-Use the specified OPF file.  This can also be specified as the first
-non-option argument, which will override this option if it exists.  If
-no file is specified, one will be searched for.
+Use the specified OPF file.  If no file is specified, one will be
+searched for.
 
 =item C<--output bookname.epub>
 
 =item C<-o bookname.epub>
 
-Use the specified name for the final output file.  If not specified,
-the bok will have the same filename as the OPF file, with the
-extension changed to C<.epub>.
+Use the specified name for the final output file.  This can also be
+specified as the first non-option argument, which will override this
+option if it exists.  If not specified, the book will have the same
+filename as the OPF file, with the extension changed to C<.epub>.
 
 =item C<--dir directory>
 
@@ -880,7 +880,7 @@ is to use the current working directory.
 
 =head3 Example
 
- ebook genepub mybook.opf -f my_special_book.epub -d ../epubbooks
+ ebook genepub mybook.opf -o my_special_book.epub -d ../epubbooks
 
 or in the simplest case:
 
@@ -890,16 +890,20 @@ or in the simplest case:
 
 sub genepub
 {
-    my ($opffile) = @_;
+    my ($outfile) = @_;
     my $ebook;
 
-    $opffile = $opt{inputfile} if(!$opffile);
-    $opffile = $opt{opffile} if(!$opffile);
+    if(!$outfile) { $outfile = $opt{output}; }
 
-    if($opffile) { $ebook = EBook::Tools->new($opffile); }
-    else {$ebook = EBook::Tools->new(); $ebook->init(); }
+    if($opt{opffile}) {
+        $ebook = EBook::Tools->new($opt{opffile});
+    }
+    else {
+        $ebook = EBook::Tools->new();
+        $ebook->init();
+    }
 
-    if(! $ebook->gen_epub(filename => $opt{filename},
+    if(! $ebook->gen_epub(filename => $opt{output},
                           dir => $opt{dir}) )
     {
         print {*STDERR} "Failed to generate .epub file!\n";

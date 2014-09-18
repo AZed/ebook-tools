@@ -71,7 +71,7 @@ ok(-f 'emptyuid.opf.backup','ebook fix created backup file');
 
 # ebook genepub
 $exitval = system('perl','-I../lib','../scripts/ebook.pl',
-                  'genepub','emptyuid.opf',
+                  'genepub','--opf','emptyuid.opf',
                   '--dir','epubdir');
 $exitval >>= 8;
 is($exitval,0,'ebook genepub exits successfully');
