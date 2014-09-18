@@ -16,14 +16,16 @@ See also L</EXAMPLES>.
 =cut
 
 use Config::IniFiles;
+use Cwd qw(chdir getcwd realpath);
 use EBook::Tools qw(:all);
 use EBook::Tools::IMP qw(:all);
 use EBook::Tools::Mobipocket qw(:all);
 use EBook::Tools::MSReader qw(:all);
 use EBook::Tools::Unpack;
-use File::Basename 'fileparse';
+use File::Basename qw(dirname fileparse);
 use File::Path;              # Exports 'mkpath' and 'rmtree'
 use File::Slurp qw(slurp);   # Also exports 'read_file' and 'write_file'
+use File::Temp qw(tempfile tempdir);
 use Getopt::Long qw(:config bundling);
 
 # Exit values
@@ -68,6 +70,8 @@ my %opt = (
     'dir'         => '',
     'fileas'      => '',
     'firstname'   => undef,
+    'fix'         => 1,
+    'format'      => '',
     'help'        => 0,
     'htmlconvert' => 0,
     'identifier'  => undef,
@@ -102,6 +106,8 @@ GetOptions(
     'dir|d=s',
     'fileas=s',
     'firstname=s',
+    'fix',
+    'format=s',
     'help|h|?',
     'htmlconvert',
     'identifier|id=s',
@@ -151,6 +157,7 @@ my %dispatch = (
     'additem'     => \&additem,
     'bisac'       => \&bisac,
     'blank'       => \&blank,
+    'convert'     => \&convert,
     'dc'          => \&downconvert,
     'dlbisac'     => \&dlbisac,
     'downconvert' => \&downconvert,
@@ -561,6 +568,69 @@ sub config
         $config->setval('drm','mobipids',$value);
         $config->RewriteConfig;
     }
+    return 0;
+}
+
+
+=head2 C<convert>
+
+Unpacks the ebook specified as the first argument, runs standard fixes
+on the contents, and repacks it into a new format in the output file
+specified as the second argument.  Currently the only supported output
+format is epub, which is the format you will get irrespective of the
+extension you actually give the output file.
+
+=head3 Options
+
+=over
+
+All options from C<unpack> and C<fix> are technically valid here as
+well, though of course some options are nonsensical in this context
+and will likely break the conversion (e.g. --nosave).
+
+=back
+
+=head3 Example
+
+ ebook convert MyBook.prc MyBook.epub
+ ebook convert --name MyBook.lit /home/myname/MyBook.epub
+
+=cut
+
+sub convert
+{
+    my ($infile,$outfile) = @_;
+    my $subname = ( caller(0) )[3];
+
+    my $tempdir = File::Temp->newdir();
+    $tempdir->unlink_on_destroy( 1 );
+    my $cwd_orig = getcwd();
+
+    if(!$infile) { die("You must specify an input file.\n"); }
+    if(!$outfile) { die("You must specify an output file.\n"); }
+
+    my $ebook;
+    my $bookname;
+    my $format;
+
+    ($bookname,undef,undef) = fileparse($infile,'\.\w+$');
+    (undef,undef,$format) = fileparse($outfile,'\.\w+$');
+
+    # TODO: actually check $format
+
+    $infile = realpath($infile);
+    $outfile = realpath($outfile);
+
+    $dispatch{'unpack'}($infile,$tempdir);
+
+    chdir($tempdir);
+
+    $dispatch{'fix'}();
+
+    $opt{output} = $outfile;
+    $dispatch{'genepub'}();
+
+    chdir($cwd_orig);
     return 0;
 }
 
