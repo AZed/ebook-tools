@@ -187,6 +187,7 @@ if(!$dispatch{$cmd})
 }
 
 $dispatch{$cmd}(@ARGV);
+exit(EXIT_SUCCESS);
 
 
 #########################################
@@ -250,7 +251,7 @@ sub adddoc
     }
     $ebook->save;
     $ebook->print_warnings;
-    exit(EXIT_SUCCESS);
+    return 0;
 }
 
 
@@ -319,7 +320,7 @@ sub additem
     }
     $ebook->save;
     $ebook->print_warnings;
-    exit(EXIT_SUCCESS);
+    return 0;
 }
 
 
@@ -354,6 +355,7 @@ sub bisac
     foreach my $code (@list) {
         print $code,"\n";
     }
+    return 0;
 }
 
 
@@ -414,7 +416,7 @@ sub blank
     $ebook = EBook::Tools->new();
     $ebook->init_blank(%args);
     $ebook->save unless($opt{nosave});
-    exit(EXIT_SUCCESS);
+    return 0;
 }
 
 
@@ -559,7 +561,7 @@ sub config
         $config->setval('drm','mobipids',$value);
         $config->RewriteConfig;
     }
-    exit(EXIT_SUCCESS);
+    return 0;
 }
 
 
@@ -705,7 +707,7 @@ END
             {
                 print("Successfully downconverted '",$infile,
                     "' into '",$outfile,"'\n");
-                exit(EXIT_SUCCESS);
+                return 0;
             }
             else
             {
@@ -738,7 +740,7 @@ END
         {
             print("Successfully downconverted '",$infile,
                 "' into '",$outfile,"'\n");
-            exit(EXIT_SUCCESS);
+            return 0;
         }
         else
         {
@@ -752,7 +754,7 @@ END
         print {*STDERR} "Cannot downconvert format '",$unpacker->format,"'\n";
         exit(EXIT_BADINPUT);
     }
-    exit(EXIT_SUCCESS);
+    return 0;
 }
 
 
@@ -835,7 +837,7 @@ sub fix
     }
 
     $ebook->print_warnings if($ebook->warnings);
-    exit(EXIT_SUCCESS);
+    return 0;
 }
 
 
@@ -906,7 +908,7 @@ sub genepub
         exit(EXIT_BADOUTPUT);
     }
     $ebook->print_warnings if($ebook->warnings);
-    exit(EXIT_SUCCESS);
+    return 0;
 }
 
 
@@ -987,7 +989,7 @@ sub genimp
         print {*STDERR} ("Failed to generate '",$output,"'!\n");
         exit(EXIT_BADOUTPUT);
     }
-    exit(EXIT_SUCCESS);
+    return 0;
 }
 
 
@@ -1084,7 +1086,7 @@ sub genmobi
         print {*STDERR} "Error during generation: ",$retval,"\n";
         exit(EXIT_HELPERERROR);
     }
-    exit(EXIT_SUCCESS);
+    return 0;
 }
 
 
@@ -1135,7 +1137,7 @@ sub genncx {
     }
 
     $ebook->print_warnings if($ebook->warnings);
-    exit(EXIT_SUCCESS);
+    return 0;
 }
 
 
@@ -1239,7 +1241,7 @@ sub impmeta
         print "Failed to write '",$output,"' -- aborting!\n";
         exit(EXIT_BADOUTPUT);
     }
-    exit(EXIT_SUCCESS);
+    return 0;
 }
 
 =head2 C<setcover>
@@ -1287,7 +1289,7 @@ sub setcover {
     $ebook->save;
     $ebook->print_errors;
     $ebook->print_warnings;
-    exit(EXIT_SUCCESS);
+    return 0;
 }
 
 
@@ -1459,7 +1461,7 @@ sub setmeta
     $ebook->save;
     $ebook->print_errors;
     $ebook->print_warnings;
-    exit(EXIT_SUCCESS);
+    return 0;
 }
 
 
@@ -1504,7 +1506,7 @@ sub splitmeta
         exit(EXIT_TOOLSERROR);
     }
     $ebook->print_warnings if($ebook->warnings);
-    exit(EXIT_SUCCESS);
+    return 0;
 }
 
 
@@ -1528,7 +1530,7 @@ sub splitpre
         exit(EXIT_BADOPTION);
     }
     split_pre($infile,$outfilebase);
-    exit(EXIT_SUCCESS);
+    return 0;
 }
 
 
@@ -1567,7 +1569,7 @@ sub stripscript
     $args{noscript} = $opt{noscript};
 
     strip_script(%args);
-    exit(EXIT_SUCCESS);
+    return 0;
 }
 
 =head2 C<tidyxhtml>
@@ -1676,7 +1678,7 @@ exact text can be overridden here.
 =item C<--opf>
 
 The filename of the OPF metadata file that will be generated.  If not
-specified, defaults to the title with a .opf extension.
+specified, defaults to C<content.opf>.
 
 =item C<--tidy>
 
@@ -1771,7 +1773,7 @@ sub unpack
 
     $unpacker->unpack;
 
-    exit(EXIT_SUCCESS);
+    return 0;
 }
 
 ########## PRIVATE PROCEDURES ##########
