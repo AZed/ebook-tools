@@ -177,7 +177,7 @@ my %dispatch = (
     'stripscript' => \&stripscript,
     'tidyxhtml'   => \&tidyxhtml,
     'tidyxml'     => \&tidyxml,
-    'unpack'      => \&unpack,
+    'unpack'      => \&unpack_ebook,
     );
 
 my $cmd = shift;
@@ -1705,7 +1705,7 @@ sub tidyxml
 }
 
 
-=head2 C<unpack>
+=head2 C<unpack_ebook>
 
 Unpacks an ebook into its component parts, creating an OPF for them if
 necessary.
@@ -1820,7 +1820,7 @@ Both of the above commands do the same thing
 
 =cut
 
-sub unpack
+sub unpack_ebook
 {
     my ($filename,$dir) = @_;
     $filename = $filename || $opt{input};
