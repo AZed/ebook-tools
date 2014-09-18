@@ -3049,7 +3049,7 @@ sub delete_subject :method {
 
 =head2 C<fix_creators()>
 
-Normalizes creator names and file-as attributes
+Normalizes creator and contributor names and file-as attributes
 
 Names are normalized to 'First Last' format, while file-as attributes
 are normalized to 'Last, First' format.
@@ -3067,7 +3067,7 @@ sub fix_creators :method {
     $self->twigcheck();
 
     my $twigroot = $self->{twigroot};
-    my @elements = $twigroot->descendants(qr/dc:creator/ix);
+    my @elements = $twigroot->descendants(qr/dc:(creator|contributor)/ix);
     my $nameparse = Lingua::EN::NameParse->new(
         allow_reversed  => 1,
         extended_titles => 1,
@@ -3078,6 +3078,7 @@ sub fix_creators :method {
         my $fileas = $el->att('opf:file-as') || '';
         my $name = $el->text || '';
         my $fixed;
+        $name = trim($name);
 
         if ( $nameparse->parse($name) ) {
 	    $self->add_warning(
@@ -3086,7 +3087,7 @@ sub fix_creators :method {
         }
         else {
             $fixed = $nameparse->case_all;
-            if($strangenames{lc $fixed}) {
+            if($fixed and $strangenames{lc $fixed}) {
                 $fixed = $strangenames{lc $fixed};
             }
             debug(2,"DEBUG: creator name '",$name,"' -> '",
@@ -3094,7 +3095,7 @@ sub fix_creators :method {
             $el->set_text($fixed);
 
             $fixed = $nameparse->case_all_reversed;
-            if($strangefileas{lc $fixed}) {
+            if($fixed and $strangefileas{lc $fixed}) {
                 $fixed = $strangefileas{lc $fixed};
             }
             debug(2,"DEBUG: creator file-as '",$fileas,"' -> '",
