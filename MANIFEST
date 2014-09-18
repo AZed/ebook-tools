@@ -5,6 +5,7 @@ README
 README.Helpers.txt
 Changes
 lib/EBook/Tools.pm
+lib/EBook/Tools/BISG.pm
 lib/EBook/Tools/EReader.pm
 lib/EBook/Tools/IMP.pm
 lib/EBook/Tools/LZSS.pm
