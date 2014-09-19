@@ -4665,7 +4665,7 @@ sub init :method {
 	);
 
     # Read and decode entities before parsing to avoid parsing errors
-    open($fh_opffile,'<:raw',$self->{opffile})
+    open($fh_opffile,'<:encoding(:UTF-8)',$self->{opffile})
         or croak($subname,"(): failed to open '",$self->{opffile},
                  "' for reading!");
     read($fh_opffile,$opfstring,-s $self->opffile)
@@ -4675,7 +4675,6 @@ sub init :method {
 
     # We use _decode_entities and the custom hash to decode, but also
     # see below for the regexp
-    $opfstring=decode('Detect',$opfstring);
     _decode_entities($opfstring,\%nonxmlentity2char);
 
     # This runs decode_entities on the substring containing just the
@@ -8865,9 +8864,7 @@ sub save :method {
         $self->set_timestamp();
     }
 
-    # Twig handles utf8 on its own.  If you open this file with
-    # binmode :utf8, it will double-convert.
-    if(!open($fh_opf,">",$self->{opffile})) {
+    if(!open($fh_opf,">:encoding(UTF-8)",$self->{opffile})) {
 	add_error(sprintf("Could not open '%s' to save to!",$self->{opffile}));
 	return;
     }
@@ -10518,9 +10515,7 @@ sub create_epub_container {
             or croak($subname,"(): could not backup container.xml!");
     }
 
-    # Twig handles utf-8 on its own.  Setting binmode :utf8 here will
-    # cause a double-conversion.
-    open($fh_container,'>','META-INF/container.xml')
+    open($fh_container,'>:encoding(UTF-8)','META-INF/container.xml')
         or croak($subname,"(): could not write to 'META-INF/container.xml'\n");
     $twig->print(\*$fh_container);
     close($fh_container)
