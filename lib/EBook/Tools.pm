@@ -8052,7 +8052,7 @@ sub fix_opf20 :method {
     }
 
     # Delete Calibre advertisements in dc:contributor elements
-    @elements = $twigroot->descendants('dc:contributor[string() =~ /calibre-ebook.com/]');
+    @elements = $twigroot->descendants('dc:contributor[string() =~ /calibre-ebook.com|calibre.kovidgoyal.net/]');
     foreach my $el (@elements) {
 	$el->delete;
     }
