@@ -3098,9 +3098,16 @@ sub fix_creators :method {
             if($fixed and $strangefileas{lc $fixed}) {
                 $fixed = $strangefileas{lc $fixed};
             }
-            debug(2,"DEBUG: creator file-as '",$fileas,"' -> '",
-                  $fixed,"'");
-            $el->set_att('opf:file-as',$fixed);
+            if($fixed) {
+                debug(2,"DEBUG: creator file-as '",$fileas,"' -> '",
+                      $fixed,"'");
+                $el->set_att('opf:file-as',$fixed);
+            }
+            else {
+                debug(2,"DEBUG: removing empty creator file-as from creator '",
+                      $name,"'");
+                $el->del_att('opf:file-as');
+            }
         }
     }
     return;
