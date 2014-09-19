@@ -416,7 +416,7 @@ sub write_html :method
 
     debug(1,"DEBUG: writing HTML text to '",$filename,"'");
 
-    open(my $fh,">:utf8",$filename)
+    open(my $fh,'>:encoding(UTF-8)',$filename)
         or croak($subname,"(): unable to open '",$filename,"' for writing!\n");
     print {*$fh} $self->html;
     close($fh)

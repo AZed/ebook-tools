@@ -44,7 +44,7 @@ use EBook::Tools qw(debug userconfigdir);
 use Encode;
 use File::Basename qw(dirname fileparse);
 use File::Path;     # Exports 'mkpath' and 'rmtree'
-binmode(STDERR,":utf8");
+binmode(STDERR,':encoding(UTF-8)');
 
 my $drmsupport = 0;
 eval

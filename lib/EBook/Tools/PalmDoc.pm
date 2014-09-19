@@ -5,6 +5,8 @@ use version 0.74; our $VERSION = qv("0.4.8");
 # Mixed case subs and the variable %record are inherited from Palm::PDB
 ## no critic (ProhibitAmbiguousNames)
 ## no critic (ProhibitMixedCaseSubs)
+# RequireBriefOpen seems to be way too brief to be useful
+## no critic (RequireBriefOpen)
 
 =head1 NAME
 

@@ -61,7 +61,7 @@ use Fcntl qw(SEEK_CUR SEEK_SET);
 use File::Basename qw(dirname fileparse);
 use File::Path;     # Exports 'mkpath' and 'rmtree'
 use File::Which;    # Exports 'which'
-binmode(STDERR,":utf8");
+binmode(STDERR,':encoding(UTF-8)');
 
 my $drmsupport = 0;
 eval
@@ -1042,7 +1042,7 @@ sub unpack_palmdoc :method
         if($$self{htmlconvert})
         {
             $outfile = $self->filebase . ".html";
-            open($fh,'>:utf8',$outfile)
+            open($fh,'>:encoding(UTF-8)',$outfile)
                 or croak($subname,"(): unable to open '",$outfile,
                          "' for writing!\n");
             print {*$fh} $pdb->html;

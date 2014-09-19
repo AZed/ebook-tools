@@ -3060,7 +3060,7 @@ sub uncompress_dictionaryhuffman
         {
             croak($subname,"(): invalid HUFF cache offset ",$cacheoffset,
                   " found at bit position ",$bitpos,"!\n");
-            return $text;
+            #return $text;
         }
         $cacheval = $huffref->{cache}->[$cacheoffset];
 #        debug(4,"## cacheval[",$cacheoffset,"]=",$cacheval);
@@ -3070,7 +3070,7 @@ sub uncompress_dictionaryhuffman
         {
             croak($subname,"(): HUFF cache found zero codelength",
                   " at bit position ",$bitpos,"!\n");
-            return $text;
+            #return $text;
         }
 
         $nextbits = min(32,$bitoffset);
@@ -3129,7 +3129,7 @@ sub uncompress_dictionaryhuffman
         {
             croak($subname,"(): \n HUFF entry referenced invalid CDIC ",$cdic,
                   " at bit position ",$bitpos,", depth ",$depth,"!\n");
-            return $text;
+            #return $text;
         }
 
 #        debug(4,"## cdic=",$cdic);

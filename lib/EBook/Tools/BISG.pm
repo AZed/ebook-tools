@@ -156,11 +156,11 @@ sub find :method
         $seen{lc $value} = 1;
     }
 
-    if(! $regexp or $regexp eq '.') {
+    if(not $regexp or $regexp eq '.') {
         @keys = sort keys %seen;
     }
     else {
-        @keys = sort grep(/$regexp/i,keys %seen);
+        @keys = sort grep { /$regexp/i } keys %seen;
     }
 
     return @{$self->{bisac_codes}}{@keys};

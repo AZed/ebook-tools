@@ -4587,8 +4587,6 @@ sub new {
 	$self->init($filename);
     }
     return $self;
-
-    %bisacsubjects = $bisg->bisac();
 }
 
 
@@ -9452,11 +9450,11 @@ sub set_meta :method {
             $self->add_error($subname,"(): both name (OPF2) and property (OPF3) attributes specified for a meta tag");
             return;
         }
-        $standard = 'OPF2',
+        $standard = 'OPF2';
     }
     else {
         if ($property) {
-            $standard = 'OPF3',
+            $standard = 'OPF3';
         }
         else {
             $self->add_error($subname,"(): neither name (OPF2) nor property (OPF3) attributes specified for a meta tag");
@@ -10984,7 +10982,7 @@ sub hashvalue_key_self {
     my $subname = ( caller(0) )[3];
     debug(4,"DEBUG[",$subname,"]");
 
-    if (!$hashref or !ref($hashref)) {
+    if (not $hashref or not ref($hashref)) {
         croak($subname,"(): first argument is not a reference");
     }
     elsif (!UNIVERSAL::isa($hashref,'HASH')) {
@@ -10996,7 +10994,7 @@ sub hashvalue_key_self {
         'uc' => \&CORE::uc,
        );
 
-    if ($modifier and !$modifier_dispatch{$modifier}) {
+    if ($modifier and not $modifier_dispatch{$modifier}) {
         croak($subname,"(): ",$modifier," is not a valid modifier string");
     }
 
