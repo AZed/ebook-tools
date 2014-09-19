@@ -2180,10 +2180,13 @@ sub title :method {
     $self->twigcheck;
 
     my $twigroot = $self->{twigroot};
+    my $retval;
 
     my $element = $twigroot->first_descendant(qr/^dc:title$/ix);
     return unless($element);
-    return ($element->text || '');
+    $retval = $element->text || '';
+    $retval = trim($retval);
+    return $retval;
 }
 
 
