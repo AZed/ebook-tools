@@ -1,7 +1,7 @@
 package EBook::Tools::LZSS;
 use warnings; use strict; use utf8;
 use English qw( -no_match_vars );
-use version 0.74; our $VERSION = qv("0.4.8");
+use version 0.74; our $VERSION = qv("0.5.0");
 
 ## Perl Critic overrides:
 # RequireBriefOpen seems to be way too brief to be useful
