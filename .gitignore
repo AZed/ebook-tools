@@ -15,7 +15,10 @@ _build/*
 lzss/
 lzss_test*
 Makefile.PL
+META.json
 META.yml
+MYMETA.json
+MYMETA.yml
 rebpub/
 t/books
 t/imp/REBTestDocument
