@@ -218,3 +218,4 @@ t/us-constitution.lzss
 scripts/ebook.pl
 Makefile.PL
 META.yml
+META.json
