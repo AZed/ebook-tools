@@ -1,3 +1,14 @@
+libebook-tools-perl (0.5.0-1) unstable; urgency=medium
+
+  * New upstream version
+    * epub generation is now reliable
+    * lots of metadata normalization now happens
+    * BISG website parser to download BISAC data
+    * single-pass conversion from any unpackable format to epub
+  * UTF-8 fixes compatible with perl 5.20 (fixes: #759970)
+
+ -- Zed Pobre <zed@debian.org>  Wed, 24 Sep 2014 21:35:32 -0400
+
 libebook-tools-perl (0.4.9-1) unstable; urgency=low
 
   * New upstream version:
