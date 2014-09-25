@@ -2,7 +2,7 @@ package EBook::Tools;
 use warnings; use strict; use utf8;
 use v5.10.1; # Needed for smart-match operator and given/when
 use English qw( -no_match_vars );
-use version 0.74; our $VERSION = qv("0.5.0");
+use version 0.74; our $VERSION = qv("0.5.1");
 
 #use warnings::unused;
 
@@ -10407,6 +10407,38 @@ All procedures are exportable, but none are exported by default.  All
 procedures can be exported by using the ":all" tag.
 
 
+=head2 C<_lc>
+
+Wrapper for CORE::lc to get around the fact that builtins can't be
+used in dispatch tables prior to Perl 5.16.
+
+WARNING: this procedure may disappear once Perl 5.16 is standard on
+all systems in common use!  For that reason, this is not exportable.
+
+=cut
+
+sub _lc {
+    my ($string) = @_;
+    return lc $string;
+}
+
+
+=head2 C<_uc>
+
+Wrapper for CORE::uc to get around the fact that builtins can't be
+used in dispatch tables prior to Perl 5.16.
+
+WARNING: this procedure may disappear once Perl 5.16 is standard on
+all systems in common use!  For that reason, this is not exportable.
+
+=cut
+
+sub _uc {
+    my ($string) = @_;
+    return uc $string;
+}
+
+
 =head2 C<capitalize($string)>
 
 Capitalizes the first letter of each word in $string.
@@ -10985,8 +11017,8 @@ sub hashvalue_key_self {
     }
 
     my %modifier_dispatch = (
-        'lc' => \&CORE::lc,
-        'uc' => \&CORE::uc,
+        'lc' => \&_lc,
+        'uc' => \&_uc,
        );
 
     if ($modifier and not $modifier_dispatch{$modifier}) {
