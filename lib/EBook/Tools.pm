@@ -2,7 +2,7 @@ package EBook::Tools;
 use warnings; use strict; use utf8;
 use v5.10.1; # Needed for smart-match operator and given/when
 use English qw( -no_match_vars );
-use version 0.74; our $VERSION = qv("0.5.1");
+use version 0.74; our $VERSION = qv("0.5.2");
 
 #use warnings::unused;
 
@@ -5779,7 +5779,7 @@ sub review :method {
 }
 
 
-=head2 C<rights('id' => 'identifier')>
+=head2 C<< rights('id' => 'identifier') >>
 
 Returns a list containing the text of all of dc:rights or
 dc:copyrights (case-insensitive) entries in the e-book, or undef if

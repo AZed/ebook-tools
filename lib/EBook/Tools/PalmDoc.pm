@@ -1,6 +1,6 @@
 package EBook::Tools::PalmDoc;
 use warnings; use strict; use utf8;
-use version 0.74; our $VERSION = qv("0.5.0");
+use version 0.74; our $VERSION = qv("0.5.2");
 
 # Mixed case subs and the variable %record are inherited from Palm::PDB
 ## no critic (ProhibitAmbiguousNames)
@@ -86,11 +86,11 @@ unless($@){ $htmlsupport = 1; }
 
 Instantiates a new Ebook::Tools::PalmDoc object.  To create a Palm
 Resource file instead of a Palm Database file, set
-C<$self->{attributes}{resource}> to be true immediately after
+C<< $self->{attributes}{resource} >> to be true immediately after
 construction.
 
 Create a new Doc object. By default, it's not a resource database. Setting
-C<$self->{attributes}{resource}> to C<1> before any manipulations will
+C<< $self->{attributes}{resource} >> to C<1> before any manipulations will
 cause it to become a resource database.
 
 =cut
@@ -284,7 +284,7 @@ sub ParseResource :method    ## no critic (Always unpack @_ first)
 =head2 C<ParseRecordBookmark($data,$currentrecord)>
 
 Parses bookmark records/resources, updating object attributes, most
-notably C<$self->{bookmarks}>.
+notably C<< $self->{bookmarks} >>.
 
 The C<$currentrecord> argument is optional, but without it the
 debugging information may be less useful.  This is called
@@ -327,7 +327,7 @@ sub ParseRecordBookmark :method   ## no critic (Always unpack @_ first)
 =head2 C<ParseRecordText($data)>
 
 Parses text records, updating object attributes, most notably
-appending text to C<$self->{text}>.
+appending text to C<< $self->{text} >>.
 
 This is called automatically by L</ParseRecord()> and
 L</ParseResource()> as needed.
