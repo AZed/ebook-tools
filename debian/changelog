@@ -1,3 +1,11 @@
+libebook-tools-perl (0.5.2-1) unstable; urgency=medium
+
+  * New upstream version
+    * Fixes incompatibility with perl < 5.16
+  * Dependency list fixed
+
+ -- Zed Pobre <zed@debian.org>  Thu, 25 Sep 2014 16:12:21 -0400
+
 libebook-tools-perl (0.5.0-1) unstable; urgency=medium
 
   * New upstream version
