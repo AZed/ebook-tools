@@ -1,14 +1,13 @@
 package EBook::Tools::LZSS;
 use warnings; use strict; use utf8;
 use English qw( -no_match_vars );
-use version 0.74; our $VERSION = qv("0.4.8");
+use version 0.74; our $VERSION = qv("0.5.0");
 
-# Perl Critic overrides:
-## no critic (Package variable)
+## Perl Critic overrides:
 # RequireBriefOpen seems to be way too brief to be useful
 ## no critic (RequireBriefOpen)
-# Double-sigils are needed for lexical filehandles in clear print statements
-## no critic (Double-sigil dereference)
+# We're not interpolating constants and not making them lexical makes identifying them easier
+## no critic (ProhibitConstantPragma)
 
 =head1 NAME
 
@@ -39,7 +38,7 @@ use EBook::Tools qw(:all);
 use Encode;
 use File::Basename qw(dirname fileparse);
 use File::Path;     # Exports 'mkpath' and 'rmtree'
-binmode(STDERR,":utf8");
+binmode(STDERR,':encoding(UTF-8)');
 
 
 use constant ENCODED => 0;
@@ -208,8 +207,7 @@ string and returns a reference to the uncompressed string.
 
 sub uncompress :method
 {
-    my $self = shift;
-    my ($dataref) = @_;
+    my ($self,$dataref) = @_;
     my $subname = (caller(0))[3];
     debug(2,"DEBUG[",$subname,"]");
 

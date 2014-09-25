@@ -1,10 +1,12 @@
 package EBook::Tools::PalmDoc;
 use warnings; use strict; use utf8;
-use version 0.74; our $VERSION = qv("0.4.8");
+use version 0.74; our $VERSION = qv("0.5.0");
 
 # Mixed case subs and the variable %record are inherited from Palm::PDB
 ## no critic (ProhibitAmbiguousNames)
 ## no critic (ProhibitMixedCaseSubs)
+# RequireBriefOpen seems to be way too brief to be useful
+## no critic (RequireBriefOpen)
 
 =head1 NAME
 
@@ -853,6 +855,7 @@ sub uncompress_palmdoc
                 {
                     debug(1,"WARNING: LZ77 decompression reference is before",
                           " beginning of text!");
+                    debug(2,"  textlength=${textlength}, lz77offset=${lz77offset}");
                     return;
                 }
                 $text .= substr($text,$textpos,1);

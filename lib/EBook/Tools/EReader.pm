@@ -1,6 +1,6 @@
 package EBook::Tools::EReader;
 use warnings; use strict; use utf8;
-use version 0.74; our $VERSION = qv("0.4.8");
+use version 0.74; our $VERSION = qv("0.5.0");
 
 # Double-sigils are needed for lexical variables in clear print statements
 ## no critic (Double-sigil dereference)
@@ -416,7 +416,7 @@ sub write_html :method
 
     debug(1,"DEBUG: writing HTML text to '",$filename,"'");
 
-    open(my $fh,">:utf8",$filename)
+    open(my $fh,'>:encoding(UTF-8)',$filename)
         or croak($subname,"(): unable to open '",$filename,"' for writing!\n");
     print {*$fh} $self->html;
     close($fh)

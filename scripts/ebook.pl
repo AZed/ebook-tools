@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 use warnings; use strict;
+use v5.10.1;
 
 
 =head1 NAME
@@ -14,16 +15,17 @@ See also L</EXAMPLES>.
 
 =cut
 
-
 use Config::IniFiles;
+use Cwd qw(chdir getcwd realpath);
 use EBook::Tools qw(:all);
 use EBook::Tools::IMP qw(:all);
 use EBook::Tools::Mobipocket qw(:all);
 use EBook::Tools::MSReader qw(:all);
 use EBook::Tools::Unpack;
-use File::Basename 'fileparse';
+use File::Basename qw(dirname fileparse);
 use File::Path;              # Exports 'mkpath' and 'rmtree'
 use File::Slurp qw(slurp);   # Also exports 'read_file' and 'write_file'
+use File::Temp qw(tempfile tempdir);
 use Getopt::Long qw(:config bundling);
 
 # Exit values
@@ -66,8 +68,11 @@ my %opt = (
     'category'    => undef,
     'compression' => undef,
     'dir'         => '',
+    'erotic'      => 0,
     'fileas'      => '',
     'firstname'   => undef,
+    'fix'         => 1,
+    'format'      => '',
     'help'        => 0,
     'htmlconvert' => 0,
     'identifier'  => undef,
@@ -78,6 +83,7 @@ my %opt = (
     'mimetype'    => '',
     'mobi'        => 0,
     'mobigencmd'  => $config->val('helpers','mobigen') || undef,
+    'names'	  => 0,
     'nosave'      => 0,
     'noscript'    => 0,
     'oeb12'       => 0,
@@ -97,9 +103,13 @@ GetOptions(
     'author=s',
     'category|cat=s',
     'compression|c=i',
+    'delete|del',
     'dir|d=s',
+    'erotic|sex',
     'fileas=s',
     'firstname=s',
+    'fix',
+    'format=s',
     'help|h|?',
     'htmlconvert',
     'identifier|id=s',
@@ -110,6 +120,7 @@ GetOptions(
     'mimetype|mtype=s',
     'mobi|m',
     'mobigencmd|mobigen=s',
+    'names',
     'nosave',
     'noscript',
     'raw',
@@ -131,8 +142,8 @@ if($opt{oeb12} && $opt{opf20})
     exit(EXIT_BADOPTION);
 }
 
-# Default to OEB12 if neither format is specified
-if(!$opt{oeb12} && !$opt{opf20}) { $opt{oeb12} = 1; }
+# Default to OPF20 if neither format is specified
+if(!$opt{oeb12} && !$opt{opf20}) { $opt{opf20} = 1; }
 
 $EBook::Tools::debug = $opt{verbose};
 $EBook::Tools::tidycmd = $opt{tidycmd} if($opt{tidycmd});
@@ -146,22 +157,27 @@ $EBook::Tools::tidysafety = $opt{tidysafety} if(defined $opt{tidysafety});
 my %dispatch = (
     'adddoc'      => \&adddoc,
     'additem'     => \&additem,
+    'bisac'       => \&bisac,
     'blank'       => \&blank,
+    'convert'     => \&convert,
     'dc'          => \&downconvert,
+    'dlbisac'     => \&dlbisac,
     'downconvert' => \&downconvert,
     'config'      => \&config,
     'fix'         => \&fix,
     'genepub'     => \&genepub,
     'genimp'      => \&genimp,
     'genmobi'     => \&genmobi,
+    'genncx'	  => \&genncx,
     'impmeta'     => \&impmeta,
+    'setcover'    => \&setcover,
     'setmeta'     => \&setmeta,
     'splitmeta'   => \&splitmeta,
     'splitpre'    => \&splitpre,
     'stripscript' => \&stripscript,
     'tidyxhtml'   => \&tidyxhtml,
     'tidyxml'     => \&tidyxml,
-    'unpack'      => \&unpack,
+    'unpack'      => \&unpack_ebook,
     );
 
 my $cmd = shift;
@@ -180,6 +196,7 @@ if(!$dispatch{$cmd})
 }
 
 $dispatch{$cmd}(@ARGV);
+exit(EXIT_SUCCESS);
 
 
 #########################################
@@ -243,7 +260,7 @@ sub adddoc
     }
     $ebook->save;
     $ebook->print_warnings;
-    exit(EXIT_SUCCESS);
+    return 0;
 }
 
 
@@ -312,7 +329,42 @@ sub additem
     }
     $ebook->save;
     $ebook->print_warnings;
-    exit(EXIT_SUCCESS);
+    return 0;
+}
+
+
+=head2 C<bisac>
+
+Search for a BISAC code matching a case-insensitive regular expression.
+
+=head3 Options
+
+=over
+
+=item C<regexp>
+
+The first argument is taken as a regular expression to use for the
+search.  If this is either '.' or not specified, the entire list of
+valid codes is printed.
+
+This requires that the BISAC codes be downloaded ahead of time.  (See
+C<dlbisac>.)
+
+=back
+
+=cut
+
+sub bisac
+{
+    my ($regexp) = @_;
+    my $bisg = EBook::Tools::BISG->new();
+
+    my @list = $bisg->find($regexp);
+
+    foreach my $code (@list) {
+        print $code,"\n";
+    }
+    return 0;
 }
 
 
@@ -369,14 +421,11 @@ sub blank
     $args{author} = $opt{author} if($opt{author});
     $args{title} = $opt{title} if($opt{title});
 
+    useoptdir() unless($opt{nosave});
     $ebook = EBook::Tools->new();
     $ebook->init_blank(%args);
-    unless($opt{nosave})
-    {
-        useoptdir();
-        $ebook->save;
-    }
-    exit(EXIT_SUCCESS);
+    $ebook->save unless($opt{nosave});
+    return 0;
 }
 
 
@@ -521,7 +570,89 @@ sub config
         $config->setval('drm','mobipids',$value);
         $config->RewriteConfig;
     }
-    exit(EXIT_SUCCESS);
+    return 0;
+}
+
+
+=head2 C<convert>
+
+Unpacks the ebook specified as the first argument, runs standard fixes
+on the contents, and repacks it into a new format in the output file
+specified as the second argument.  Currently the only supported output
+format is epub, which is the format you will get irrespective of the
+extension you actually give the output file.
+
+=head3 Options
+
+=over
+
+All options from C<unpack> and C<fix> are technically valid here as
+well, though of course some options are nonsensical in this context
+and will likely break the conversion (e.g. --nosave).
+
+=back
+
+=head3 Example
+
+ ebook convert MyBook.prc MyBook.epub
+ ebook convert --name MyBook.lit /home/myname/MyBook.epub
+
+=cut
+
+sub convert
+{
+    my ($infile,$outfile) = @_;
+    my $subname = ( caller(0) )[3];
+
+    my $tempdir = File::Temp->newdir();
+    $tempdir->unlink_on_destroy( 1 );
+    my $cwd_orig = getcwd();
+
+    if(!$infile) { die("You must specify an input file.\n"); }
+    if(!$outfile) { die("You must specify an output file.\n"); }
+
+    my $ebook;
+    my $bookname;
+    my $format;
+
+    ($bookname,undef,undef) = fileparse($infile,'\.\w+$');
+    (undef,undef,$format) = fileparse($outfile,'\.\w+$');
+
+    # TODO: actually check $format
+
+    $infile = realpath($infile);
+    $outfile = realpath($outfile);
+
+    $dispatch{'unpack'}($infile,$tempdir);
+
+    chdir($tempdir);
+
+    $dispatch{'fix'}();
+
+    $opt{output} = $outfile;
+    $dispatch{'genepub'}();
+
+    chdir($cwd_orig);
+    return 0;
+}
+
+
+=head2 C<dlbisac>
+
+Downloads and caches the Book Industry Study Group BISAC codes into a
+local database.  This will destroy the existing contents of that table
+if this has been done previously.
+
+=cut
+
+sub dlbisac
+{
+    my $subname = ( caller(0) )[3];
+
+    my $bisg = EBook::Tools::BISG->new();
+    $bisg->download_bisac;
+    $bisg->save_bisac;
+    return;
 }
 
 
@@ -648,7 +779,7 @@ END
             {
                 print("Successfully downconverted '",$infile,
                     "' into '",$outfile,"'\n");
-                exit(EXIT_SUCCESS);
+                return 0;
             }
             else
             {
@@ -681,7 +812,7 @@ END
         {
             print("Successfully downconverted '",$infile,
                 "' into '",$outfile,"'\n");
-            exit(EXIT_SUCCESS);
+            return 0;
         }
         else
         {
@@ -695,7 +826,7 @@ END
         print {*STDERR} "Cannot downconvert format '",$unpacker->format,"'\n";
         exit(EXIT_BADINPUT);
     }
-    exit(EXIT_SUCCESS);
+    return 0;
 }
 
 
@@ -731,13 +862,18 @@ C<--oeb12> are specified, the program will abort with an error.
 Correct Mobipocket-specific elements, creating an output element to
 force UTF-8 output if one does not yet exist.
 
-=item C<--dir directory>
+=item C<--erotic> or C<--sex>
 
-=item C<-d directory>
+Enable special handling for erotic fiction (most notably special
+subject normalization rules).
 
-Save the fixed output into the specified directory.  The default is to
-write all output in the current working directory.  Note that this
-only affects the output, and not where the OPF file is found.
+=item C<--names>
+
+Normalize names to standard capitalization and format (primary name
+display is "First Middle Last", but file-as is "Last, First Middle".
+
+This is not done by default as it can damage unusual but correct
+names.
 
 =back
 
@@ -755,24 +891,31 @@ sub fix
     $opffile = $opt{opffile} if(!$opffile);
     $ebook = EBook::Tools->new();
     $ebook->init($opffile);
+    if($opt{erotic}) { $ebook->set_erotic(1); }
     $ebook->fix_oeb12 if($opt{oeb12});
-    $ebook->fix_opf20 if($opt{opf20});
+    if($opt{opf20}) {
+        if(-f 'META-INF/container.xml') {
+            $ebook->gen_epub_files;
+        }
+        else {
+            $ebook->fix_opf20;
+        }
+    }
     $ebook->fix_misc;
     $ebook->fix_mobi if($opt{mobi});
-    unless($opt{nosave})
-    {
-        useoptdir();
-        $ebook->save;
+    if($opt{names}) {
+        $ebook->fix_creators;
     }
-    if($ebook->errors)
-    {
+    $ebook->save unless($opt{nosave});
+
+    if($ebook->errors) {
         $ebook->print_errors;
         print "Unrecoverable errors while fixing '",$opffile,"'!\n";
         exit(EXIT_TOOLSERROR);
     }
 
     $ebook->print_warnings if($ebook->warnings);
-    exit(EXIT_SUCCESS);
+    return 0;
 }
 
 
@@ -792,17 +935,17 @@ Generate a .epub book from existing OPF data.
 
 =item C<--opf filename.opf>
 
-Use the specified OPF file.  This can also be specified as the first
-non-option argument, which will override this option if it exists.  If
-no file is specified, one will be searched for.
+Use the specified OPF file.  If no file is specified, one will be
+searched for.
 
 =item C<--output bookname.epub>
 
 =item C<-o bookname.epub>
 
-Use the specified name for the final output file.  If not specified,
-the bok will have the same filename as the OPF file, with the
-extension changed to C<.epub>.
+Use the specified name for the final output file.  This can also be
+specified as the first non-option argument, which will override this
+option if it exists.  If not specified, the book will have the same
+filename as the OPF file, with the extension changed to C<.epub>.
 
 =item C<--dir directory>
 
@@ -815,7 +958,7 @@ is to use the current working directory.
 
 =head3 Example
 
- ebook genepub mybook.opf -f my_special_book.epub -d ../epubbooks
+ ebook genepub mybook.opf -o my_special_book.epub -d ../epubbooks
 
 or in the simplest case:
 
@@ -825,16 +968,20 @@ or in the simplest case:
 
 sub genepub
 {
-    my ($opffile) = @_;
+    my ($outfile) = @_;
     my $ebook;
 
-    $opffile = $opt{inputfile} if(!$opffile);
-    $opffile = $opt{opffile} if(!$opffile);
+    if(!$outfile) { $outfile = $opt{output}; }
 
-    if($opffile) { $ebook = EBook::Tools->new($opffile); }
-    else {$ebook = EBook::Tools->new(); $ebook->init(); }
+    if($opt{opffile}) {
+        $ebook = EBook::Tools->new($opt{opffile});
+    }
+    else {
+        $ebook = EBook::Tools->new();
+        $ebook->init();
+    }
 
-    if(! $ebook->gen_epub(filename => $opt{filename},
+    if(! $ebook->gen_epub(filename => $opt{output},
                           dir => $opt{dir}) )
     {
         print {*STDERR} "Failed to generate .epub file!\n";
@@ -843,7 +990,7 @@ sub genepub
         exit(EXIT_BADOUTPUT);
     }
     $ebook->print_warnings if($ebook->warnings);
-    exit(EXIT_SUCCESS);
+    return 0;
 }
 
 
@@ -924,7 +1071,7 @@ sub genimp
         print {*STDERR} ("Failed to generate '",$output,"'!\n");
         exit(EXIT_BADOUTPUT);
     }
-    exit(EXIT_SUCCESS);
+    return 0;
 }
 
 
@@ -1021,7 +1168,58 @@ sub genmobi
         print {*STDERR} "Error during generation: ",$retval,"\n";
         exit(EXIT_HELPERERROR);
     }
-    exit(EXIT_SUCCESS);
+    return 0;
+}
+
+
+=head2 C<genncx>
+
+Given an OPF file, creates a NCX-format table of contents from the
+package unique-identifier, the dc:title, dc:creator, and spine
+elements, and then add the NCX entry to the manifest if it is not
+already referenced.
+
+The OPF file will be cleaned to OPF20 format before this happens.
+
+=head3 Options
+
+=over
+
+=item C<--opffile filename.opf>
+
+=item C<--opf filename.opf>
+
+Use the specified OPF file.  This can also be specified as the first
+non-option argument, which will override this option if it exists.  If
+no file is specified, one will be searched for.
+
+=back
+
+=cut
+
+sub genncx {
+    my ($opffile) = @_;
+    my $ebook;
+
+    $opffile = $opt{opffile} if(!$opffile);
+    $ebook = EBook::Tools->new();
+    $ebook->init($opffile);
+    $ebook->fix_opf20;
+    $ebook->gen_ncx;
+    unless($opt{nosave})
+    {
+        useoptdir();
+        $ebook->save;
+    }
+    if($ebook->errors)
+    {
+        $ebook->print_errors;
+        print "Unrecoverable errors while fixing '",$opffile,"'!\n";
+        exit(EXIT_TOOLSERROR);
+    }
+
+    $ebook->print_warnings if($ebook->warnings);
+    return 0;
 }
 
 
@@ -1125,20 +1323,99 @@ sub impmeta
         print "Failed to write '",$output,"' -- aborting!\n";
         exit(EXIT_BADOUTPUT);
     }
-    exit(EXIT_SUCCESS);
+    return 0;
+}
+
+=head2 C<setcover>
+
+Sets the cover image
+
+Takes as a single argument the href of the file to use.
+
+=head3 Options
+
+=over
+
+=item * C<--opffile>
+
+=item * C<--opf>
+
+Specifies the OPF file to modify.  If not specified, the script will
+attempt to find one
+
+=item * C<--identifier>
+
+=item * C<--id>
+
+Specifies the ID to assign to the associated manifest item.
+
+=back
+
+=cut
+
+sub setcover {
+    my ($href) = @_;
+
+    unless($href) {
+        print "You must specify the href (filename) of the cover image!\n";
+        exit(EXIT_BADOPTION);
+    }
+
+    my $opffile = $opt{opffile};
+    my $id = $opt{identifier};
+
+    my $ebook = EBook::Tools->new();
+    $ebook->init($opffile);
+    $ebook->set_cover(href => $href,
+                      id => $id);
+    $ebook->save;
+    $ebook->print_errors;
+    $ebook->print_warnings;
+    return 0;
 }
 
 
 =head2 C<setmeta>
 
-Set specific metadata values on an OPF file, creating a new entry only
-if none exists.
+Set specific metadata values on an OPF file, creating a new entry if
+none exists.
 
 Both the element to set and the value are specified as additional
 arguments, not as options.
 
-The elements that can be set are currently 'author', 'title',
-'publisher', and 'rights'.
+The elements that can be set are currently:
+
+=over
+
+=item author
+
+=item date
+
+=item description
+
+=item publisher
+
+=item rights
+
+=item series
+
+=item subject
+
+=item title
+
+=item type
+
+=back
+
+The 'series' values can take an extra argument containing the series
+index position.
+
+The 'subject' elements can be added multiple times (including in a
+single command-line, though --id will only set the ID on the first one
+specified).  Other entries will be overwritten.
+
+The element argument can be shortened to the minimum number of letters
+necessary to uniquely identify it.
 
 =head3 Options
 
@@ -1149,6 +1426,10 @@ The elements that can be set are currently 'author', 'title',
 
 Specifies the OPF file to modify.  If not specified, the script will
 attempt to find one in the current directory.
+
+=item * C<--delete>
+
+Allows the deletion of subject and series metadata.  Has no effect on other elements.
 
 =item * C<--fileas>
 
@@ -1165,20 +1446,16 @@ Specifies the ID to assign to the element.
 
 =head3 Examples
 
+ ebook setmeta series 'Some Other Series' 03
  ebook setmeta title 'My Great Title'
+ ebook setmeta t 'My Great Title'
  ebook --opf newfile.opf setmeta author 'John Smith' --fileas 'Smith, John' --id mainauthor
 
 =cut
 
 sub setmeta
 {
-    my ($element,$value) = @_;
-    my %valid_elements = (
-        'title' => 1,
-        'author' => 1,
-        'publisher' => 1,
-        'rights' => 1,
-        );
+    my ($element,$value,@extra) = @_;
 
     unless($element)
     {
@@ -1186,12 +1463,7 @@ sub setmeta
         print "Example: ebook setmeta title 'My Great Title'\n";
         exit(EXIT_BADOPTION);
     }
-    unless($value)
-    {
-        print "You muts specify the value to set.\n";
-        print "Example: ebook setmeta title 'My Great Title'\n";
-        exit(EXIT_BADOPTION);
-    }
+    $value ||= '';
 
     my $opffile = $opt{opffile};
     my $fileas = $opt{fileas};
@@ -1200,31 +1472,82 @@ sub setmeta
     my $ebook = EBook::Tools->new();
     $ebook->init($opffile);
 
-    if($element eq 'author')
-    {
+    if ($element =~ /^a/) {
         $ebook->set_primary_author('text' => $value,
                                    'fileas' => $fileas,
                                    'id' => $id );
     }
-    elsif($element eq 'publisher')
-    {
+    elsif ($element =~ /^da/) {
+        $value = fix_datestring($value);
+        $ebook->set_date('text' => $value,
+                         'id' => $id);
+    }
+    elsif ($element =~ /^de/) {
+        $ebook->set_description('text' => $value,
+                                'id' => $id);
+    }
+    elsif ($element =~ /^p/) {
         $ebook->set_publisher('text' => $value,
-                              'id' => $id );
+                              'id' => $id);
     }
-    elsif($element eq 'rights')
-    {
+    elsif ($element =~ /^r/) {
         $ebook->set_rights('text' => $value,
-                           'id' => $id );
+                           'id' => $id);
     }
-    elsif($element eq 'title')
-    {
+    elsif ($element =~ /^se/) {
+        # Unfortunately, there are no readers as of this writing
+        # that support the EPub 3.0 collection standard, so the
+        # only way to currently designate series is via the
+        # calibre:series and calibre:series_index meta tags.
+
+        if($opt{delete}) {
+            $ebook->set_meta(name => 'calibre:series',
+                             content => undef);
+            $ebook->set_meta(name => 'calibre:series_index',
+                             content => undef);
+        }
+        else {
+            $ebook->set_meta(name => 'calibre:series',
+                             content => $value);
+            if($extra[0]) {
+                $ebook->set_meta(name => 'calibre:series_index',
+                                 content => $extra[0]);
+            }
+        }
+    }
+    elsif ($element =~ /^su/) {
+        if($opt{delete}) {
+            $ebook->delete_subject('text' => $value,
+                                   'id' => $id);
+            foreach my $subject(@extra) {
+                $ebook->delete_subject('text' => $subject);
+            }
+        }
+        else {
+            $ebook->add_subject('text' => $value,
+                                'id' => $id);
+            foreach my $subject(@extra) {
+                $ebook->add_subject('text' => $subject);
+            }
+        }
+    }
+    elsif ($element =~ /^ti/) {
         $ebook->set_title('text' => $value,
                           'id' => $id);
     }
+    elsif ($element =~ /^ty/) {
+        $ebook->set_type('text' => $value,
+                         'id' => $id);
+    }
+    else {
+        print "Unrecognized metadata element '",$element,"'!\n";
+        exit(EXIT_BADOPTION);
+    }
+
     $ebook->save;
     $ebook->print_errors;
     $ebook->print_warnings;
-    exit(EXIT_SUCCESS);
+    return 0;
 }
 
 
@@ -1269,7 +1592,7 @@ sub splitmeta
         exit(EXIT_TOOLSERROR);
     }
     $ebook->print_warnings if($ebook->warnings);
-    exit(EXIT_SUCCESS);
+    return 0;
 }
 
 
@@ -1293,7 +1616,7 @@ sub splitpre
         exit(EXIT_BADOPTION);
     }
     split_pre($infile,$outfilebase);
-    exit(EXIT_SUCCESS);
+    return 0;
 }
 
 
@@ -1332,7 +1655,7 @@ sub stripscript
     $args{noscript} = $opt{noscript};
 
     strip_script(%args);
-    exit(EXIT_SUCCESS);
+    return 0;
 }
 
 =head2 C<tidyxhtml>
@@ -1382,7 +1705,7 @@ sub tidyxml
 }
 
 
-=head2 C<unpack>
+=head2 C<unpack_ebook>
 
 Unpacks an ebook into its component parts, creating an OPF for them if
 necessary.
@@ -1441,7 +1764,7 @@ exact text can be overridden here.
 =item C<--opf>
 
 The filename of the OPF metadata file that will be generated.  If not
-specified, defaults to the title with a .opf extension.
+specified, defaults to C<content.opf>.
 
 =item C<--tidy>
 
@@ -1497,7 +1820,7 @@ Both of the above commands do the same thing
 
 =cut
 
-sub unpack
+sub unpack_ebook
 {
     my ($filename,$dir) = @_;
     $filename = $filename || $opt{input};
@@ -1536,7 +1859,7 @@ sub unpack
 
     $unpacker->unpack;
 
-    exit(EXIT_SUCCESS);
+    return 0;
 }
 
 ########## PRIVATE PROCEDURES ##########
