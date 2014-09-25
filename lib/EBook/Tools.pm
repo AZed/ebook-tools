@@ -5779,7 +5779,7 @@ sub review :method {
 }
 
 
-=head2 C<rights('id' => 'identifier')>
+=head2 C<< rights('id' => 'identifier') >>
 
 Returns a list containing the text of all of dc:rights or
 dc:copyrights (case-insensitive) entries in the e-book, or undef if
