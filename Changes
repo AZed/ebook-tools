@@ -1,6 +1,10 @@
 Release Notes
 =============
 
+0.5.2
+ Bug fixes:
+  * Minor POD display fixes
+
 0.5.1
  Bug fixes:
   * Fixes so perl as old as 5.10 really does still work

@@ -1,6 +1,6 @@
 package EBook::Tools::EReader;
 use warnings; use strict; use utf8;
-use version 0.74; our $VERSION = qv("0.5.0");
+use version 0.74; our $VERSION = qv("0.5.2");
 
 # Double-sigils are needed for lexical variables in clear print statements
 ## no critic (Double-sigil dereference)
@@ -396,7 +396,7 @@ sub sidebars_html
 Writes the raw book text to disk in PML form (including all sidebars
 and footnotes) with the given filename.
 
-If C<$filename> is not specified, writes to C<$self->filebase> with
+If C<$filename> is not specified, writes to C<< $self->filebase >> with
 a ".html" extension.
 
 Returns the filename used on success, or undef if there was no text to
@@ -469,7 +469,7 @@ sub write_images :method
 Writes the raw book text to disk in PML form (including all sidebars
 and footnotes) with the given filename.
 
-If C<$filename> is not specified, writes to C<$self->filebase> with
+If C<$filename> is not specified, writes to C<< $self->filebase >> with
 a ".pml" extension.
 
 Returns the filename used on success, or undef if there was no text to
@@ -542,7 +542,7 @@ sub write_unknown_records :method
 
 =head2 C<Load($filename)>
 
-Sets C<$self->{filename}> and then loads and parses the file specified
+Sets C<< $self->{filename} >> and then loads and parses the file specified
 by C<$filename>, calling L</ParseRecord(%record)> on every record
 found.
 
