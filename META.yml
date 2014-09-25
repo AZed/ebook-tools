@@ -2,7 +2,8 @@
 abstract: 'Object class for manipulating and generating E-books'
 author:
   - 'Zed Pobre <zed@debian.org>'
-build_requires: {}
+build_requires:
+  DBD::SQLite: '1.20'
 configure_requires:
   Module::Build: '0.42'
 dynamic_config: 1
@@ -15,7 +16,7 @@ name: EBook-Tools
 provides:
   EBook::Tools:
     file: lib/EBook/Tools.pm
-    version: v0.5.0
+    version: v0.5.1
   EBook::Tools::BISG:
     file: lib/EBook/Tools/BISG.pm
     version: v0.5.0
@@ -45,17 +46,21 @@ requires:
   Bit::Vector: '6.4'
   Compress::Zlib: '1'
   Config::IniFiles: '2'
+  DBI: '1.614'
   Data::UUID: '1'
   Date::Manip: '5.44'
   Encode::Detect: '1'
   File::MimeInfo: '0.13'
   File::Slurp: '9999'
+  File::Which: '0'
   HTML::Entities: '1'
   HTML::TextToHTML: '2.44'
   HTML::TreeBuilder: '3.19'
   Image::Size: '3.1'
+  LWP::Protocol::https: '0'
   Lingua::EN::NameParse: '1'
   List::MoreUtils: '0.21'
+  Mojo::DOM: '0'
   Palm::PDB: '1'
   Palm::Raw: '1'
   String::CRC32: '1'
@@ -63,8 +68,8 @@ requires:
   Time::Local: '1.18'
   URI::Escape: '1'
   XML::Twig: '3.32'
-  perl: v5.10.0
+  perl: v5.10.1
   version: '0.74'
 resources:
   license: http://opensource.org/licenses/gpl-2.0.php
-version: v0.5.0
+version: v0.5.1

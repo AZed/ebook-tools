@@ -49,7 +49,6 @@ Release Notes
     file, not the input OPF.
 
 0.4.9
-
  New Features:
   * 'ebook unpack' now automatically handles ePub files (or to be more
     specific, any zip file)
