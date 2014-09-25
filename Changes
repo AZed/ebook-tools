@@ -1,6 +1,11 @@
 Release Notes
 =============
 
+0.5.1
+ Bug fixes:
+  * Fixes so perl as old as 5.10 really does still work
+  * Document dependencies properly in Build.PL (thanks to Syohei YOSHIDA)
+
 0.5.0
  New Features:
   * 'ebook convert' now provides one-shot conversion from any format
