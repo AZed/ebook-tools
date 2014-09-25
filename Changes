@@ -1,6 +1,48 @@
 Release Notes
 =============
 
+0.5.0
+ New Features:
+  * 'ebook convert' now provides one-shot conversion from any format
+    to epub with an optional fixup step in between.
+  * 'ebook fix' now provides subject and type normalization.  Library
+     of Congress normalization is still highly incomplete and is
+     expected to incrementally improve over time.
+  * 'ebook setmeta' now available to edit metadata fields.
+  * 'ebook setcover' now available to add/change cover images.
+  * 'ebook bisac' now available to search for or convert BISAC codes
+  * OPF files in subdirectories are now supported
+  * New class EBook::Tools::BISG to download BISAC information.
+  * New helper procedures 'system_result' and 'hashvalue_key_self'
+  * fix_guide() normalizes reference types
+  * Some advertisements are deleted from metadata automatically
+
+ Bug fixes:
+  * Lots of bugs in epub generation fixed, including automatic
+    generation of NCX files
+  * fix_links() no longer breaks when encountering mailto: news: or
+    backwards directory traversal links.
+  * fix_links() should no longer sometimes attempt to add the same
+    href multiple times.
+  * hrefs are decoded to give actual filesystem filenames
+  * XHTML 1.1 source files are no longer backwards-converted to XHTML
+    1.0
+  * Mobipocket UTF-8 HTML generation bugs fixed
+  * Fixed bugs that could cause Mobipocket filepos anchors to have
+    wrong ids
+  * 'ebook genepub' options now match the documentation
+  * OPF encoding is now autodetected instead of assumed as UTF-8
+  * Compatible with Perl 5.20
+
+ Behavior changes:
+  * Unpacking books other than .lit now causes the OPF filename to
+    default to 'content.opf' instead of a name based on the original
+    packed filename.
+  * fix_creators() is no longer automatically called from fix_misc()
+    as it may still get some exotic names wrong.
+  * The first argument in 'ebook genepub <arg>' now sets the output
+    file, not the input OPF.
+
 0.4.9
  New Features:
   * 'ebook unpack' now automatically handles ePub files (or to be more

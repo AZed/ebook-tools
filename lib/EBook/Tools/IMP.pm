@@ -1,14 +1,13 @@
 package EBook::Tools::IMP;
 use warnings; use strict; use utf8;
 use English qw( -no_match_vars );
-use version 0.74; our $VERSION = qv("0.4.8");
+use version 0.74; our $VERSION = qv("0.5.0");
 
-# Perl Critic overrides:
-## no critic (Package variable)
+## Perl Critic overrides:
 # RequireBriefOpen seems to be way too brief to be useful
 ## no critic (RequireBriefOpen)
-# Double-sigils are needed for lexical filehandles in clear print statements
-## no critic (Double-sigil dereference)
+# We're not interpolating constants and not making them lexical makes identifying them easier
+## no critic (ProhibitConstantPragma)
 
 =head1 NAME
 
@@ -42,7 +41,7 @@ use File::Basename qw(basename dirname fileparse);
 use File::Path;     # Exports 'mkpath' and 'rmtree'
 use Image::Size;
 use List::MoreUtils qw(any none);
-binmode(STDERR,":utf8");
+binmode(STDERR,':encoding(UTF-8)');
 
 my $drmsupport = 0;
 eval
@@ -163,13 +162,12 @@ Returns 1 on success, or undef on failure.
 
 sub load :method
 {
-    my $self = shift;
-    my ($filename) = @_;
+    my ($self,$filename) = @_;
     my $subname = (caller(0))[3];
     croak($subname . "() called as a procedure!\n") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
 
-    if(!$self->{filename} and !$filename)
+    if(not $self->{filename} and not $filename)
     {
         carp($subname,"(): no filename specified!\n");
         return;
@@ -287,8 +285,7 @@ attributes.  Returns 1 on success, or undef on failure.
 
 sub load_resdir
 {
-    my $self = shift;
-    my ($dirname) = @_;
+    my ($self,$dirname) = @_;
     my $subname = (caller(0))[3];
     croak($subname . "() called as a procedure!\n") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
@@ -400,7 +397,7 @@ sub load_resdir
         return;
     }
 
-    my @filelist = <*>;
+    my @filelist = glob '*';
     $self->{resources} = {};
     $self->{toc} = ();
     foreach my $file (@filelist)
@@ -576,8 +573,7 @@ undisplayable PICT image.
 
 sub find_image_type :method
 {
-    my $self = shift;
-    my ($id,@excluded) = @_;
+    my ($self,$id,@excluded) = @_;
     my $subname = (caller(0))[3];
     croak($subname . "() called as a procedure!\n") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
@@ -605,8 +601,7 @@ Returns undef if no match was found or a name was not specified.
 
 sub find_resource_by_name :method
 {
-    my $self = shift;
-    my ($name) = @_;
+    my ($self,$name) = @_;
     my $subname = (caller(0))[3];
     croak($subname . "() called as a procedure!\n") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
@@ -638,8 +633,7 @@ not valid, or if C<$id> is not provided.
 
 sub image :method
 {
-    my $self = shift;
-    my ($type,$id) = @_;
+    my ($self,$type,$id) = @_;
     my $subname = (caller(0))[3];
     croak($subname . "() called as a procedure!\n") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
@@ -706,8 +700,7 @@ specific ID is returned, rather than the entire hash of hashrefs.
 
 sub image_hashref :method
 {
-    my $self = shift;
-    my ($type,$id) = @_;
+    my ($self,$type,$id) = @_;
     my $subname = (caller(0))[3];
     croak($subname . "() called as a procedure!\n") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
@@ -745,8 +738,7 @@ specified.
 
 sub image_ids :method
 {
-    my $self = shift;
-    my ($type) = @_;
+    my ($self,$type) = @_;
     my $subname = (caller(0))[3];
     croak($subname . "() called as a procedure!\n") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
@@ -799,8 +791,7 @@ element exists.
 
 sub offsetelement :method
 {
-    my $self = shift;
-    my ($offset) = @_;
+    my ($self,$offset) = @_;
     my $subname = (caller(0))[3];
     croak($subname . "() called as a procedure!\n") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
@@ -901,7 +892,7 @@ sub pack_imp_header :method
 
     $header = pack('n',$self->{version});
     $header .= 'BOOKDOUG';
-    if(! $self->{unknown0x0a}
+    if(not $self->{unknown0x0a}
        or length($self->{unknown0x0a}) != 8)
     {
         carp($subname,"():\n",
@@ -963,8 +954,7 @@ the name is only used if the type lookup fails.
 
 sub pack_imp_resource :method
 {
-    my $self = shift;
-    my %args = @_;
+    my ($self,%args) = @_;
     my $subname = (caller(0))[3];
     croak($subname . "() called as a procedure!\n") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
@@ -978,7 +968,7 @@ sub pack_imp_resource :method
         croak($subname,"(): invalid argument '",$arg,"'")
             if(!$valid_args{$arg});
     }
-    if(!$args{name} and !$args{type})
+    if(not $args{name} and not $args{type})
     {
         carp($subname,"():\n",
              " at least one of name or type must be specified!\n");
@@ -989,10 +979,10 @@ sub pack_imp_resource :method
     my $resource;
     my $resdata;
 
-    if(!($type and $self->{resources}->{$type}) and $args{name})
+    if(not ($type and $self->{resources}->{$type}) and $args{name})
     {
         $type = $self->find_resource_by_name($args{name});
-        if(!$type or !$self->{resources}->{$type})
+        if(not $type or not $self->{resources}->{$type})
         {
             carp($subname,"():\n",
                  " no resource with name '",$args{name},"' found!\n");
@@ -1239,8 +1229,7 @@ is not found.
 
 sub resource :method
 {
-    my $self = shift;
-    my ($type) = @_;
+    my ($self,$type) = @_;
     my $subname = (caller(0))[3];
     croak($subname . "() called as a procedure!\n") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
@@ -1309,8 +1298,7 @@ to that TOC entry, if it exists, or undef otherwise.
 
 sub tocentry :method
 {
-    my $self = shift;
-    my ($index) = @_;
+    my ($self,$index) = @_;
     my $subname = (caller(0))[3];
     croak($subname . "() called as a procedure!\n") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
@@ -1359,8 +1347,7 @@ directory (see also L</resdirname()>).
 
 sub write_images :method
 {
-    my $self = shift;
-    my %args = @_;
+    my ($self,%args) = @_;
     my $subname = (caller(0))[3];
     croak($subname . "() called as a procedure!\n") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
@@ -1424,8 +1411,7 @@ filename) was invalid or missing, or the file could not be written.
 
 sub write_imp :method
 {
-    my $self = shift;
-    my ($filename) = @_;
+    my ($self,$filename) = @_;
     my $subname = (caller(0))[3];
     croak($subname . "() called as a procedure!\n") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
@@ -1444,7 +1430,7 @@ sub write_imp :method
     my $bookpropdata = $self->pack_imp_book_properties();
     my $tocdata = $self->pack_imp_toc;
 
-    if(!$headerdata or length($headerdata) != 48)
+    if(not $headerdata or length($headerdata) != 48)
     {
         carp($subname,"(): invalid header data!\n");
         return;
@@ -1581,8 +1567,7 @@ will be carped and the method will return undef.
 
 sub write_text :method
 {
-    my $self = shift;
-    my %args = @_;
+    my ($self,%args) = @_;
     my $subname = (caller(0))[3];
     croak($subname . "() called as a procedure!\n") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
@@ -1719,8 +1704,7 @@ in key C<unknown2>.  This value may not be present at all.
 
 sub parse_eti_server_data :method
 {
-    my $self = shift;
-    my ($data) = @_;
+    my ($self,$data) = @_;
     my $subname = (caller(0))[3];
     croak($subname . "() called as a procedure!\n") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
@@ -1808,8 +1792,7 @@ of the data passed.
 
 sub parse_imp_book_properties :method
 {
-    my $self = shift;
-    my ($propdata) = @_;
+    my ($self,$propdata) = @_;
     my $subname = (caller(0))[3];
     croak($subname . "() called as a procedure!\n") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
@@ -1948,8 +1931,7 @@ caution -- this value may be renamed if more information is obtained.
 
 sub parse_imp_header :method
 {
-    my $self = shift;
-    my ($headerdata) = @_;
+    my ($self,$headerdata) = @_;
     my $subname = (caller(0))[3];
     croak($subname . "() called as a procedure!\n") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
@@ -2628,8 +2610,7 @@ Size of the resource data in bytes.  Stored in hash key C<size>.
 
 sub parse_imp_toc_v1 :method
 {
-    my $self = shift;
-    my ($tocdata) = @_;
+    my ($self,$tocdata) = @_;
     my $subname = (caller(0))[3];
     croak($subname . "() called as a procedure!\n") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
@@ -2712,8 +2693,7 @@ Unknown, but always either zero or one.  Stored in C<unknown2>.
 
 sub parse_imp_toc_v2 :method
 {
-    my $self = shift;
-    my ($tocdata) = @_;
+    my ($self,$tocdata) = @_;
     my $subname = (caller(0))[3];
     croak($subname . "() called as a procedure!\n") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
@@ -2820,8 +2800,7 @@ must be blank.
 
 sub set_book_properties :method
 {
-    my $self = shift;
-    my %args = @_;
+    my ($self,%args) = @_;
     my $subname = (caller(0))[3];
     croak($subname . "() called as a procedure!\n") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");

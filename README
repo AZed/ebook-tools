@@ -23,7 +23,7 @@ DEPENDENCIES
 
 This module requires these other modules and libraries:
 
- Perl 5.8.8 or higher
+ Perl 5.10.0 or higher
  Archive::Zip
  Bit::Vector
  Compress::Zlib
@@ -40,6 +40,7 @@ This module requires these other modules and libraries:
  Image::Size
  List::MoreUtils
  Module::Build
+ Mojo::DOM
  P5-Palm
   * This may not be found by the CPAN builder.  If you have trouble
     with the installation, try downloading it from the CPAN website

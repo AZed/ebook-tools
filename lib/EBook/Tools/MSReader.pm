@@ -1,7 +1,7 @@
 package EBook::Tools::MSReader;
 use warnings; use strict; use utf8;
 use English qw( -no_match_vars );
-use version 0.74; our $VERSION = qv("0.4.8");
+use version 0.74; our $VERSION = qv("0.5.0");
 
 # Perl Critic overrides:
 ## no critic (Package variable)
@@ -44,7 +44,7 @@ use EBook::Tools qw(debug userconfigdir);
 use Encode;
 use File::Basename qw(dirname fileparse);
 use File::Path;     # Exports 'mkpath' and 'rmtree'
-binmode(STDERR,":utf8");
+binmode(STDERR,':encoding(UTF-8)');
 
 my $drmsupport = 0;
 eval

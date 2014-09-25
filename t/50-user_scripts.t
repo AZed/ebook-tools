@@ -9,7 +9,7 @@ BEGIN
     }
     else
     {
-        plan tests => 18;
+        plan tests => 16;
     }
 };
 use Cwd qw(chdir getcwd);
@@ -28,6 +28,7 @@ BEGIN { use_ok('EBook::Tools') };
 $EBook::Tools::debug = 1;
 
 ok( (basename(getcwd()) eq 't') || chdir('t/'), "Working in 't/" ) or die;
+my $cwd = getcwd();
 
 copy('test-containsmetadata.html','containsmetadata.html')
     or die("Could not copy containsmetadata.html: $!");
@@ -61,6 +62,7 @@ is($ebook->twigroot->first_descendant('dc:title')->text,'Testing Title',
 is($ebook->twigroot->first_descendant('dc:creator')->text,'Testing Author',
    'ebook blank created correct author');
 
+chdir($cwd);
 # ebook fix
 $exitval = system('perl','-I../lib','../scripts/ebook.pl','fix','emptyuid.opf');
 $exitval >>= 8;
@@ -69,20 +71,11 @@ ok(-f 'emptyuid.opf.backup','ebook fix created backup file');
 
 # ebook genepub
 $exitval = system('perl','-I../lib','../scripts/ebook.pl',
-                  'genepub','emptyuid.opf',
+                  'genepub','--opf','emptyuid.opf',
                   '--dir','epubdir');
 $exitval >>= 8;
 is($exitval,0,'ebook genepub exits successfully');
-ok(-f 'epubdir/emptyuid.epub','ebook genepub created the epub book');
-
-# ebook fix -d testdir
-$exitval = system('perl','-I../lib','../scripts/ebook.pl',
-                  'fix','emptyuid.opf',
-                  '-d','testdir');
-$exitval >>= 8;
-is($exitval,0,'ebook fix -d testdir exits successfully');
-ok(-f 'testdir/emptyuid.opf',
-   'ebook fix -d testdir created file in correct place');
+ok(-f 'epubdir/t.epub','ebook genepub created the epub book');
 
 # ebook splitmeta
 unlink('containsmetadata.opf');
@@ -112,6 +105,7 @@ unlink('missingfwid.opf');
 unlink('missingfwid.opf.backup');
 unlink('part1.html');
 unlink('part2.html');
+unlink('toc.ncx');
 rmtree('META-INF');
 rmtree('epubdir');
 rmtree('testdir');

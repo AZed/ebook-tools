@@ -1,7 +1,7 @@
 package EBook::Tools::Unpack;
 use warnings; use strict; use utf8;
 use English qw( -no_match_vars );
-use version 0.74; our $VERSION = qv("0.4.9");
+use version 0.74; our $VERSION = qv("0.5.0");
 
 # Perl Critic overrides:
 ## no critic (Package variable)
@@ -60,7 +60,8 @@ use Encode;
 use Fcntl qw(SEEK_CUR SEEK_SET);
 use File::Basename qw(dirname fileparse);
 use File::Path;     # Exports 'mkpath' and 'rmtree'
-binmode(STDERR,":utf8");
+use File::Which;    # Exports 'which'
+binmode(STDERR,':encoding(UTF-8)');
 
 my $drmsupport = 0;
 eval
@@ -161,7 +162,7 @@ If specified, overrides the detected language information.
 =item * C<opffile>
 
 The name of the file in which the metadata will be stored.  If not
-specified, defaults to the value of C<dir> with C<.opf> appended.
+specified, defaults to C<content.opf>.
 
 =item * C<raw>
 
@@ -264,7 +265,7 @@ sub new   ## no critic (Always unpack @_ first)
     $self->{format} = $args{format} if($args{format});
     $self->{key} = $args{key} if($args{key});
     $self->{keyfile} = $args{keyfile} if($args{keyfile});
-    $self->{opffile} = $args{opffile} || ($self->{dir} . ".opf");
+    $self->{opffile} = $args{opffile} || "content.opf";
     $self->{author} = $args{author} if($args{author});
     $self->{title} = $args{title} if($args{title});
     $self->{datahashes} = {};
@@ -388,7 +389,7 @@ sub raw :method
 sub title :method
 {
     my $self = shift;
-    return $$self{opffile};
+    return $$self{title};
 }
 
 sub detected :method
@@ -924,7 +925,7 @@ sub unpack_mobi :method
     my $firstimagerec = 0;
 
     # Used for file output
-    my $htmlname = $self->filebase . ".html";
+    my $htmlname;
 
     my $reccount = 0; # The Record ID cannot be reliably used to identify
                       # the first record.  This increments as each
@@ -948,6 +949,12 @@ sub unpack_mobi :method
     = $mobi->{header}{mobi}{dolanguage};
 
     $self->detect_from_mobi_exth();
+    if($self->{detected}->{title}) {
+        $htmlname = clean_filename($self->{detected}->{title} . ".html");
+    }
+    else {
+        $htmlname = clean_filename($self->filebase . ".html");
+    }
 
     if($$self{raw} && !$$self{nosave})
     {
@@ -1035,7 +1042,7 @@ sub unpack_palmdoc :method
         if($$self{htmlconvert})
         {
             $outfile = $self->filebase . ".html";
-            open($fh,'>:utf8',$outfile)
+            open($fh,'>:encoding(UTF-8)',$outfile)
                 or croak($subname,"(): unable to open '",$outfile,
                          "' for writing!\n");
             print {*$fh} $pdb->html;
@@ -1090,17 +1097,23 @@ sub unpack_zip :method
     unless($self->{nosave})
     {
         my $cwd = usedir($self->{dir});
-        my $zip = Archive::Zip->new();
-        my $status = $zip->read($cwd.'/'.$self->{file});
-        if ($status != AZ_OK)
-        {
-            croak($subname,'(): error while parsing zip file "',$self->{file},'" (',$status,')!');
-        }
 
-        $status = $zip->extractTree(undef);
-        if ($status != AZ_OK)
-        {
-            croak($subname,'(): error while extracting zip file "',$self->{file},'" (',$status,')!');
+        if (which('unzip')) {
+            my @syscmd = ( 'unzip', '-q', $cwd . '/' . $self->{file} );
+            system(@syscmd);
+            system_result($subname,$CHILD_ERROR,@syscmd);
+        }
+        else {
+            my $zip = Archive::Zip->new();
+            my $status = $zip->read($cwd.'/'.$self->{file});
+            if ($status != AZ_OK) {
+                croak($subname,'(): error while parsing zip file "',$self->{file},'" (',$status,')!');
+            }
+
+            $status = $zip->extractTree(undef);
+            if ($status != AZ_OK) {
+                croak($subname,'(): error while extracting zip file "',$self->{file},'" (',$status,')!');
+            }
         }
         chdir($cwd);
     }
