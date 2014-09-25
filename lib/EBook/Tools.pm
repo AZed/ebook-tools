@@ -2,7 +2,7 @@ package EBook::Tools;
 use warnings; use strict; use utf8;
 use v5.10.1; # Needed for smart-match operator and given/when
 use English qw( -no_match_vars );
-use version 0.74; our $VERSION = qv("0.5.0");
+use version 0.74; our $VERSION = qv("0.5.1");
 
 #use warnings::unused;
 
@@ -9539,6 +9539,183 @@ sub set_meta :method {
 }
 
 
+=head2 set_meta(%args)
+
+Sets a <meta> element in the <metadata> element area.
+
+=head3 Arguments
+
+=over
+
+=item C<name>
+
+The name attribute to use when finding or creating OPF 2.0 <meta>
+elements.  Either this or the property attribute (below) must be
+specified, but specifying both is an error.
+
+=item C<content>
+
+The value of the content attribute to set on OPF 2.0 elements.  If
+this value is empty or undefined, but C<name> is provided and matches
+an existing element, that element will be deleted.
+
+=item C<property>
+
+The property attribute to use when finding or creating OPF 3.0 <meta>
+elements.  Either this or C<name> (above) must be specified, but
+specifying both is an error.
+
+=item C<refines>
+
+The refines attribute to use when finding or creating OPF 3.0 <meta>
+elements.
+
+=item C<scheme>
+
+The scheme attribute to use when creating or updating OPF 3.0 <meta>
+elements.
+
+=item C<text>
+
+The text set on OPF 3.0 <meta> elements.  If this value is empty or
+undefined, but C<property> is provided and the combination of
+C<property> and C<refines> matches an existing element, that element
+will be deleted.
+
+=item C<lang>
+
+The xml:lang attribute to set.  This is valid on both OPF 2 and OPF 3
+<meta> elements.
+
+=back
+
+=cut
+
+sub set_meta :method {
+    my ($self, %args) = @_;
+    my $subname = ( caller(0) )[3];
+    croak($subname . "() called as a procedure") unless(ref $self);
+    debug(3,"DEBUG[",$subname,"]");
+    my %valid_args = (
+        'name'     => 1,
+        'content'  => 1,
+        'property' => 1,
+        'refines'  => 1,
+        'scheme'   => 1,
+        'text'     => 1,
+        'lang'     => 1,
+       );
+    foreach my $arg (keys %args) {
+        croak($subname,"(): invalid argument '",$arg,"'")
+          if (!$valid_args{$arg});
+    }
+
+    my $name = $args{name};
+    my $content = $args{content};
+    my $property = $args{property};
+    my $refines = $args{refines};
+    my $scheme = $args{scheme};
+    my $text = $args{text};
+    my $lang = $args{lang};
+    my $standard;
+
+    if ($name) {
+        if ($property) {
+            $self->add_error($subname,"(): both name (OPF2) and property (OPF3) attributes specified for a meta tag");
+            return;
+        }
+        $standard = 'OPF2';
+    }
+    else {
+        if ($property) {
+            $standard = 'OPF3';
+        }
+        else {
+            $self->add_error($subname,"(): neither name (OPF2) nor property (OPF3) attributes specified for a meta tag");
+            return;
+        }
+    }
+
+    $self->fix_metastructure_basic();
+    my $metadata = $self->{twigroot}->first_child('metadata');
+    my $element;
+
+    if ($standard eq 'OPF2') {
+        $element = $metadata->first_descendant('meta[@name="' . $name . '"]');
+
+        if ($element) {
+            if (! $content) {
+                debug(2,"DEBUG: deleting <meta name='",$name,"'>");
+                $element->delete;
+            }
+            else {
+                debug(2,"DEBUG: updating <meta name='",$name,"'>");
+                $element->set_att('content',$content);
+                if ($lang) {
+                    $element->set_att('xml:lang',$lang);
+                }
+            }
+        }
+        else {
+            if ($content) {
+                debug(2,"DEBUG: creating <meta name='",$name,"'>");
+                $element = $metadata->insert_new_elt('last_child','meta');
+                $element->set_att('name',$name);
+                $element->set_att('content',$content);
+            }
+        }
+    }
+    elsif ($standard eq 'OPF3') {
+        if ($refines) {
+            $element = $metadata->first_descendant(
+                'meta[@property="' . $property . '" and @refines="' . $refines . '"]');
+        }
+        else {
+            $element = $metadata->first_descendant(
+                'meta[@property="' . $property . '"]');
+        }
+        if ($element) {
+            if (! $text) {
+                debug(2,"DEBUG: deleting meta property='",$property,"'>");
+                $element->delete;
+            }
+            else {
+                debug(2,"DEBUG: updating <meta property='",$property,"'>");
+                $element->set_text($text);
+            }
+            if ($scheme) {
+                $element->set_att('scheme',$scheme);
+            }
+            if ($lang) {
+                $element->set_att('xml:lang',$lang);
+            }
+        }
+        else {
+            if ($text) {
+                debug(2,"DEBUG: creating <meta property='",$property,"'>");
+                $element = $metadata->insert_new_elt('last_child','meta');
+                $element->set_att('property',$property);
+                if ($refines) {
+                    $element->set_att('refines',$refines);
+                }
+                if ($scheme) {
+                    $element->set_att('scheme',$scheme);
+                }
+                if ($lang) {
+                    $element->set_att('xml:lang',$lang);
+                }
+                $element->set_text($text);
+            }
+        }
+    }
+    else {
+        croak($subname,"(): unknown standard '${standard}'! (This should be impossible!)");
+    }
+
+    return;
+}
+
+
 =head2 set_metadata(%args)
 
 Sets the text and optionally the ID of the first specified element
@@ -10407,6 +10584,38 @@ All procedures are exportable, but none are exported by default.  All
 procedures can be exported by using the ":all" tag.
 
 
+=head2 C<_lc>
+
+Wrapper for CORE::lc to get around the fact that builtins can't be
+used in dispatch tables prior to Perl 5.16.
+
+WARNING: this procedure may disappear once Perl 5.16 is standard on
+all systems in common use!  For that reason, this is not exportable.
+
+=cut
+
+sub _lc {
+    my ($string) = @_;
+    return lc $string;
+}
+
+
+=head2 C<_uc>
+
+Wrapper for CORE::uc to get around the fact that builtins can't be
+used in dispatch tables prior to Perl 5.16.
+
+WARNING: this procedure may disappear once Perl 5.16 is standard on
+all systems in common use!  For that reason, this is not exportable.
+
+=cut
+
+sub _uc {
+    my ($string) = @_;
+    return uc $string;
+}
+
+
 =head2 C<capitalize($string)>
 
 Capitalizes the first letter of each word in $string.
@@ -10985,8 +11194,8 @@ sub hashvalue_key_self {
     }
 
     my %modifier_dispatch = (
-        'lc' => \&CORE::lc,
-        'uc' => \&CORE::uc,
+        'lc' => \&_lc,
+        'uc' => \&_uc,
        );
 
     if ($modifier and not $modifier_dispatch{$modifier}) {
