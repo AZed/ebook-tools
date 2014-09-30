@@ -4214,6 +4214,7 @@ our %sexcodes = (
     'cons'       => 'Consensual', # All parties are consenting to the act
     'consensual' => 'Consensual',
     'rom'      => 'Romantic',	  #  Mushy love story
+    'romance'  => 'Romantic',
     'romantic' => 'Romantic',
     'non-con'  => 'NonConsensual', # At least one of the parties is not participating willfully
     'nonconsensual' => 'NonConsensual',
@@ -4255,6 +4256,7 @@ our %sexcodes = (
     'les'     => 'Lesbian',	  # Self Explanatory
     'Les'     => 'Lesbian',
     'lesbian' => 'Lesbian',
+    'lesbian sex' => 'Lesbian',
     'bi'      => 'BiSexual',	  # Self Explanatory
     'Bisexual' => 'BiSexual',
     'bisexual' => 'BiSexual',
@@ -4366,7 +4368,20 @@ our %sexcodes = (
 
     # BDSM Elements
     'BDSM'    => 'BDSM',	# Bondage and/or SadoMasochism
+    'bdsm'    => 'BDSM',
+    'bd/sm'   => 'BDSM',
+    'Bondage' => 'BDSM',
+    'bondage' => 'BDSM',
+    'Sadomasochism' => 'BDSM',
+    'sadomasochism' => 'BDSM',
     'D/S'     => 'DomSub',	# Story about domination, being sexual or otherwise
+    'd/s'     => 'DomSub',
+    'Domsub'  => 'DomSub',
+    'domsub'  => 'DomSub',
+    'Domination' => 'DomSub',
+    'domination' => 'DomSub',
+    'Lesdom'  => 'DomSub',
+    'lesdom'  => 'DomSub',
     'Mdom'    => 'MaleDom',	# Male Dominant
     'mdom'    => 'MaleDom',
     'Fdom'    => 'FemaleDom',	# Female Dominant
@@ -4425,12 +4440,16 @@ our %sexcodes = (
     'safe'    => 'Safe Sex',    # Sex with proper protection
     'Safe'    => 'Safe Sex',
     'oral'    => 'Oral Sex',    # Self Explanatory
+    'oral sex' => 'Oral Sex',
+    'fellatio' => 'Oral Sex',
+    'cunnilingus' => 'Oral Sex',
     'anal'    => 'Anal Sex',    # Self Explanatory
     'mastrb'  => 'Masturbation', # Self pleasuring, could be alone or while
 				# with somebody else but no intercourse
     'masturbation' => 'Masturbation',
     'pett'    => 'Petting',     # Feeling up and such
     'petting' => 'Petting',
+    'fingering' => 'Petting',
     'fist'    => 'Fisting',	# Hand and arm or foot insertion
     'Fist'    => 'Fisting',
     'toys'    => 'Sex Toys',	# Sex with the help of sex toys, such as dildos and vibrators
@@ -4477,6 +4496,8 @@ our %sexcodes = (
     'amput'   => 'Amputee',	# Sex with an amputee
     'needles' => 'Needles',	# Includes injections and play or permanent piercings.
     'teach'   => 'Teacher/Student', # Teacher/student relations
+    'teacher/student' => 'Teacher/Student',
+    'teacher student' => 'Teacher/Student',
     'bbsit'   => 'Babysitter',	# Sex with babysitters fetish
     'BBr'     => 'Big Breasts', # Women with Big Breasts
     'clergy'  => 'Clergy',      # Involving members of the clergy (Priest, Bishops, nuns)
@@ -4502,9 +4523,23 @@ our %sexcodes = (
     'workplace' => 'Workplace',
     'sch'     => 'School',	# Mostly in an educational setting (high-school, college, University)
     'school'  => 'School',
+    'schoolgirl' => 'School',
+    'student' => 'School',
     'college' => 'School',
+    'professor' => 'School',
+    'university' => 'School',
+    'secret'  => 'Secret',      # Secret or hidden or forbidden relationship
+    'Secret'  => 'Secret',
+    'Secret Love' => 'Secret',
+    'Secret love' => 'Secret',
+    'secret love' => 'Secret',
+    'Forbidden Love' => 'Secret',
+    'Forbidden love' => 'Secret',
+    'forbidden love' => 'Secret',
     'trans'   => 'Transformation', # Un-natural physical transformation
     'prost'   => 'Prostitution', # Prostitution elements
+    'prostitute' => 'Prostitution',
+    'prostitution' => 'Prostitution',
     'nud'     => 'Nudism',      # Features scenes set in a naturist/nudist environment
     'nudism'  => 'Nudism',
     'nudist'  => 'Nudism',
@@ -8346,6 +8381,7 @@ sub fix_subjects :method {
     my $bisac;
     my $newsubject;
     my $text;
+    my $newtext;
 
     $self->delete_subject('text' => '');
     my @elements = $self->{twigroot}->descendants(qr/^dc:subject$/ix);
@@ -8368,8 +8404,15 @@ sub fix_subjects :method {
         # Sex code matches are case-sensitive
         if($self->{erotic}) {
             if($sexcodes{$text}) {
-                debug(1,"DEBUG: normalizing ${text} to " . $eroticaprefix . $sexcodes{$text});
-                $el->set_text($eroticaprefix . $sexcodes{$text});
+                $newtext = $eroticaprefix . $sexcodes{$text};
+                debug(1,"DEBUG: normalizing ${text} to " . $newtext);
+                if($subjects_seen{$newtext}) {
+                    $el->delete;
+                }
+                else {
+                    $el->set_text($newtext);
+                    $subjects_seen{$newtext} = 1;
+                }
             }
         }
 
