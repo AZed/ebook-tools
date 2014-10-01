@@ -6,15 +6,23 @@ use EBook::Tools::BISG;
 use File::Basename qw(basename);
 use File::Copy;
 use File::Path;    # Exports 'mkpath' and 'rmtree'
-use Test::More tests => 49;
+use Test::More;
 BEGIN
 {
-    use_ok('EBook::Tools::Unpack');
-    use_ok('EBook::Tools::BISG');
-    use_ok('EBook::Tools::EReader',qw(:all));
-    use_ok('EBook::Tools::Mobipocket',qw(:all));
-    use_ok('EBook::Tools::MSReader',qw(:all));
-    use_ok('EBook::Tools::PalmDoc',qw(:all));
+    if($ENV{'AUTOMATED_TESTING'})
+    {
+        plan skip_all => "Accurate unpacker tests rely on the BISG downloads that some automated testers can't handle.";
+    }
+    else
+    {
+        plan tests => 49;
+        use_ok('EBook::Tools::Unpack');
+        use_ok('EBook::Tools::BISG');
+        use_ok('EBook::Tools::EReader',qw(:all));
+        use_ok('EBook::Tools::Mobipocket',qw(:all));
+        use_ok('EBook::Tools::MSReader',qw(:all));
+        use_ok('EBook::Tools::PalmDoc',qw(:all));
+    }
 };
 
 # Set this to 1 or 2 to stress the debugging code, but expect lots of
