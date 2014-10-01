@@ -60,11 +60,11 @@
    "provides" : {
       "EBook::Tools" : {
          "file" : "lib/EBook/Tools.pm",
-         "version" : "v0.5.3"
+         "version" : "v0.5.4"
       },
       "EBook::Tools::BISG" : {
          "file" : "lib/EBook/Tools/BISG.pm",
-         "version" : "v0.5.0"
+         "version" : "v0.5.4"
       },
       "EBook::Tools::EReader" : {
          "file" : "lib/EBook/Tools/EReader.pm",
@@ -101,5 +101,5 @@
          "http://opensource.org/licenses/gpl-2.0.php"
       ]
    },
-   "version" : "v0.5.3"
+   "version" : "v0.5.4"
 }
