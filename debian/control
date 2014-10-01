@@ -2,14 +2,14 @@ Source: libebook-tools-perl
 Section: perl
 Priority: optional
 Maintainer: Zed Pobre <zed@debian.org>
-Build-Depends: debhelper (>= 8), perl (>= 5.10.1), libarchive-zip-perl, libbit-vector-perl, libconfig-inifiles-perl, libdate-manip-perl, libdbd-sqlite3-perl, libdbi-perl, libencode-detect-perl, libfile-mimeinfo-perl, libfile-slurp-perl, libfile-which-perl, libhtml-parser-perl, libimage-size-perl, liblist-moreutils-perl, libmojolicious-perl (>= 3), libossp-uuid-perl, libpalm-perl, libstring-crc32-perl, libtie-ixhash-perl, libtime-local-perl, libwww-perl, libxml-twig-perl, txt2html
+Build-Depends: debhelper (>= 8), perl (>= 5.10.1), libarchive-zip-perl, libbit-vector-perl, libconfig-inifiles-perl, libdate-manip-perl, libdbd-sqlite3-perl, libdbi-perl, libencode-detect-perl, libfile-mimeinfo-perl, libfile-slurp-perl, libfile-which-perl, libhtml-parser-perl, libimage-size-perl, liblingua-en-nameparse-perl, liblist-moreutils-perl, libmojolicious-perl (>= 3), libossp-uuid-perl, libpalm-perl, libstring-crc32-perl, libtie-ixhash-perl, libtime-local-perl, libwww-perl, libxml-twig-perl, txt2html
 Standards-Version: 3.9.5
 Homepage: http://search.cpan.org/dist/EBook-Tools/
 Vcs-Git: git://github.com/AZed/ebook-tools.git
 
 Package: libebook-tools-perl
 Architecture: any
-Depends: perl (>= 5.10.1), libarchive-zip-perl, libbit-vector-perl, libconfig-inifiles-perl, libdate-manip-perl, libdbi-perl, libencode-detect-perl, libfile-mimeinfo-perl, libfile-slurp-perl, libfile-which-perl, libhtml-parser-perl, libimage-size-perl, liblist-moreutils-perl, libmojolicious-perl (>= 3), libossp-uuid-perl, libpalm-perl, libstring-crc32-perl, libtie-ixhash-perl, libtime-local-perl, libwww-perl, libxml-twig-perl, txt2html, ${misc:Depends}
+Depends: perl (>= 5.10.1), libarchive-zip-perl, libbit-vector-perl, libconfig-inifiles-perl, libdate-manip-perl, libdbi-perl, libencode-detect-perl, libfile-mimeinfo-perl, libfile-slurp-perl, libfile-which-perl, libhtml-parser-perl, libimage-size-perl, liblingua-en-nameparse-perl, liblist-moreutils-perl, libmojolicious-perl (>= 3), libossp-uuid-perl, libpalm-perl, libstring-crc32-perl, libtie-ixhash-perl, libtime-local-perl, libwww-perl, libxml-twig-perl, txt2html, ${misc:Depends}
 Description: E-Book manipulation tool and Perl libraries
  EBook-Tools contains a library and a command-line tool for unpacking,
  creating, correcting, and repacking electronic books.
