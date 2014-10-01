@@ -13,13 +13,19 @@ BEGIN {
     use_ok('EBook::Tools');
     use_ok('EBook::Tools::BISG');
 
-    # We have to ensure that the BISAC codes have been cached locally
-    # as early as possible before we begin, or the subject cleanup
-    # tests will fail in 20-Unpack.
-    my $bisg = EBook::Tools::BISG->new();
-    if(! $bisg->bisac() ) {
-        $bisg->download_bisac;
-        $bisg->save_bisac;
+    if(not $ENV{'AUTOMATED_TESTING'})
+    {
+        # We have to ensure that the BISAC codes have been cached
+        # locally as early as possible before we begin, or the subject
+        # cleanup tests will fail in 20-Unpack.  Unfortunately, this
+        # fails on some automated test environments, so we have to
+        # skip it in both places.
+
+        my $bisg = EBook::Tools::BISG->new();
+        if(! $bisg->bisac() ) {
+            $bisg->download_bisac;
+            $bisg->save_bisac;
+        }
     }
 };
 # $EBook::Tools::debug = 2;
