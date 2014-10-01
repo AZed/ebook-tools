@@ -12150,8 +12150,8 @@ but on MSWin32 systems if that directory does not already exist,
 C<"$ENV{USERPROFILE}/ApplicationData/EBook-Tools"> is returned (and
 potentially created) instead.
 
-If C<$ENV{HOME}> (and C<$ENV{USERPROFILE}> on MSWin32) are not set, the
-sub returns undef.
+If C<$ENV{HOME}> (and C<$ENV{USERPROFILE}> on MSWin32) are either not
+set or do not point to a directory, the sub returns undef.
 
 =cut
 
@@ -12160,11 +12160,14 @@ sub userconfigdir {
     debug(3,"DEBUG[",$subname,"]");
 
     my $dir;
-    $dir = $ENV{HOME} . '/.ebooktools' if($ENV{HOME});
+
+    if(-d $ENV{HOME}) {
+        $dir = $ENV{HOME} . '/.ebooktools';
+    }
+
     if($OSNAME eq 'MSWin32') {
-        if(! -d $dir) {
-            $dir = $ENV{USERPROFILE} . '\Application Data\EBook-Tools'
-                if($ENV{USERPROFILE});
+        if(not -d $dir and -d $ENV{USERPROFILE}) {
+            $dir = $ENV{USERPROFILE} . '\Application Data\EBook-Tools';
         }
     }
     if($dir) {
