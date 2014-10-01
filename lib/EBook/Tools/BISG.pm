@@ -100,9 +100,18 @@ sub new {
     $self->{bisac_codes} = {};
     $self->{dbuser} = $args{dbuser} || '';
     $self->{dbpass} = $args{dbpass} || '';
-    $self->{dsn} = $args{dsn} || 'dbi:SQLite:dbname=' . userconfigdir() . '/bisac.sqlite';
 
-    $self->load_bisac();
+    if($args{dsn}) {
+        $self->{dsn} = $args{dsn};
+        $self->load_bisac();
+    }
+    else {
+        my $configdir = userconfigdir();
+        if($configdir) {
+            $self->{dsn} = 'dbi:SQLite:dbname=' . $configdir . '/bisac.sqlite';
+            $self->load_bisac();
+        }
+    }
 
     return $self;
 }
