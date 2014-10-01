@@ -2,7 +2,7 @@ package EBook::Tools;
 use warnings; use strict; use utf8;
 use v5.10.1; # Needed for smart-match operator and given/when
 use English qw( -no_match_vars );
-use version 0.74; our $VERSION = qv("0.5.3");
+use version 0.74; our $VERSION = qv("0.5.4");
 
 #use warnings::unused;
 

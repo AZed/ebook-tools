@@ -1,7 +1,7 @@
 package EBook::Tools::BISG;
 use warnings; use strict; use utf8;
 use 5.010;
-use version 0.74; our $VERSION = qv("0.5.0");
+use version 0.74; our $VERSION = qv("0.5.4");
 
 =head1 NAME
 
