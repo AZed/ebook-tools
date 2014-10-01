@@ -1,7 +1,7 @@
 package EBook::Tools::BISG;
 use warnings; use strict; use utf8;
 use 5.010;
-use version 0.74; our $VERSION = qv("0.5.0");
+use version 0.74; our $VERSION = qv("0.5.4");
 
 =head1 NAME
 
@@ -100,9 +100,18 @@ sub new {
     $self->{bisac_codes} = {};
     $self->{dbuser} = $args{dbuser} || '';
     $self->{dbpass} = $args{dbpass} || '';
-    $self->{dsn} = $args{dsn} || 'dbi:SQLite:dbname=' . userconfigdir() . '/bisac.sqlite';
 
-    $self->load_bisac();
+    if($args{dsn}) {
+        $self->{dsn} = $args{dsn};
+        $self->load_bisac();
+    }
+    else {
+        my $configdir = userconfigdir();
+        if($configdir) {
+            $self->{dsn} = 'dbi:SQLite:dbname=' . $configdir . '/bisac.sqlite';
+            $self->load_bisac();
+        }
+    }
 
     return $self;
 }

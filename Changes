@@ -1,6 +1,11 @@
 Release Notes
 =============
 
+0.5.4:
+ Bug fixes:
+  * Handle where a HOME environment variable has been set that doesn't
+    actually point to a directory.
+
 0.5.3:
  Bug fixes:
   * Automatically fix more duplicate subject codes
