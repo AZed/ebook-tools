@@ -1,6 +1,11 @@
 Release Notes
 =============
 
+0.5.3:
+ Bug fixes:
+  * Automatically fix more duplicate subject codes
+  * Prevent some frequently breaking tests under automatic smoketesters
+
 0.5.2
  Bug fixes:
   * Minor POD display fixes
