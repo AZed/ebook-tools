@@ -1,3 +1,12 @@
+libebook-tools-perl (0.5.4-1) unstable; urgency=medium
+
+  * New upstream version
+    * Handles situations where automated testers point HOME someplace
+      nonexistent.
+  * Fix missing liblingua-en-nameparse-perl dependency.  (closes: #763562)
+
+ -- Zed Pobre <zed@debian.org>  Wed, 01 Oct 2014 18:30:17 -0400
+
 libebook-tools-perl (0.5.2-1) unstable; urgency=medium
 
   * New upstream version
