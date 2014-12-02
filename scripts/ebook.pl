@@ -22,11 +22,13 @@ use EBook::Tools::IMP qw(:all);
 use EBook::Tools::Mobipocket qw(:all);
 use EBook::Tools::MSReader qw(:all);
 use EBook::Tools::Unpack;
+use Encode qw(decode);
 use File::Basename qw(dirname fileparse);
 use File::Path;              # Exports 'mkpath' and 'rmtree'
 use File::Slurp qw(slurp);   # Also exports 'read_file' and 'write_file'
 use File::Temp qw(tempfile tempdir);
 use Getopt::Long qw(:config bundling);
+use I18N::Langinfo qw(langinfo CODESET);
 
 # Exit values
 use constant EXIT_SUCCESS       => 0;   # Success
@@ -62,6 +64,9 @@ undef($tidysafety) if(defined($tidysafety) and $tidysafety eq '');
 #####################################
 ########## OPTION HANDLING ##########
 #####################################
+
+# Determine codeset in use for command-line arguments
+my $codeset = langinfo(CODESET);
 
 my %opt = (
     'author'      => '',
@@ -1464,6 +1469,8 @@ sub setmeta
         exit(EXIT_BADOPTION);
     }
     $value ||= '';
+    $value = decode($codeset,$value);
+    @extra = map { decode $codeset, $_ } @extra;
 
     my $opffile = $opt{opffile};
     my $fileas = $opt{fileas};
