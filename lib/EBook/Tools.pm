@@ -6106,6 +6106,7 @@ sub spine :method {
              {
                  'id' => $element->id,
                  'href' => $element->att('href'),
+                 'label' => $element->att('label'),
                  'media-type' => $element->att('media-type')
              });
     }
@@ -6308,7 +6309,7 @@ error was added to the error list, and true otherwise (even if a
 warning was added to the warning list).
 
 
-=head2 C<add_document($href,$id,$mediatype)>
+=head2 C<add_document($href,$id,$mediatype,$label)>
 
 Adds a document to the OPF manifest and spine, creating <manifest> and
 <spine> if necessary.  To add an item only to the OPF manifest, see
@@ -6342,12 +6343,17 @@ The mime type of the document.  If not specified, will attempt to
 autodetect the mime type, and if that fails, will default to
 'application/xhtml+xml'.
 
+=item C<$label> (optional)
+
+The label to use for the document in the table of contents. If not
+specified, will be equal to the XML ID.
+
 =back
 
 =cut
 
 sub add_document :method {
-    my ($self,$href,$id,$mediatype) = @_;
+    my ($self,$href,$id,$mediatype,$label) = @_;
     my $subname = (caller(0))[3];
     croak($subname . "() called as a procedure") unless(ref $self);
     debug(2,"DEBUG[",$subname,"]");
@@ -6363,6 +6369,8 @@ sub add_document :method {
     $id = $href unless($id);
     $id =~ s/[^\w.-]//gx; # Delete all nonvalid XML 1.0 namechars
     $id =~ s/^[.\d -]+//gx; # Delete all nonvalid XML 1.0 namestartchars
+
+    $label = $id unless ($label);
 
     $element = $twig->first_elt("*[\@id='$id']");
     if($element)
@@ -6393,6 +6401,7 @@ sub add_document :method {
     $item->set_id($id);
     $item->set_att(
 	'href' => $href,
+	'label' => $label,
 	'media-type' => $mediatype
 	);
 
@@ -8868,7 +8877,7 @@ sub gen_ncx :method {
         # <navLabel>
         $parent = $navpoint->insert_new_elt('last_child','navLabel');
         $element = $parent->insert_new_elt('last_child','text');
-        $element->set_text($spineitem->{'id'});
+        $element->set_text($spineitem->{'label'});
 
         # <content>
         $element = $navpoint->insert_new_elt('last_child','content');
