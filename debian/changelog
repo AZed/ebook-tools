@@ -2,6 +2,7 @@ libebook-tools-perl (0.5.4-2) UNRELEASED; urgency=medium
 
   * Trim trailing whitespace.
   * Use secure URI in Homepage field.
+  * debian/control: Add Vcs-Browser field
 
  -- Debian Janitor <janitor@jelmer.uk>  Mon, 25 Nov 2019 22:49:45 +0000
 
