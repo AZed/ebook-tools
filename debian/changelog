@@ -7,6 +7,7 @@ libebook-tools-perl (0.5.4-2) UNRELEASED; urgency=medium
   * Set debhelper-compat version in Build-Depends.
   * Set upstream metadata fields: Name.
   * Use secure URI in Vcs control header.
+  * Add missing dependency on libmodule-build-perl.
 
  -- Debian Janitor <janitor@jelmer.uk>  Mon, 25 Nov 2019 22:49:45 +0000
 
