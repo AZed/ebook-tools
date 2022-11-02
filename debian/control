@@ -6,6 +6,7 @@ Build-Depends: debhelper (>= 8), perl (>= 5.10.1), libarchive-zip-perl, libbit-v
 Standards-Version: 3.9.5
 Homepage: https://search.cpan.org/dist/EBook-Tools/
 Vcs-Git: git://github.com/AZed/ebook-tools.git
+Vcs-Browser: https://github.com/AZed/ebook-tools
 
 Package: libebook-tools-perl
 Architecture: any
